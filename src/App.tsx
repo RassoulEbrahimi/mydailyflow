@@ -1,5 +1,5 @@
-import { Waves, Search, Bell, Check, Clock, Pencil, Plus, Sun, List, CheckCircle2 } from 'lucide-react';
-import React from 'react';
+import { Waves, Search, Bell, Check, Clock, Pencil, Plus, Sun, List, CheckCircle2, Menu, CloudSun, Moon } from 'lucide-react';
+import React, { useState } from 'react';
 
 const ProgressRing = ({ percentage, completed, total }: { percentage: number, completed: number, total: number }) => {
   const radius = 88;
@@ -112,7 +112,125 @@ const TaskSection = ({ title, timeRange, colorClass, shadowClass, children }: { 
   );
 };
 
+const NewTaskModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+  return (
+    <>
+      <div 
+        className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        onClick={onClose}
+      />
+      
+      <div className={`fixed bottom-0 left-0 w-full bg-[#151c2c] rounded-t-[2.5rem] z-50 p-6 pb-8 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] max-h-[90vh] overflow-y-auto custom-scrollbar ${isOpen ? 'translate-y-0' : 'translate-y-full'}`}>
+        <div className="w-12 h-1.5 bg-[#2a364f] rounded-full mx-auto mb-6" />
+        
+        <div className="flex justify-between items-center mb-8 relative">
+          <button onClick={onClose} className="text-text-secondary active:opacity-70 transition-opacity absolute left-0 text-[15px]">
+            Cancel
+          </button>
+          <h2 className="text-white font-bold text-lg w-full text-center">New Task</h2>
+        </div>
+        
+        <div className="mb-8 relative">
+          <input 
+            type="text" 
+            placeholder="What needs to be done?" 
+            className="w-full bg-transparent text-white text-[22px] font-semibold placeholder:text-[#384666] focus:outline-none mb-4"
+          />
+          <div className="w-full h-[1px] bg-[#232f48] mb-4" />
+          <div className="flex items-center justify-between">
+            <input 
+              type="text" 
+              placeholder="Add notes..." 
+              className="w-full bg-transparent text-text-secondary placeholder:text-text-secondary/60 focus:outline-none text-[15px]"
+            />
+            <Menu className="text-text-secondary w-5 h-5 ml-2 flex-shrink-0" />
+          </div>
+        </div>
+
+        <div className="mb-8">
+          <h3 className="text-text-secondary text-xs font-semibold tracking-wider mb-3">START TIME</h3>
+          <button className="w-full bg-[#1e273b] p-4 rounded-[1.5rem] flex items-center justify-between shadow-sm border border-[#232f48]/50 active:scale-[0.98] transition-transform text-left">
+            <div className="flex items-center gap-4">
+              <div className="w-[42px] h-[42px] rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                <Clock size={20} className="fill-current text-primary" />
+              </div>
+              <div>
+                <div className="text-white font-semibold text-[17px]">Today</div>
+                <div className="text-text-secondary text-[13px]">Tap to change</div>
+              </div>
+            </div>
+            <div className="bg-[#151c2c] text-white px-4 py-2.5 rounded-[1rem] font-bold tracking-wider text-[15px]">
+              14:00
+            </div>
+          </button>
+        </div>
+        
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-3">
+             <h3 className="text-text-secondary text-xs font-semibold tracking-wider">DURATION</h3>
+             <button className="text-primary text-sm font-semibold active:opacity-70 transition-opacity">Custom</button>
+          </div>
+          <div className="flex gap-3">
+            {['15m', '30m', '1h', '2h'].map((d) => (
+              <button key={d} className={`flex-1 py-3.5 rounded-2xl font-semibold transition-all text-[15px] ${
+                d === '30m' ? 'bg-primary text-white shadow-[0_0_15px_rgba(19,91,236,0.4)]' : 'bg-[#1e273b] text-text-secondary hover:bg-[#232f48]'
+              }`}>
+                {d}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-10">
+          <h3 className="text-text-secondary text-xs font-semibold tracking-wider mb-3">TIME BLOCK</h3>
+          <div className="flex gap-3">
+            {[
+              { label: 'Morning', icon: <Sun size={24} /> },
+              { label: 'Afternoon', icon: <CloudSun size={24} className="fill-current text-primary opacity-20 relative z-10" />, active: true },
+              { label: 'Evening', icon: <Moon size={24} className="fill-current" /> }
+            ].map(b => (
+              <button key={b.label} className={`flex-1 flex flex-col items-center justify-center py-5 rounded-[1.5rem] transition-all border ${
+                b.active ? 'bg-[#1e273b]/60 border-primary text-primary shadow-[0_4px_20px_rgba(19,91,236,0.15)] relative overflow-hidden' : 'bg-[#1e273b] border-transparent text-text-secondary hover:bg-[#232f48]'
+              }`}>
+                {b.active && <div className="absolute inset-0 bg-primary/5"></div>}
+                <div className={`mb-2 ${b.active ? 'text-primary' : 'text-text-secondary'}`}>
+                  {b.active ? <CloudSun size={24} strokeWidth={2.5} className="absolute inset-x-0 mx-auto fill-blue-500/30 text-primary drop-shadow-[0_0_8px_rgba(59,130,246,0.5)] z-20" /> : b.icon}
+                </div>
+                <span className={`text-[15px] font-medium z-20 ${b.active ? 'mt-[24px]' : ''}`}>{b.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-10">
+          <button className="w-full bg-[#1e273b] p-4 px-5 rounded-[1.5rem] flex items-center justify-between border border-[#232f48]/50 active:scale-[0.98] transition-transform">
+            <div className="flex items-center gap-3">
+              <div className="text-orange-500 opacity-90 drop-shadow-[0_0_4px_rgba(249,115,22,0.4)]">
+                <Bell size={22} strokeWidth={2.5} className="fill-current" />
+              </div>
+              <span className="text-white font-semibold text-[16px]">Remind me</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-text-secondary text-[15px]">10 min before</span>
+              <div className="w-[52px] h-[30px] bg-primary rounded-full relative shadow-[0_0_12px_rgba(19,91,236,0.4)] transition-all">
+                <div className="absolute right-1 top-[2px] w-[26px] h-[26px] bg-white rounded-full shadow-sm" />
+              </div>
+            </div>
+          </button>
+        </div>
+
+        <button className="w-full bg-primary hover:bg-blue-600 text-white font-semibold py-4 rounded-[1.5rem] flex items-center justify-center gap-2 shadow-[0_8px_25px_rgba(19,91,236,0.4)] active:scale-[0.98] transition-transform">
+          <CheckCircle2 size={22} strokeWidth={2.5} />
+          <span className="text-[17px]">Create Task</span>
+        </button>
+      </div>
+    </>
+  );
+};
+
 export default function App() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   return (
     <div className="bg-background-dark font-display text-slate-100 min-h-screen flex flex-col overflow-hidden relative selection:bg-primary selection:text-white">
       {/* Header Section */}
@@ -165,7 +283,10 @@ export default function App() {
       </main>
 
       {/* Floating Action Button */}
-      <button className="fixed bottom-24 right-5 h-14 w-14 bg-primary text-white rounded-full shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-105 transition-transform z-20">
+      <button 
+        onClick={() => setIsModalOpen(true)}
+        className="fixed bottom-24 right-5 h-14 w-14 bg-primary text-white rounded-full shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-105 transition-transform z-20"
+      >
         <Plus size={32} />
       </button>
 
@@ -192,6 +313,8 @@ export default function App() {
           </a>
         </div>
       </nav>
+
+      <NewTaskModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   );
 }
