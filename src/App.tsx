@@ -1,5 +1,17 @@
-import { Waves, Search, Bell, Check, Clock, Pencil, Plus, Sun, List, CheckCircle2, Menu, CloudSun, Moon } from 'lucide-react';
-import React, { useState } from 'react';
+import { Waves, Search, Bell, Check, Clock, Pencil, Plus, Sun, List, CheckCircle2, Menu, CloudSun, Moon, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  time: string;
+  duration: string;
+  timeBlock: 'morning' | 'afternoon' | 'evening';
+  completed: boolean;
+  priority: 'low' | 'medium' | 'high';
+  createdAt: string;
+}
 
 const ProgressRing = ({ percentage, completed, total }: { percentage: number, completed: number, total: number }) => {
   const radius = 88;
@@ -43,28 +55,32 @@ const ProgressRing = ({ percentage, completed, total }: { percentage: number, co
   );
 };
 
+interface TaskCardProps {
+  task: Task;
+  onToggleComplete: (id: string) => void;
+  onDelete: (id: string) => void;
+  key?: React.Key;
+}
+
 const TaskCard = ({
-  title,
-  time,
-  duration,
-  completed = false,
-  active = false,
-  priority = false
-}: {
-  title: string,
-  time: string,
-  duration: string,
-  completed?: boolean,
-  active?: boolean,
-  priority?: boolean
-}) => {
+  task,
+  onToggleComplete,
+  onDelete
+}: TaskCardProps) => {
+  const { id, title, time, duration, completed, priority } = task;
+  // A task is 'active' visually if it is the closest upcoming relative to current time, but for now we'll just not make any task arbitrarily active.
+  const active = false;
+
   return (
     <div className={`group flex items-center p-4 bg-card-dark rounded-xl transition-all duration-300 relative overflow-hidden ${active ? 'border-l-4 border-l-primary border-y border-r border-y-[#232f48] border-r-[#232f48] shadow-lg hover:shadow-primary/10' : 'border border-[#232f48] hover:border-primary/50'
       }`}>
       {active && <div className="absolute inset-0 bg-primary/5 pointer-events-none"></div>}
 
-      <button className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center mr-4 transition-colors ${completed ? 'bg-primary text-white' : active ? 'border-2 border-primary hover:bg-primary/20' : 'border-2 border-text-secondary hover:border-primary'
-        }`}>
+      <button
+        onClick={() => onToggleComplete(id)}
+        className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center mr-4 transition-colors ${completed ? 'bg-primary text-white' : active ? 'border-2 border-primary hover:bg-primary/20' : 'border-2 border-text-secondary hover:border-primary'
+          }`}
+      >
         {completed && <Check size={16} strokeWidth={3} />}
       </button>
 
@@ -73,7 +89,9 @@ const TaskCard = ({
           <h3 className={`font-semibold text-white truncate ${completed ? 'line-through decoration-slate-500 font-medium' : ''}`}>
             {title}
           </h3>
-          {priority && <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" title="High Priority"></div>}
+          {priority === 'high' && <div className="w-2 h-2 flex-shrink-0 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" title="High Priority"></div>}
+          {priority === 'medium' && <div className="w-2 h-2 flex-shrink-0 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]" title="Medium Priority"></div>}
+          {priority === 'low' && <div className="w-2 h-2 flex-shrink-0 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" title="Low Priority"></div>}
         </div>
         <div className="flex items-center gap-2 mt-1">
           <span className={`text-xs flex items-center gap-1 ${active ? 'text-primary font-medium' : 'text-text-secondary'}`}>
@@ -84,23 +102,23 @@ const TaskCard = ({
         </div>
       </div>
 
-      {!completed && (
-        <button className="ml-3 text-text-secondary hover:text-white transition-colors opacity-0 group-hover:opacity-100">
-          <Pencil size={20} />
+      <div className="flex flex-shrink-0 ml-3 gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button onClick={() => onDelete(id)} className="text-text-secondary hover:text-red-400 transition-colors">
+          <Trash2 size={20} />
         </button>
-      )}
+      </div>
     </div>
   );
 };
 
-const TaskSection = ({ title, timeRange, colorClass, shadowClass, children }: { title: string, timeRange: string, colorClass: string, shadowClass: string, children: React.ReactNode }) => {
+const TaskSection = ({ title, timeRange, colorClass, shadowClass, children }: { title: string, timeRange?: string, colorClass: string, shadowClass: string, children: React.ReactNode }) => {
   return (
     <section>
       <div className="flex items-center gap-3 mb-4">
         <div className={`h-8 w-1 rounded-full ${colorClass} ${shadowClass}`}></div>
         <div>
           <h2 className="text-lg font-semibold text-white">{title}</h2>
-          <p className="text-xs text-text-secondary">{timeRange}</p>
+          {timeRange && <p className="text-xs text-text-secondary">{timeRange}</p>}
         </div>
       </div>
       <div className="flex flex-col gap-3">
@@ -110,7 +128,7 @@ const TaskSection = ({ title, timeRange, colorClass, shadowClass, children }: { 
   );
 };
 
-const NewTaskModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+const NewTaskModal = ({ isOpen, onClose, onSave }: { isOpen: boolean; onClose: () => void; onSave: (task: Omit<Task, 'id' | 'createdAt' | 'completed'>) => void }) => {
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
   const [selectedDuration, setSelectedDuration] = useState('30m');
@@ -119,14 +137,17 @@ const NewTaskModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
   const [selectedPriority, setSelectedPriority] = useState('Medium');
 
   const handleCreateTask = () => {
-    console.log('New Task Data:', {
-      title,
-      notes,
-      selectedDuration,
-      selectedTimeBlock,
-      isReminderEnabled,
-      selectedPriority
+    if (!title.trim()) return; // Don't save empty tasks
+
+    onSave({
+      title: title.trim(),
+      description: notes.trim(),
+      time: '14:00', // Static for now as requested by UI exact match requirement, but normally we'd pick this from state
+      duration: selectedDuration,
+      timeBlock: selectedTimeBlock.toLowerCase() as Task['timeBlock'],
+      priority: selectedPriority.toLowerCase() as Task['priority']
     });
+
     // Reset state for next open
     setTitle('');
     setNotes('');
@@ -294,6 +315,59 @@ const NewTaskModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
 
 export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    const saved = localStorage.getItem('myDailyFlowTasks');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error('Failed to parse saved tasks', e); }
+    }
+    // Initial dummy state for demonstration if empty
+    return [
+      { id: '1', title: 'Drink water', time: '07:00', duration: '5m', completed: true, timeBlock: 'morning', priority: 'medium', createdAt: new Date().toISOString() },
+      { id: '2', title: 'Going to work', time: '07:30', duration: '45m', completed: true, timeBlock: 'morning', priority: 'high', createdAt: new Date().toISOString() },
+      { id: '3', title: 'Eat lunch', time: '12:30', duration: '45m', completed: false, timeBlock: 'afternoon', priority: 'low', createdAt: new Date().toISOString() },
+      { id: '4', title: 'Gym', time: '17:00', duration: '1h', completed: false, timeBlock: 'afternoon', priority: 'high', createdAt: new Date().toISOString() },
+      { id: '5', title: 'Grocery shopping', time: '18:30', duration: '30m', completed: false, timeBlock: 'afternoon', priority: 'medium', createdAt: new Date().toISOString() },
+      { id: '6', title: 'Call mom', time: '20:00', duration: '15m', completed: false, timeBlock: 'evening', priority: 'high', createdAt: new Date().toISOString() },
+      { id: '7', title: 'Read book', time: '21:00', duration: '30m', completed: false, timeBlock: 'evening', priority: 'low', createdAt: new Date().toISOString() },
+    ];
+  });
+
+  const [activeTab, setActiveTab] = useState<'today' | 'done'>('today');
+
+  // Sync to local storage on change
+  useEffect(() => {
+    localStorage.setItem('myDailyFlowTasks', JSON.stringify(tasks));
+  }, [tasks]);
+
+  const handleSaveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed'>) => {
+    const newTask: Task = {
+      ...taskData,
+      id: Math.random().toString(36).substr(2, 9),
+      completed: false,
+      createdAt: new Date().toISOString()
+    };
+    setTasks(prev => [...prev, newTask]);
+  };
+
+  const toggleTaskStatus = (id: string) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
+  };
+
+  const deleteTask = (id: string) => {
+    setTasks(prev => prev.filter(t => t.id !== id));
+  };
+
+  // Derived state
+  const totalTasksCount = tasks.length;
+  const completedTasksCount = tasks.filter(t => t.completed).length;
+  const progressPercentage = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
+
+  const pendingTasks = tasks.filter(t => !t.completed);
+  const doneTasks = tasks.filter(t => t.completed).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  const morningTasks = pendingTasks.filter(t => t.timeBlock === 'morning');
+  const afternoonTasks = pendingTasks.filter(t => t.timeBlock === 'afternoon');
+  const eveningTasks = pendingTasks.filter(t => t.timeBlock === 'evening');
 
   return (
     <div className="bg-background-dark font-display text-slate-100 min-h-screen flex flex-col overflow-hidden relative selection:bg-primary selection:text-white">
@@ -324,26 +398,49 @@ export default function App() {
 
       {/* Scrollable Content */}
       <main className="flex-1 overflow-y-auto px-5 pb-24 custom-scrollbar">
-        <ProgressRing percentage={43} completed={3} total={7} />
+        <ProgressRing percentage={progressPercentage} completed={completedTasksCount} total={totalTasksCount} />
 
-        <div className="flex flex-col gap-8">
-          <TaskSection title="Morning" timeRange="06:00 - 12:00" colorClass="bg-blue-400" shadowClass="shadow-[0_0_10px_rgba(96,165,250,0.5)]">
-            <TaskCard title="Drink water" time="07:00" duration="5min" completed={true} />
-            <TaskCard title="Going to work" time="07:30" duration="45min" completed={true} />
-          </TaskSection>
+        {activeTab === 'today' ? (
+          <div className="flex flex-col gap-8">
+            {morningTasks.length > 0 && (
+              <TaskSection title="Morning" timeRange="06:00 - 12:00" colorClass="bg-blue-400" shadowClass="shadow-[0_0_10px_rgba(96,165,250,0.5)]">
+                {morningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} />)}
+              </TaskSection>
+            )}
 
-          <TaskSection title="Afternoon" timeRange="12:00 - 18:00" colorClass="bg-orange-400" shadowClass="shadow-[0_0_10px_rgba(251,146,60,0.5)]">
-            <TaskCard title="Eat lunch" time="12:30" duration="45min" completed={true} />
-            <TaskCard title="Gym" time="17:00" duration="60min" active={true} priority={true} />
-            <TaskCard title="Grocery shopping" time="18:30" duration="30min" />
-          </TaskSection>
+            {afternoonTasks.length > 0 && (
+              <TaskSection title="Afternoon" timeRange="12:00 - 18:00" colorClass="bg-orange-400" shadowClass="shadow-[0_0_10px_rgba(251,146,60,0.5)]">
+                {afternoonTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} />)}
+              </TaskSection>
+            )}
 
-          <TaskSection title="Evening" timeRange="18:00 - 23:00" colorClass="bg-indigo-400" shadowClass="shadow-[0_0_10px_rgba(129,140,248,0.5)]">
-            <TaskCard title="Call mom" time="20:00" duration="15min" />
-            <TaskCard title="Read book" time="21:00" duration="30min" />
-            <TaskCard title="Prepare clothes" time="22:00" duration="10min" />
-          </TaskSection>
-        </div>
+            {eveningTasks.length > 0 && (
+              <TaskSection title="Evening" timeRange="18:00 - 23:00" colorClass="bg-indigo-400" shadowClass="shadow-[0_0_10px_rgba(129,140,248,0.5)]">
+                {eveningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} />)}
+              </TaskSection>
+            )}
+
+            {pendingTasks.length === 0 && (
+              <div className="text-center py-12 text-text-secondary mt-10">
+                <CheckCircle2 size={48} className="mx-auto mb-4 opacity-30" />
+                <p>All tasks completed for today!</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-8">
+            {doneTasks.length > 0 ? (
+              <TaskSection title="Completed Tasks" colorClass="bg-emerald-400" shadowClass="shadow-[0_0_10px_rgba(52,211,153,0.5)]">
+                {doneTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} />)}
+              </TaskSection>
+            ) : (
+              <div className="text-center py-12 text-text-secondary mt-10">
+                <List size={48} className="mx-auto mb-4 opacity-30" />
+                <p>No completed tasks yet.</p>
+              </div>
+            )}
+          </div>
+        )}
       </main>
 
       {/* Floating Action Button */}
@@ -357,28 +454,39 @@ export default function App() {
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 w-full bg-card-dark border-t border-[#232f48] px-4 pb-6 pt-3 z-10">
         <div className="flex justify-between items-end">
-          <a className="flex flex-col items-center gap-1 flex-1 text-primary" href="#">
-            <div className="bg-primary/10 w-12 h-8 rounded-full flex items-center justify-center">
-              <Sun size={24} className="fill-current" />
+          <button
+            onClick={() => setActiveTab('today')}
+            className={`flex flex-col items-center gap-1 flex-1 transition-colors ${activeTab === 'today' ? 'text-primary' : 'text-text-secondary hover:text-white'}`}
+          >
+            <div className={`${activeTab === 'today' ? 'bg-primary/10 w-12 h-8 rounded-full flex items-center justify-center' : ''}`}>
+              <Sun size={24} className={activeTab === 'today' ? 'fill-current' : ''} />
             </div>
             <span className="text-xs font-semibold">Today</span>
-          </a>
-          <a className="flex flex-col items-center gap-1 flex-1 text-text-secondary hover:text-white transition-colors group" href="#">
+          </button>
+
+          <button className="flex flex-col items-center gap-1 flex-1 text-text-secondary hover:text-white transition-colors group">
             <List size={24} className="group-hover:scale-110 transition-transform" />
             <span className="text-xs font-medium">All Tasks</span>
-          </a>
-          <a className="flex flex-col items-center gap-1 flex-1 text-text-secondary hover:text-white transition-colors group" href="#">
+          </button>
+
+          <button className="flex flex-col items-center gap-1 flex-1 text-text-secondary hover:text-white transition-colors group">
             <Bell size={24} className="group-hover:scale-110 transition-transform" />
             <span className="text-xs font-medium">Reminders</span>
-          </a>
-          <a className="flex flex-col items-center gap-1 flex-1 text-text-secondary hover:text-white transition-colors group" href="#">
-            <CheckCircle2 size={24} className="group-hover:scale-110 transition-transform" />
+          </button>
+
+          <button
+            onClick={() => setActiveTab('done')}
+            className={`flex flex-col items-center gap-1 flex-1 transition-colors ${activeTab === 'done' ? 'text-primary' : 'text-text-secondary hover:text-white'}`}
+          >
+            <div className={`${activeTab === 'done' ? 'bg-primary/10 w-12 h-8 rounded-full flex items-center justify-center' : ''}`}>
+              <CheckCircle2 size={24} className={`group-hover:scale-110 transition-transform ${activeTab === 'done' ? 'fill-current' : ''}`} />
+            </div>
             <span className="text-xs font-medium">Done</span>
-          </a>
+          </button>
         </div>
       </nav>
 
-      <NewTaskModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <NewTaskModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveTask} />
     </div>
   );
 }
