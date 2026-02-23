@@ -1,5 +1,8 @@
 import { Waves, Search, Bell, Check, Clock, Pencil, Plus, Sun, List, CheckCircle2, Menu, CloudSun, Moon, Trash2 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, useDroppable } from '@dnd-kit/core';
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 export interface Task {
   id: string;
@@ -128,7 +131,66 @@ const TaskSection = ({ title, timeRange, colorClass, shadowClass, children }: { 
   );
 };
 
-const NewTaskModal = ({ isOpen, onClose, onSave }: { isOpen: boolean; onClose: () => void; onSave: (task: Omit<Task, 'id' | 'createdAt' | 'completed'>) => void }) => {
+interface DroppableSectionProps {
+  id: string;
+  title: string;
+  timeRange?: string;
+  colorClass: string;
+  shadowClass: string;
+  tasks: Task[];
+  onToggleComplete: (id: string) => void;
+  onDelete: (id: string) => void;
+}
+
+const DroppableTaskSection = ({ id, title, timeRange, colorClass, shadowClass, tasks, onToggleComplete, onDelete }: DroppableSectionProps) => {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  return (
+    <section>
+      <div className="flex items-center gap-3 mb-4">
+        <div className={`h-8 w-1 rounded-full ${colorClass} ${shadowClass}`}></div>
+        <div>
+          <h2 className="text-lg font-semibold text-white">{title}</h2>
+          {timeRange && <p className="text-xs text-text-secondary">{timeRange}</p>}
+        </div>
+      </div>
+      <div
+        ref={setNodeRef}
+        className={`flex flex-col gap-3 min-h-[60px] rounded-xl transition-colors p-1 -m-1 ${isOver ? 'bg-primary/10 border border-primary/30' : 'border border-transparent'}`}
+      >
+        <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+          {tasks.map(t => <SortableTaskCard key={t.id} task={t} onToggleComplete={onToggleComplete} onDelete={onDelete} />)}
+        </SortableContext>
+      </div>
+    </section>
+  );
+};
+
+const SortableTaskCard = ({ task, onToggleComplete, onDelete }: TaskCardProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id, data: { timeBlock: task.timeBlock } });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : 'auto',
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={`touch-none w-full transition-shadow duration-200 ${isDragging ? 'shadow-2xl shadow-primary/20 rounded-xl rounded-none' : ''}`}>
+      <TaskCard task={task} onToggleComplete={onToggleComplete} onDelete={onDelete} />
+    </div>
+  );
+};
+
+const NewTaskModal = ({ isOpen, onClose, onSave }: { isOpen: boolean; onClose: () => void; onSave: (task: Omit<Task, 'id' | 'createdAt' | 'completed'>, reminderEnabled: boolean) => void }) => {
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
   const [selectedDuration, setSelectedDuration] = useState('30m');
@@ -146,7 +208,7 @@ const NewTaskModal = ({ isOpen, onClose, onSave }: { isOpen: boolean; onClose: (
       duration: selectedDuration,
       timeBlock: selectedTimeBlock.toLowerCase() as Task['timeBlock'],
       priority: selectedPriority.toLowerCase() as Task['priority']
-    });
+    }, isReminderEnabled);
 
     // Reset state for next open
     setTitle('');
@@ -333,13 +395,66 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState<'today' | 'done'>('today');
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeId = active.id;
+    const overId = over.id;
+
+    if (activeId !== overId) {
+      setTasks(prev => {
+        const activeIndex = prev.findIndex(t => t.id === activeId);
+        if (activeIndex === -1) return prev;
+
+        const activeItem = prev[activeIndex];
+
+        if (['morning', 'afternoon', 'evening'].includes(overId as string)) {
+          if (activeItem.timeBlock !== overId) {
+            const newTasks = [...prev];
+            newTasks[activeIndex] = { ...activeItem, timeBlock: overId as Task['timeBlock'] };
+            return newTasks;
+          }
+          return prev;
+        }
+
+        const overIndex = prev.findIndex(t => t.id === overId);
+        if (overIndex !== -1) {
+          const overItem = prev[overIndex];
+          let newTasks = [...prev];
+
+          if (activeItem.timeBlock !== overItem.timeBlock) {
+            newTasks[activeIndex] = { ...activeItem, timeBlock: overItem.timeBlock };
+          }
+
+          return arrayMove(newTasks, activeIndex, overIndex);
+        }
+
+        return prev;
+      });
+    }
+  };
 
   // Sync to local storage on change
   useEffect(() => {
     localStorage.setItem('myDailyFlowTasks', JSON.stringify(tasks));
   }, [tasks]);
 
-  const handleSaveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed'>) => {
+  const handleSaveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed'>, reminderEnabled: boolean) => {
     const newTask: Task = {
       ...taskData,
       id: Math.random().toString(36).substr(2, 9),
@@ -347,6 +462,31 @@ export default function App() {
       createdAt: new Date().toISOString()
     };
     setTasks(prev => [...prev, newTask]);
+
+    if (reminderEnabled && 'Notification' in window) {
+      Notification.requestPermission().then(permission => {
+        if (permission === 'granted') {
+          const [hours, minutes] = newTask.time.split(':').map(Number);
+          const now = new Date();
+          const taskDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+
+          // 10 minutes before
+          const reminderTime = new Date(taskDate.getTime() - 10 * 60000);
+          let timeToWait = reminderTime.getTime() - now.getTime();
+
+          if (timeToWait < 0) {
+            // For testing, schedule immediately if time is already past
+            timeToWait = 2000;
+          }
+
+          setTimeout(() => {
+            new Notification(`🔔 Reminder: ${newTask.title}`, {
+              body: `Your task is scheduled for ${newTask.time}`
+            });
+          }, timeToWait);
+        }
+      });
+    }
   };
 
   const toggleTaskStatus = (id: string) => {
@@ -358,12 +498,18 @@ export default function App() {
   };
 
   // Derived state
-  const totalTasksCount = tasks.length;
-  const completedTasksCount = tasks.filter(t => t.completed).length;
+  const filteredTasks = tasks.filter(t => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return t.title.toLowerCase().includes(query) || (t.description && t.description.toLowerCase().includes(query));
+  });
+
+  const totalTasksCount = filteredTasks.length;
+  const completedTasksCount = filteredTasks.filter(t => t.completed).length;
   const progressPercentage = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
 
-  const pendingTasks = tasks.filter(t => !t.completed);
-  const doneTasks = tasks.filter(t => t.completed).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const pendingTasks = filteredTasks.filter(t => !t.completed);
+  const doneTasks = filteredTasks.filter(t => t.completed).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const morningTasks = pendingTasks.filter(t => t.timeBlock === 'morning');
   const afternoonTasks = pendingTasks.filter(t => t.timeBlock === 'afternoon');
@@ -374,14 +520,33 @@ export default function App() {
       {/* Header Section */}
       <header className="flex-none px-5 pt-6 pb-2">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2 text-primary">
-            <Waves size={28} strokeWidth={2.5} />
-            <span className="font-bold text-lg tracking-tight text-white">My Daily Flow</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <button className="text-text-secondary hover:text-white transition-colors">
-              <Search size={24} />
-            </button>
+          {isSearchActive ? (
+            <div className="flex-1 flex items-center bg-[#1e273b] rounded-full px-4 py-2 mr-4 border border-[#232f48]/50 overflow-hidden">
+              <Search size={18} className="text-text-secondary mr-2 flex-shrink-0" />
+              <input
+                autoFocus
+                type="text"
+                placeholder="Search tasks..."
+                className="bg-transparent border-none outline-none text-white text-[15px] w-full placeholder:text-text-secondary"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <button onClick={() => { setIsSearchActive(false); setSearchQuery(''); }} className="text-text-secondary hover:text-white ml-2 flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/10">
+                ✕
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-primary">
+              <Waves size={28} strokeWidth={2.5} />
+              <span className="font-bold text-lg tracking-tight text-white">My Daily Flow</span>
+            </div>
+          )}
+          <div className="flex items-center gap-4 flex-shrink-0">
+            {!isSearchActive && (
+              <button onClick={() => setIsSearchActive(true)} className="text-text-secondary hover:text-white transition-colors">
+                <Search size={24} />
+              </button>
+            )}
             <div className="relative">
               <button className="text-text-secondary hover:text-white transition-colors">
                 <Bell size={24} />
@@ -402,23 +567,11 @@ export default function App() {
 
         {activeTab === 'today' ? (
           <div className="flex flex-col gap-8">
-            {morningTasks.length > 0 && (
-              <TaskSection title="Morning" timeRange="06:00 - 12:00" colorClass="bg-blue-400" shadowClass="shadow-[0_0_10px_rgba(96,165,250,0.5)]">
-                {morningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} />)}
-              </TaskSection>
-            )}
-
-            {afternoonTasks.length > 0 && (
-              <TaskSection title="Afternoon" timeRange="12:00 - 18:00" colorClass="bg-orange-400" shadowClass="shadow-[0_0_10px_rgba(251,146,60,0.5)]">
-                {afternoonTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} />)}
-              </TaskSection>
-            )}
-
-            {eveningTasks.length > 0 && (
-              <TaskSection title="Evening" timeRange="18:00 - 23:00" colorClass="bg-indigo-400" shadowClass="shadow-[0_0_10px_rgba(129,140,248,0.5)]">
-                {eveningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} />)}
-              </TaskSection>
-            )}
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <DroppableTaskSection id="morning" title="Morning" timeRange="06:00 - 12:00" colorClass="bg-blue-400" shadowClass="shadow-[0_0_10px_rgba(96,165,250,0.5)]" tasks={morningTasks} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} />
+              <DroppableTaskSection id="afternoon" title="Afternoon" timeRange="12:00 - 18:00" colorClass="bg-orange-400" shadowClass="shadow-[0_0_10px_rgba(251,146,60,0.5)]" tasks={afternoonTasks} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} />
+              <DroppableTaskSection id="evening" title="Evening" timeRange="18:00 - 23:00" colorClass="bg-indigo-400" shadowClass="shadow-[0_0_10px_rgba(129,140,248,0.5)]" tasks={eveningTasks} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} />
+            </DndContext>
 
             {pendingTasks.length === 0 && (
               <div className="text-center py-12 text-text-secondary mt-10">
