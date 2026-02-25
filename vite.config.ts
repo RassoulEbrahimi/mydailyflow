@@ -4,7 +4,7 @@ import path from 'path';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: '/mydailyflow/',   // ← دقیقاً همین باید باشه (با slash آخر)
+  base: '/mydailyflow/',   // ← این خط خیلی مهمه!
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
