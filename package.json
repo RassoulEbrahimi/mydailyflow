@@ -1,12 +1,14 @@
 {
-  "name": "react-example",
+  "name": "my-daily-flow",
   "private": true,
   "version": "0.0.0",
+  "homepage": "https://rassoulebrahimi.github.io/mydailyflow",
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
+    "deploy": "npm run build && gh-pages -d dist",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
   },
