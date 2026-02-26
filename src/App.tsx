@@ -62,21 +62,25 @@ interface TaskCardProps {
   task: Task;
   onToggleComplete: (id: string) => void;
   onDelete: (id: string) => void;
+  onEdit: (task: Task) => void;
   key?: React.Key;
 }
 
 const TaskCard = ({
   task,
   onToggleComplete,
-  onDelete
+  onDelete,
+  onEdit
 }: TaskCardProps) => {
   const { id, title, time, duration, completed, priority } = task;
   // A task is 'active' visually if it is the closest upcoming relative to current time, but for now we'll just not make any task arbitrarily active.
   const active = false;
 
   return (
-    <div className={`group flex items-center p-4 bg-card-dark rounded-xl transition-all duration-300 relative overflow-hidden ${active ? 'border-l-4 border-l-primary border-y border-r border-y-[#232f48] border-r-[#232f48] shadow-lg hover:shadow-primary/10' : 'border border-[#232f48] hover:border-primary/50'
-      }`}>
+    <div
+      onDoubleClick={() => onEdit(task)}
+      className={`group flex items-center p-4 bg-card-dark rounded-xl transition-all duration-300 relative overflow-hidden ${active ? 'border-l-4 border-l-primary border-y border-r border-y-[#232f48] border-r-[#232f48] shadow-lg hover:shadow-primary/10' : 'border border-[#232f48] hover:border-primary/50'
+        }`}>
       {active && <div className="absolute inset-0 bg-primary/5 pointer-events-none"></div>}
 
       <button
@@ -105,8 +109,11 @@ const TaskCard = ({
         </div>
       </div>
 
-      <div className="flex flex-shrink-0 ml-3 gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button onClick={() => onDelete(id)} className="text-text-secondary hover:text-red-400 transition-colors">
+      <div className="flex flex-shrink-0 ml-3 gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+        <button onClick={(e) => { e.stopPropagation(); onEdit(task); }} className="text-text-secondary hover:text-blue-400 transition-colors p-1">
+          <Pencil size={20} />
+        </button>
+        <button onClick={(e) => { e.stopPropagation(); onDelete(id); }} className="text-text-secondary hover:text-red-400 transition-colors p-1">
           <Trash2 size={20} />
         </button>
       </div>
@@ -140,9 +147,10 @@ interface DroppableSectionProps {
   tasks: Task[];
   onToggleComplete: (id: string) => void;
   onDelete: (id: string) => void;
+  onEdit: (task: Task) => void;
 }
 
-const DroppableTaskSection = ({ id, title, timeRange, colorClass, shadowClass, tasks, onToggleComplete, onDelete }: DroppableSectionProps) => {
+const DroppableTaskSection = ({ id, title, timeRange, colorClass, shadowClass, tasks, onToggleComplete, onDelete, onEdit }: DroppableSectionProps) => {
   const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
@@ -159,14 +167,14 @@ const DroppableTaskSection = ({ id, title, timeRange, colorClass, shadowClass, t
         className={`flex flex-col gap-3 min-h-[60px] rounded-xl transition-colors p-1 -m-1 ${isOver ? 'bg-primary/10 border border-primary/30' : 'border border-transparent'}`}
       >
         <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-          {tasks.map(t => <SortableTaskCard key={t.id} task={t} onToggleComplete={onToggleComplete} onDelete={onDelete} />)}
+          {tasks.map(t => <SortableTaskCard key={t.id} task={t} onToggleComplete={onToggleComplete} onDelete={onDelete} onEdit={onEdit} />)}
         </SortableContext>
       </div>
     </section>
   );
 };
 
-const SortableTaskCard = ({ task, onToggleComplete, onDelete }: TaskCardProps) => {
+const SortableTaskCard = ({ task, onToggleComplete, onDelete, onEdit }: TaskCardProps) => {
   const {
     attributes,
     listeners,
@@ -185,39 +193,64 @@ const SortableTaskCard = ({ task, onToggleComplete, onDelete }: TaskCardProps) =
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={`touch-none w-full transition-shadow duration-200 ${isDragging ? 'shadow-2xl shadow-primary/20 rounded-xl rounded-none' : ''}`}>
-      <TaskCard task={task} onToggleComplete={onToggleComplete} onDelete={onDelete} />
+      <TaskCard task={task} onToggleComplete={onToggleComplete} onDelete={onDelete} onEdit={onEdit} />
     </div>
   );
 };
 
-const NewTaskModal = ({ isOpen, onClose, onSave }: { isOpen: boolean; onClose: () => void; onSave: (task: Omit<Task, 'id' | 'createdAt' | 'completed'>, reminderEnabled: boolean) => void }) => {
+const NewTaskModal = ({
+  isOpen,
+  onClose,
+  onSave,
+  taskToEdit
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (task: Omit<Task, 'id' | 'createdAt' | 'completed'>, reminderEnabled: boolean) => void;
+  taskToEdit?: Task | null;
+}) => {
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
+  const [selectedTime, setSelectedTime] = useState('14:00');
   const [selectedDuration, setSelectedDuration] = useState('30m');
   const [selectedTimeBlock, setSelectedTimeBlock] = useState('Afternoon');
   const [isReminderEnabled, setIsReminderEnabled] = useState(true);
   const [selectedPriority, setSelectedPriority] = useState('Medium');
 
-  const handleCreateTask = () => {
+  useEffect(() => {
+    if (isOpen) {
+      if (taskToEdit) {
+        setTitle(taskToEdit.title);
+        setNotes(taskToEdit.description || '');
+        setSelectedTime(taskToEdit.time);
+        setSelectedDuration(taskToEdit.duration);
+        setSelectedTimeBlock(taskToEdit.timeBlock.charAt(0).toUpperCase() + taskToEdit.timeBlock.slice(1));
+        setSelectedPriority(taskToEdit.priority.charAt(0).toUpperCase() + taskToEdit.priority.slice(1));
+        setIsReminderEnabled(false);
+      } else {
+        setTitle('');
+        setNotes('');
+        setSelectedTime('14:00');
+        setSelectedDuration('30m');
+        setSelectedTimeBlock('Afternoon');
+        setIsReminderEnabled(true);
+        setSelectedPriority('Medium');
+      }
+    }
+  }, [isOpen, taskToEdit]);
+
+  const handleSaveClick = () => {
     if (!title.trim()) return; // Don't save empty tasks
 
     onSave({
       title: title.trim(),
       description: notes.trim(),
-      time: '14:00', // Static for now as requested by UI exact match requirement, but normally we'd pick this from state
+      time: selectedTime,
       duration: selectedDuration,
       timeBlock: selectedTimeBlock.toLowerCase() as Task['timeBlock'],
       priority: selectedPriority.toLowerCase() as Task['priority']
     }, isReminderEnabled);
 
-    // Reset state for next open
-    setTitle('');
-    setNotes('');
-    setSelectedDuration('30m');
-    setSelectedTimeBlock('Afternoon');
-    setIsReminderEnabled(true);
-    setSelectedPriority('Medium');
-    // Close modal
     onClose();
   };
 
@@ -235,7 +268,7 @@ const NewTaskModal = ({ isOpen, onClose, onSave }: { isOpen: boolean; onClose: (
           <button onClick={onClose} className="text-text-secondary active:opacity-70 transition-opacity absolute left-0 text-[15px]">
             Cancel
           </button>
-          <h2 className="text-white font-bold text-lg w-full text-center">New Task</h2>
+          <h2 className="text-white font-bold text-lg w-full text-center">{taskToEdit ? 'Edit Task' : 'New Task'}</h2>
         </div>
 
         <div className="mb-8 relative">
@@ -261,20 +294,23 @@ const NewTaskModal = ({ isOpen, onClose, onSave }: { isOpen: boolean; onClose: (
 
         <div className="mb-8">
           <h3 className="text-text-secondary text-xs font-semibold tracking-wider mb-3">START TIME</h3>
-          <button className="w-full bg-[#1e273b] p-4 rounded-[1.5rem] flex items-center justify-between shadow-sm border border-[#232f48]/50 active:scale-[0.98] transition-transform text-left">
-            <div className="flex items-center gap-4">
+          <div className="w-full bg-[#1e273b] p-3 rounded-[1.5rem] flex items-center justify-between shadow-sm border border-[#232f48]/50 transition-colors">
+            <div className="flex items-center gap-4 pl-1">
               <div className="w-[42px] h-[42px] rounded-full bg-primary/20 flex items-center justify-center text-primary">
                 <Clock size={20} className="fill-current text-primary" />
               </div>
               <div>
-                <div className="text-white font-semibold text-[17px]">Today</div>
-                <div className="text-text-secondary text-[13px]">Tap to change</div>
+                <div className="text-white font-semibold text-[17px]">Time</div>
+                <div className="text-text-secondary text-[13px]">Select start time</div>
               </div>
             </div>
-            <div className="bg-[#151c2c] text-white px-4 py-2.5 rounded-[1rem] font-bold tracking-wider text-[15px]">
-              14:00
-            </div>
-          </button>
+            <input
+              type="time"
+              value={selectedTime}
+              onChange={(e) => setSelectedTime(e.target.value)}
+              className="bg-[#151c2c] text-white px-3 py-2.5 rounded-[1rem] font-bold tracking-wider text-[15px] outline-none active:scale-[0.98] transition-transform [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full cursor-pointer hover:bg-[#1a2336]"
+            />
+          </div>
         </div>
 
         <div className="mb-8">
@@ -364,11 +400,11 @@ const NewTaskModal = ({ isOpen, onClose, onSave }: { isOpen: boolean; onClose: (
         </div>
 
         <button
-          onClick={handleCreateTask}
+          onClick={handleSaveClick}
           className="w-full bg-primary hover:bg-blue-600 text-white font-semibold py-4 rounded-[1.5rem] flex items-center justify-center gap-2 shadow-[0_8px_25px_rgba(19,91,236,0.4)] active:scale-[0.98] transition-transform"
         >
           <CheckCircle2 size={22} strokeWidth={2.5} />
-          <span className="text-[17px]">Create Task</span>
+          <span className="text-[17px]">{taskToEdit ? 'Save Changes' : 'Create Task'}</span>
         </button>
       </div>
     </>
@@ -377,6 +413,18 @@ const NewTaskModal = ({ isOpen, onClose, onSave }: { isOpen: boolean; onClose: (
 
 export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
+
+  const openNewTaskModal = () => {
+    setTaskToEdit(null);
+    setIsModalOpen(true);
+  };
+
+  const openEditTaskModal = (task: Task) => {
+    setTaskToEdit(task);
+    setIsModalOpen(true);
+  };
+
   const [tasks, setTasks] = useState<Task[]>(() => {
     const saved = localStorage.getItem('myDailyFlowTasks');
     if (saved) {
@@ -455,18 +503,25 @@ export default function App() {
   }, [tasks]);
 
   const handleSaveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed'>, reminderEnabled: boolean) => {
-    const newTask: Task = {
-      ...taskData,
-      id: Math.random().toString(36).substr(2, 9),
-      completed: false,
-      createdAt: new Date().toISOString()
-    };
-    setTasks(prev => [...prev, newTask]);
+    let savedTask: Task;
+
+    if (taskToEdit) {
+      savedTask = { ...taskToEdit, ...taskData };
+      setTasks(prev => prev.map(t => t.id === taskToEdit.id ? savedTask : t));
+    } else {
+      savedTask = {
+        ...taskData,
+        id: Math.random().toString(36).substr(2, 9),
+        completed: false,
+        createdAt: new Date().toISOString()
+      };
+      setTasks(prev => [...prev, savedTask]);
+    }
 
     if (reminderEnabled && 'Notification' in window) {
       Notification.requestPermission().then(permission => {
         if (permission === 'granted') {
-          const [hours, minutes] = newTask.time.split(':').map(Number);
+          const [hours, minutes] = savedTask.time.split(':').map(Number);
           const now = new Date();
           const taskDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
 
@@ -480,8 +535,8 @@ export default function App() {
           }
 
           setTimeout(() => {
-            new Notification(`🔔 Reminder: ${newTask.title}`, {
-              body: `Your task is scheduled for ${newTask.time}`
+            new Notification(`🔔 Reminder: ${savedTask.title}`, {
+              body: `Your task is scheduled for ${savedTask.time}`
             });
           }, timeToWait);
         }
@@ -568,9 +623,9 @@ export default function App() {
         {activeTab === 'today' ? (
           <div className="flex flex-col gap-8">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <DroppableTaskSection id="morning" title="Morning" timeRange="06:00 - 12:00" colorClass="bg-blue-400" shadowClass="shadow-[0_0_10px_rgba(96,165,250,0.5)]" tasks={morningTasks} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} />
-              <DroppableTaskSection id="afternoon" title="Afternoon" timeRange="12:00 - 18:00" colorClass="bg-orange-400" shadowClass="shadow-[0_0_10px_rgba(251,146,60,0.5)]" tasks={afternoonTasks} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} />
-              <DroppableTaskSection id="evening" title="Evening" timeRange="18:00 - 23:00" colorClass="bg-indigo-400" shadowClass="shadow-[0_0_10px_rgba(129,140,248,0.5)]" tasks={eveningTasks} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} />
+              <DroppableTaskSection id="morning" title="Morning" timeRange="06:00 - 12:00" colorClass="bg-blue-400" shadowClass="shadow-[0_0_10px_rgba(96,165,250,0.5)]" tasks={morningTasks} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} />
+              <DroppableTaskSection id="afternoon" title="Afternoon" timeRange="12:00 - 18:00" colorClass="bg-orange-400" shadowClass="shadow-[0_0_10px_rgba(251,146,60,0.5)]" tasks={afternoonTasks} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} />
+              <DroppableTaskSection id="evening" title="Evening" timeRange="18:00 - 23:00" colorClass="bg-indigo-400" shadowClass="shadow-[0_0_10px_rgba(129,140,248,0.5)]" tasks={eveningTasks} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} />
             </DndContext>
 
             {pendingTasks.length === 0 && (
@@ -584,7 +639,7 @@ export default function App() {
           <div className="flex flex-col gap-8">
             {doneTasks.length > 0 ? (
               <TaskSection title="Completed Tasks" colorClass="bg-emerald-400" shadowClass="shadow-[0_0_10px_rgba(52,211,153,0.5)]">
-                {doneTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} />)}
+                {doneTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} />)}
               </TaskSection>
             ) : (
               <div className="text-center py-12 text-text-secondary mt-10">
@@ -598,7 +653,7 @@ export default function App() {
 
       {/* Floating Action Button */}
       <button
-        onClick={() => setIsModalOpen(true)}
+        onClick={openNewTaskModal}
         className="fixed bottom-24 right-5 h-14 w-14 bg-primary text-white rounded-full shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-105 transition-transform z-20"
       >
         <Plus size={32} />
@@ -639,7 +694,7 @@ export default function App() {
         </div>
       </nav>
 
-      <NewTaskModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveTask} />
+      <NewTaskModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveTask} taskToEdit={taskToEdit} />
     </div>
   );
 }
