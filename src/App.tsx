@@ -36,6 +36,17 @@ const isValidTaskArray = (data: unknown): data is Task[] => {
   });
 };
 
+interface StorageWrapper {
+  version: number;
+  data: Task[];
+}
+
+const isStorageWrapper = (data: unknown): data is StorageWrapper => {
+  if (!data || typeof data !== 'object') return false;
+  const w = data as Record<string, unknown>;
+  return typeof w.version === 'number' && isValidTaskArray(w.data);
+};
+
 const ProgressRing = ({ percentage, completed, total }: { percentage: number, completed: number, total: number }) => {
   const radius = 88;
   const circumference = 2 * Math.PI * radius;
@@ -450,29 +461,42 @@ export default function App() {
     if (saved) {
       try {
         const parsed: unknown = JSON.parse(saved);
-        if (isValidTaskArray(parsed)) {
-          return parsed;
-        } else {
-          console.warn('Invalid task data format in localStorage, clearing corrupted data');
-          localStorage.removeItem('myDailyFlowTasks');
-          return [];
+
+        // Handle new versioned format
+        if (isStorageWrapper(parsed)) {
+          return parsed.data;
         }
+
+        // Auto-migrate legacy array format
+        if (isValidTaskArray(parsed)) {
+          console.log('Migrating legacy tasks array to versioned storage');
+          return parsed;
+        }
+
+        console.warn('Invalid task data format in localStorage, clearing corrupted data');
+        localStorage.removeItem('myDailyFlowTasks');
+        return [];
       } catch (e) {
         console.error('Failed to parse saved tasks, clearing corrupted data', e);
         localStorage.removeItem('myDailyFlowTasks');
         return [];
       }
     }
-    // Initial dummy state for demonstration if empty
-    return [
-      { id: '1', title: 'Drink water', time: '07:00', duration: '5m', completed: true, timeBlock: 'morning', priority: 'medium', createdAt: new Date().toISOString() },
-      { id: '2', title: 'Going to work', time: '07:30', duration: '45m', completed: true, timeBlock: 'morning', priority: 'high', createdAt: new Date().toISOString() },
-      { id: '3', title: 'Eat lunch', time: '12:30', duration: '45m', completed: false, timeBlock: 'afternoon', priority: 'low', createdAt: new Date().toISOString() },
-      { id: '4', title: 'Gym', time: '17:00', duration: '1h', completed: false, timeBlock: 'afternoon', priority: 'high', createdAt: new Date().toISOString() },
-      { id: '5', title: 'Grocery shopping', time: '18:30', duration: '30m', completed: false, timeBlock: 'afternoon', priority: 'medium', createdAt: new Date().toISOString() },
-      { id: '6', title: 'Call mom', time: '20:00', duration: '15m', completed: false, timeBlock: 'evening', priority: 'high', createdAt: new Date().toISOString() },
-      { id: '7', title: 'Read book', time: '21:00', duration: '30m', completed: false, timeBlock: 'evening', priority: 'low', createdAt: new Date().toISOString() },
-    ];
+
+    // Initial dummy state for local development demonstration
+    if ((import.meta as any).env?.DEV) {
+      return [
+        { id: '1', title: 'Drink water', time: '07:00', duration: '5m', completed: true, timeBlock: 'morning', priority: 'medium', createdAt: new Date().toISOString() },
+        { id: '2', title: 'Going to work', time: '07:30', duration: '45m', completed: true, timeBlock: 'morning', priority: 'high', createdAt: new Date().toISOString() },
+        { id: '3', title: 'Eat lunch', time: '12:30', duration: '45m', completed: false, timeBlock: 'afternoon', priority: 'low', createdAt: new Date().toISOString() },
+        { id: '4', title: 'Gym', time: '17:00', duration: '1h', completed: false, timeBlock: 'afternoon', priority: 'high', createdAt: new Date().toISOString() },
+        { id: '5', title: 'Grocery shopping', time: '18:30', duration: '30m', completed: false, timeBlock: 'afternoon', priority: 'medium', createdAt: new Date().toISOString() },
+        { id: '6', title: 'Call mom', time: '20:00', duration: '15m', completed: false, timeBlock: 'evening', priority: 'high', createdAt: new Date().toISOString() },
+        { id: '7', title: 'Read book', time: '21:00', duration: '30m', completed: false, timeBlock: 'evening', priority: 'low', createdAt: new Date().toISOString() },
+      ];
+    }
+
+    return [];
   });
 
   const [activeTab, setActiveTab] = useState<'today' | 'done'>('today');
@@ -534,7 +558,8 @@ export default function App() {
   useEffect(() => {
     try {
       if (isValidTaskArray(tasks)) {
-        localStorage.setItem('myDailyFlowTasks', JSON.stringify(tasks));
+        const wrapper: StorageWrapper = { version: 1, data: tasks };
+        localStorage.setItem('myDailyFlowTasks', JSON.stringify(wrapper));
       } else {
         console.error('Invalid tasks state detected, skipping save to protect localStorage');
       }
