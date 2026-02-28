@@ -16,6 +16,26 @@ export interface Task {
   createdAt: string;
 }
 
+const isValidTaskArray = (data: unknown): data is Task[] => {
+  if (!Array.isArray(data)) return false;
+
+  return data.every(item => {
+    if (!item || typeof item !== 'object') return false;
+    const t = item as Record<string, unknown>;
+    return (
+      typeof t.id === 'string' &&
+      typeof t.title === 'string' &&
+      (t.description === undefined || typeof t.description === 'string') &&
+      typeof t.time === 'string' &&
+      typeof t.duration === 'string' &&
+      ['morning', 'afternoon', 'evening'].includes(t.timeBlock as string) &&
+      typeof t.completed === 'boolean' &&
+      ['low', 'medium', 'high'].includes(t.priority as string) &&
+      typeof t.createdAt === 'string'
+    );
+  });
+};
+
 const ProgressRing = ({ percentage, completed, total }: { percentage: number, completed: number, total: number }) => {
   const radius = 88;
   const circumference = 2 * Math.PI * radius;
@@ -428,7 +448,20 @@ export default function App() {
   const [tasks, setTasks] = useState<Task[]>(() => {
     const saved = localStorage.getItem('myDailyFlowTasks');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error('Failed to parse saved tasks', e); }
+      try {
+        const parsed: unknown = JSON.parse(saved);
+        if (isValidTaskArray(parsed)) {
+          return parsed;
+        } else {
+          console.warn('Invalid task data format in localStorage, clearing corrupted data');
+          localStorage.removeItem('myDailyFlowTasks');
+          return [];
+        }
+      } catch (e) {
+        console.error('Failed to parse saved tasks, clearing corrupted data', e);
+        localStorage.removeItem('myDailyFlowTasks');
+        return [];
+      }
     }
     // Initial dummy state for demonstration if empty
     return [
@@ -499,7 +532,15 @@ export default function App() {
 
   // Sync to local storage on change
   useEffect(() => {
-    localStorage.setItem('myDailyFlowTasks', JSON.stringify(tasks));
+    try {
+      if (isValidTaskArray(tasks)) {
+        localStorage.setItem('myDailyFlowTasks', JSON.stringify(tasks));
+      } else {
+        console.error('Invalid tasks state detected, skipping save to protect localStorage');
+      }
+    } catch (e) {
+      console.error('Failed to stringify tasks for saving', e);
+    }
   }, [tasks]);
 
   const handleSaveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed'>, reminderEnabled: boolean) => {
