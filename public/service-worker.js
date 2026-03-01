@@ -28,7 +28,7 @@ self.addEventListener('activate', (event) => {
             .then((cacheNames) =>
                 Promise.all(
                     cacheNames
-                        .filter((name) => name !== CACHE_NAME)
+                        .filter((name) => name.startsWith('mydailyflow-') && name !== CACHE_NAME)
                         .map((name) => caches.delete(name))
                 )
             )
@@ -60,9 +60,8 @@ self.addEventListener('fetch', (event) => {
                     return networkResponse;
                 })
                 .catch(() =>
-                    // Offline → serve cached shell
-                    caches.match(request)
-                        .then((cached) => cached || caches.match('/mydailyflow/index.html'))
+                    // Offline → always serve the cached SPA shell
+                    caches.match('/mydailyflow/index.html')
                 )
         );
         return;
