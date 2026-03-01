@@ -14,6 +14,8 @@ export interface Task {
   completed: boolean;
   priority: 'low' | 'medium' | 'high';
   createdAt: string;
+  date: string;            // YYYY-MM-DD, local timezone
+  rolledOverFrom?: string; // original date when rolled over
 }
 
 const isValidTaskArray = (data: unknown): data is Task[] => {
@@ -31,7 +33,10 @@ const isValidTaskArray = (data: unknown): data is Task[] => {
       ['morning', 'afternoon', 'evening'].includes(t.timeBlock as string) &&
       typeof t.completed === 'boolean' &&
       ['low', 'medium', 'high'].includes(t.priority as string) &&
-      typeof t.createdAt === 'string'
+      typeof t.createdAt === 'string' &&
+      // date is optional here to support migration of old data
+      (t.date === undefined || typeof t.date === 'string') &&
+      (t.rolledOverFrom === undefined || typeof t.rolledOverFrom === 'string')
     );
   });
 };
@@ -45,6 +50,15 @@ const isStorageWrapper = (data: unknown): data is StorageWrapper => {
   if (!data || typeof data !== 'object') return false;
   const w = data as Record<string, unknown>;
   return typeof w.version === 'number' && isValidTaskArray(w.data);
+};
+
+// Returns the current local date as YYYY-MM-DD.
+const getTodayString = (): string => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 };
 
 const ProgressRing = ({ percentage, completed, total }: { percentage: number, completed: number, total: number }) => {
@@ -237,7 +251,7 @@ const NewTaskModal = ({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (task: Omit<Task, 'id' | 'createdAt' | 'completed'>, reminderEnabled: boolean) => void;
+  onSave: (task: Omit<Task, 'id' | 'createdAt' | 'completed' | 'date' | 'rolledOverFrom'>, reminderEnabled: boolean) => void;
   taskToEdit?: Task | null;
 }) => {
   const [title, setTitle] = useState('');
@@ -634,6 +648,11 @@ export default function App() {
   };
 
   const [tasks, setTasks] = useState<Task[]>(() => {
+    const today = getTodayString();
+    // Helper: ensure every task has a `date` field (migration for old data).
+    const withDate = (rawTasks: Task[]): Task[] =>
+      rawTasks.map(t => t.date ? t : { ...t, date: today });
+
     const saved = localStorage.getItem('myDailyFlowTasks');
     if (saved) {
       try {
@@ -641,13 +660,13 @@ export default function App() {
 
         // Handle new versioned format
         if (isStorageWrapper(parsed)) {
-          return parsed.data;
+          return withDate(parsed.data);
         }
 
         // Auto-migrate legacy array format
         if (isValidTaskArray(parsed)) {
           console.log('Migrating legacy tasks array to versioned storage');
-          return parsed;
+          return withDate(parsed);
         }
 
         console.warn('Invalid task data format in localStorage, clearing corrupted data');
@@ -663,13 +682,13 @@ export default function App() {
     // Initial dummy state for local development demonstration
     if ((import.meta as any).env?.DEV) {
       return [
-        { id: '1', title: 'Drink water', time: '07:00', duration: '5m', completed: true, timeBlock: 'morning', priority: 'medium', createdAt: new Date().toISOString() },
-        { id: '2', title: 'Going to work', time: '07:30', duration: '45m', completed: true, timeBlock: 'morning', priority: 'high', createdAt: new Date().toISOString() },
-        { id: '3', title: 'Eat lunch', time: '12:30', duration: '45m', completed: false, timeBlock: 'afternoon', priority: 'low', createdAt: new Date().toISOString() },
-        { id: '4', title: 'Gym', time: '17:00', duration: '1h', completed: false, timeBlock: 'afternoon', priority: 'high', createdAt: new Date().toISOString() },
-        { id: '5', title: 'Grocery shopping', time: '18:30', duration: '30m', completed: false, timeBlock: 'afternoon', priority: 'medium', createdAt: new Date().toISOString() },
-        { id: '6', title: 'Call mom', time: '20:00', duration: '15m', completed: false, timeBlock: 'evening', priority: 'high', createdAt: new Date().toISOString() },
-        { id: '7', title: 'Read book', time: '21:00', duration: '30m', completed: false, timeBlock: 'evening', priority: 'low', createdAt: new Date().toISOString() },
+        { id: '1', title: 'Drink water', time: '07:00', duration: '5m', completed: true, timeBlock: 'morning', priority: 'medium', createdAt: new Date().toISOString(), date: today },
+        { id: '2', title: 'Going to work', time: '07:30', duration: '45m', completed: true, timeBlock: 'morning', priority: 'high', createdAt: new Date().toISOString(), date: today },
+        { id: '3', title: 'Eat lunch', time: '12:30', duration: '45m', completed: false, timeBlock: 'afternoon', priority: 'low', createdAt: new Date().toISOString(), date: today },
+        { id: '4', title: 'Gym', time: '17:00', duration: '1h', completed: false, timeBlock: 'afternoon', priority: 'high', createdAt: new Date().toISOString(), date: today },
+        { id: '5', title: 'Grocery shopping', time: '18:30', duration: '30m', completed: false, timeBlock: 'afternoon', priority: 'medium', createdAt: new Date().toISOString(), date: today },
+        { id: '6', title: 'Call mom', time: '20:00', duration: '15m', completed: false, timeBlock: 'evening', priority: 'high', createdAt: new Date().toISOString(), date: today },
+        { id: '7', title: 'Read book', time: '21:00', duration: '30m', completed: false, timeBlock: 'evening', priority: 'low', createdAt: new Date().toISOString(), date: today },
       ];
     }
 
@@ -757,7 +776,22 @@ export default function App() {
     localStorage.setItem('remindersEnabled', String(remindersEnabled));
   }, [remindersEnabled]);
 
-  const handleSaveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed'>, reminderEnabled: boolean) => {
+  // ─── Rollover: once per day, move unfinished past tasks to today ──────────
+  useEffect(() => {
+    const today = getTodayString();
+    if (localStorage.getItem('lastRolloverDate') === today) return;
+
+    setTasks(prev => prev.map(t => {
+      if (!t.completed && t.date < today) {
+        return { ...t, date: today, rolledOverFrom: t.rolledOverFrom ?? t.date };
+      }
+      return t;
+    }));
+
+    localStorage.setItem('lastRolloverDate', today);
+  }, []); // run once on mount
+
+  const handleSaveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed' | 'date' | 'rolledOverFrom'>, reminderEnabled: boolean) => {
     let savedTask: Task;
 
     if (taskToEdit) {
@@ -768,7 +802,8 @@ export default function App() {
         ...taskData,
         id: Math.random().toString(36).substr(2, 9),
         completed: false,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        date: getTodayString(),
       };
       setTasks(prev => [...prev, savedTask]);
     }
@@ -805,17 +840,22 @@ export default function App() {
   };
 
   // Derived state
+  const today = getTodayString();
+
   const filteredTasks = tasks.filter(t => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
     return t.title.toLowerCase().includes(query) || (t.description && t.description.toLowerCase().includes(query));
   });
 
-  const totalTasksCount = filteredTasks.length;
-  const completedTasksCount = filteredTasks.filter(t => t.completed).length;
+  // Today tab: only tasks dated today
+  const todayTasks = filteredTasks.filter(t => t.date === today);
+  const totalTasksCount = todayTasks.length;
+  const completedTasksCount = todayTasks.filter(t => t.completed).length;
   const progressPercentage = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
 
-  const pendingTasks = filteredTasks.filter(t => !t.completed);
+  const pendingTasks = todayTasks.filter(t => !t.completed);
+  // Done tab: all completed tasks, regardless of date
   const doneTasks = filteredTasks.filter(t => t.completed).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const morningTasks = pendingTasks.filter(t => t.timeBlock === 'morning');
