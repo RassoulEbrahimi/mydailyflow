@@ -15,7 +15,9 @@ self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => cache.addAll(PRECACHE_URLS))
-            .then(() => self.skipWaiting())
+        // Do NOT call self.skipWaiting() here.
+        // The new SW will wait until the frontend sends a SKIP_WAITING message,
+        // triggered by the user clicking "Refresh" in the update banner.
     );
 });
 
@@ -89,4 +91,13 @@ self.addEventListener('fetch', (event) => {
 
     // ── Everything else → Network only (API calls, analytics, etc.) ───────────
     // No special handling; let the browser deal with it normally.
+});
+
+// ─── Message ─────────────────────────────────────────────────────────────────
+// When the React app detects a waiting worker and the user clicks "Refresh",
+// it posts { type: 'SKIP_WAITING' } so this worker can take over immediately.
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
 });
