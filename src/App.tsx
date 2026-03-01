@@ -503,6 +503,12 @@ export default function App() {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  const defaultTimeForBlock = (block: Task['timeBlock']): string => {
+    if (block === 'morning') return '09:00';
+    if (block === 'afternoon') return '14:00';
+    return '18:00';
+  };
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -529,9 +535,10 @@ export default function App() {
         const activeItem = prev[activeIndex];
 
         if (['morning', 'afternoon', 'evening'].includes(overId as string)) {
-          if (activeItem.timeBlock !== overId) {
+          const destBlock = overId as Task['timeBlock'];
+          if (activeItem.timeBlock !== destBlock) {
             const newTasks = [...prev];
-            newTasks[activeIndex] = { ...activeItem, timeBlock: overId as Task['timeBlock'] };
+            newTasks[activeIndex] = { ...activeItem, timeBlock: destBlock, time: defaultTimeForBlock(destBlock) };
             return newTasks;
           }
           return prev;
@@ -543,7 +550,7 @@ export default function App() {
           let newTasks = [...prev];
 
           if (activeItem.timeBlock !== overItem.timeBlock) {
-            newTasks[activeIndex] = { ...activeItem, timeBlock: overItem.timeBlock };
+            newTasks[activeIndex] = { ...activeItem, timeBlock: overItem.timeBlock, time: defaultTimeForBlock(overItem.timeBlock) };
           }
 
           return arrayMove(newTasks, activeIndex, overIndex);
@@ -677,7 +684,9 @@ export default function App() {
           </div>
         </div>
         <div className="flex flex-col items-center justify-center text-center mt-2">
-          <p className="text-text-secondary text-sm font-medium uppercase tracking-wider">Oct 24</p>
+          <p className="text-text-secondary text-sm font-medium uppercase tracking-wider">
+            {new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date())}
+          </p>
           <h1 className="text-2xl font-bold mt-1 text-white">Good morning, SolariuS!</h1>
         </div>
       </header>
