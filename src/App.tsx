@@ -1,5 +1,5 @@
 import { Waves, Search, Bell, Check, Clock, Pencil, Plus, Sun, List, CheckCircle2, Menu, CloudSun, Moon, Trash2, Settings } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, useDroppable } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -566,6 +566,55 @@ export default function App() {
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
+  // ─── Service Worker update banner ──────────────────────────────────────────
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const waitingWorkerRef = useRef<ServiceWorker | null>(null);
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+
+    let newWorker: ServiceWorker | null = null;
+
+    const handleStateChange = () => {
+      if (newWorker && newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+        waitingWorkerRef.current = newWorker;
+        setUpdateAvailable(true);
+      }
+    };
+
+    const handleUpdateFound = (reg: ServiceWorkerRegistration) => {
+      newWorker = reg.installing;
+      if (newWorker) {
+        newWorker.addEventListener('statechange', handleStateChange);
+      }
+    };
+
+    let reg: ServiceWorkerRegistration | undefined;
+
+    navigator.serviceWorker.getRegistration().then((registration) => {
+      if (!registration) return;
+      reg = registration;
+      reg.addEventListener('updatefound', () => handleUpdateFound(reg!));
+    });
+
+    return () => {
+      if (reg) {
+        reg.removeEventListener('updatefound', () => handleUpdateFound(reg!));
+      }
+      if (newWorker) {
+        newWorker.removeEventListener('statechange', handleStateChange);
+      }
+    };
+  }, []);
+
+  const handleRefresh = () => {
+    const waiting = waitingWorkerRef.current;
+    if (waiting) {
+      waiting.postMessage({ type: 'SKIP_WAITING' });
+    }
+    window.location.reload();
+  };
+
   const [remindersEnabled, setRemindersEnabled] = useState<boolean>(() =>
     localStorage.getItem('remindersEnabled') === 'true'
   );
@@ -775,6 +824,19 @@ export default function App() {
 
   return (
     <div className="bg-background-dark font-display text-slate-100 min-h-screen flex flex-col overflow-hidden relative selection:bg-primary selection:text-white">
+      {/* SW Update Banner */}
+      {updateAvailable && (
+        <div className="fixed top-0 left-0 right-0 z-[60] flex items-center justify-between gap-3 px-4 py-3 bg-[#1e273b] border-b border-primary/40 shadow-lg">
+          <span className="text-sm font-medium text-white">🚀 New version available</span>
+          <button
+            onClick={handleRefresh}
+            className="text-sm font-semibold text-primary hover:text-blue-300 transition-colors flex-shrink-0 px-3 py-1 rounded-lg hover:bg-primary/10 active:scale-95"
+          >
+            Refresh
+          </button>
+        </div>
+      )}
+
       {/* Header Section */}
       <header className="flex-none px-5 pt-6 pb-2">
         <div className="flex items-center justify-between mb-4">
