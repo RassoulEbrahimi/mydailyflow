@@ -61,6 +61,28 @@ const getTodayString = (): string => {
   return `${y}-${m}-${day}`;
 };
 
+// Returns YYYY-MM-DD for yesterday (local timezone).
+const getYesterdayString = (): string => {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+// Formats a YYYY-MM-DD string into a human-readable label.
+const formatDateLabel = (dateStr: string): string => {
+  const today = getTodayString();
+  const yesterday = getYesterdayString();
+  if (dateStr === today) return 'Today';
+  if (dateStr === yesterday) return 'Yesterday';
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  // Use UTC noon to avoid timezone shifts when constructing the date
+  const dt = new Date(Date.UTC(y, mo - 1, d, 12));
+  return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).format(dt);
+};
+
 const ProgressRing = ({ percentage, completed, total }: { percentage: number, completed: number, total: number }) => {
   const radius = 88;
   const circumference = 2 * Math.PI * radius;
@@ -695,7 +717,12 @@ export default function App() {
     return [];
   });
 
-  const [activeTab, setActiveTab] = useState<'today' | 'done'>('today');
+  const [activeTab, setActiveTab] = useState<'today' | 'all' | 'done'>('today');
+
+  // ─── All Tasks date filter ─────────────────────────────────────────────────
+  // 'all' | 'today' | 'yesterday' | YYYY-MM-DD
+  const [allDateFilter, setAllDateFilter] = useState<string>('all');
+  const [allDatePicker, setAllDatePicker] = useState<string>('');
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -862,6 +889,35 @@ export default function App() {
   const afternoonTasks = pendingTasks.filter(t => t.timeBlock === 'afternoon');
   const eveningTasks = pendingTasks.filter(t => t.timeBlock === 'evening');
 
+  // ─── All Tasks tab: resolve the effective date string for filtering ─────────
+  const resolvedDateFilter: string | null = (() => {
+    if (allDateFilter === 'all') return null;
+    if (allDateFilter === 'today') return today;
+    if (allDateFilter === 'yesterday') return getYesterdayString();
+    return allDateFilter; // specific YYYY-MM-DD
+  })();
+
+  // Apply search + date filter to all tasks
+  const allFilteredTasks = filteredTasks.filter(t =>
+    resolvedDateFilter === null || t.date === resolvedDateFilter
+  );
+
+  // Group tasks by date, newest date first, time ascending within group
+  const allTaskGroups: Array<{ date: string; tasks: Task[] }> = (() => {
+    const map = new Map<string, Task[]>();
+    for (const t of allFilteredTasks) {
+      const key = t.date ?? today;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(t);
+    }
+    return Array.from(map.entries())
+      .sort(([a], [b]) => (a < b ? 1 : a > b ? -1 : 0))
+      .map(([date, tasks]) => ({
+        date,
+        tasks: [...tasks].sort((a, b) => a.time.localeCompare(b.time)),
+      }));
+  })();
+
   return (
     <div className="bg-background-dark font-display text-slate-100 min-h-screen flex flex-col overflow-hidden relative selection:bg-primary selection:text-white">
       {/* SW Update Banner */}
@@ -946,6 +1002,66 @@ export default function App() {
               </div>
             )}
           </div>
+        ) : activeTab === 'all' ? (
+          <div className="flex flex-col gap-6">
+            {/* Date filter bar */}
+            <div className="flex flex-wrap items-center gap-2 pt-2">
+              {(['all', 'today', 'yesterday'] as const).map(f => (
+                <button
+                  key={f}
+                  onClick={() => { setAllDateFilter(f); setAllDatePicker(''); }}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${allDateFilter === f
+                      ? 'bg-primary text-white border-primary shadow-[0_0_10px_rgba(19,91,236,0.35)]'
+                      : 'bg-[#1e273b] text-text-secondary border-[#232f48] hover:border-primary/50'
+                    }`}
+                >
+                  {f === 'all' ? 'All' : f === 'today' ? 'Today' : 'Yesterday'}
+                </button>
+              ))}
+              <input
+                type="date"
+                value={allDatePicker}
+                onChange={e => {
+                  const v = e.target.value;
+                  setAllDatePicker(v);
+                  setAllDateFilter(v || 'all');
+                }}
+                className="bg-[#1e273b] text-text-secondary border border-[#232f48] hover:border-primary/50 rounded-full px-3 py-1.5 text-xs font-semibold outline-none [color-scheme:dark] cursor-pointer transition-all"
+              />
+              {allDateFilter !== 'all' && (
+                <button
+                  onClick={() => { setAllDateFilter('all'); setAllDatePicker(''); }}
+                  className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#1e273b] text-text-secondary border border-[#232f48] hover:border-red-400/50 hover:text-red-400 transition-all"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {/* Task groups */}
+            {allTaskGroups.length > 0 ? (
+              allTaskGroups.map(group => (
+                <div key={group.date} className="flex flex-col gap-3">
+                  {/* Date header */}
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-1 rounded-full bg-primary/60 shadow-[0_0_8px_rgba(19,91,236,0.4)]" />
+                    <div>
+                      <h2 className="text-base font-semibold text-white">{formatDateLabel(group.date)}</h2>
+                      <p className="text-xs text-text-secondary">{group.tasks.length} task{group.tasks.length !== 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                  {group.tasks.map(t => (
+                    <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} />
+                  ))}
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-12 text-text-secondary mt-10">
+                <List size={48} className="mx-auto mb-4 opacity-30" />
+                <p>No tasks found{allDateFilter !== 'all' ? ' for this date' : ''}.</p>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="flex flex-col gap-8">
             {doneTasks.length > 0 ? (
@@ -983,8 +1099,13 @@ export default function App() {
             <span className="text-xs font-semibold">Today</span>
           </button>
 
-          <button className="flex flex-col items-center gap-1 flex-1 text-text-secondary hover:text-white transition-colors group">
-            <List size={24} className="group-hover:scale-110 transition-transform" />
+          <button
+            onClick={() => setActiveTab('all')}
+            className={`flex flex-col items-center gap-1 flex-1 transition-colors ${activeTab === 'all' ? 'text-primary' : 'text-text-secondary hover:text-white'}`}
+          >
+            <div className={`${activeTab === 'all' ? 'bg-primary/10 w-12 h-8 rounded-full flex items-center justify-center' : ''}`}>
+              <List size={24} className={activeTab === 'all' ? 'fill-current' : 'group-hover:scale-110 transition-transform'} />
+            </div>
             <span className="text-xs font-medium">All Tasks</span>
           </button>
 
