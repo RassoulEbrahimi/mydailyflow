@@ -1,8 +1,8 @@
-import { Waves, Search, Bell, Check, Clock, Pencil, Plus, Sun, List, CheckCircle2, Menu, CloudSun, Moon, Trash2, Settings } from 'lucide-react';
+import { Waves, Search, Bell, Check, Clock, Pencil, Plus, Sun, List, CheckCircle2, Menu, CloudSun, Moon, Trash2, Settings, LogOut } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, useDroppable } from '@dnd-kit/core';
-import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { useAuth } from './hooks/useAuth';
+import LoginPage from './components/LoginPage';
+
 
 import type { Task } from './types/task';
 import { isValidTaskArray, isStorageWrapper } from './types/task';
@@ -145,65 +145,7 @@ const TaskSection = ({ title, timeRange, colorClass, shadowClass, children }: { 
   );
 };
 
-interface DroppableSectionProps {
-  id: string;
-  title: string;
-  timeRange?: string;
-  colorClass: string;
-  shadowClass: string;
-  tasks: Task[];
-  onToggleComplete: (id: string) => void;
-  onDelete: (id: string) => void;
-  onEdit: (task: Task) => void;
-}
 
-const DroppableTaskSection = ({ id, title, timeRange, colorClass, shadowClass, tasks, onToggleComplete, onDelete, onEdit }: DroppableSectionProps) => {
-  const { setNodeRef, isOver } = useDroppable({ id });
-
-  return (
-    <section>
-      <div className="flex items-center gap-3 mb-4">
-        <div className={`h-8 w-1 rounded-full ${colorClass} ${shadowClass}`}></div>
-        <div>
-          <h2 className="text-lg font-semibold text-white">{title}</h2>
-          {timeRange && <p className="text-xs text-text-secondary">{timeRange}</p>}
-        </div>
-      </div>
-      <div
-        ref={setNodeRef}
-        className={`flex flex-col gap-3 min-h-[60px] rounded-xl transition-colors p-1 -m-1 ${isOver ? 'bg-primary/10 border border-primary/30' : 'border border-transparent'}`}
-      >
-        <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-          {tasks.map(t => <SortableTaskCard key={t.id} task={t} onToggleComplete={onToggleComplete} onDelete={onDelete} onEdit={onEdit} />)}
-        </SortableContext>
-      </div>
-    </section>
-  );
-};
-
-const SortableTaskCard = ({ task, onToggleComplete, onDelete, onEdit }: TaskCardProps) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: task.id, data: { timeBlock: task.timeBlock } });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 50 : 'auto',
-  };
-
-  return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={`touch-none w-full transition-shadow duration-200 ${isDragging ? 'shadow-2xl shadow-primary/20 rounded-xl rounded-none' : ''}`}>
-      <TaskCard task={task} onToggleComplete={onToggleComplete} onDelete={onDelete} onEdit={onEdit} />
-    </div>
-  );
-};
 
 const NewTaskModal = ({
   isOpen,
@@ -427,6 +369,7 @@ interface SettingsModalProps {
   onRemindersEnabledChange: (val: boolean) => void;
   permission: NotificationPermission;
   onPermissionChange: (p: NotificationPermission) => void;
+  onLogout: () => void;
 }
 
 const SettingsModal = ({
@@ -436,6 +379,7 @@ const SettingsModal = ({
   onRemindersEnabledChange,
   permission,
   onPermissionChange,
+  onLogout,
 }: SettingsModalProps) => {
   const [requesting, setRequesting] = React.useState(false);
 
@@ -532,12 +476,24 @@ const SettingsModal = ({
             {requesting ? 'Requesting…' : 'Enable Reminders'}
           </button>
         )}
+
+        {/* ── Logout ── */}
+        <div className="mt-8 pt-6 border-t border-[#1e273b]">
+          <button
+            onClick={() => { onClose(); onLogout(); }}
+            className="w-full bg-[#1e273b] hover:bg-red-500/10 border border-[#232f48]/50 hover:border-red-500/30 text-text-secondary hover:text-red-400 font-semibold py-4 rounded-[1.5rem] flex items-center justify-center gap-2 transition-all active:scale-[0.98] text-[16px]"
+          >
+            <LogOut size={20} strokeWidth={2.5} />
+            Log out
+          </button>
+          <p className="text-center text-[11px] text-[#384666] mt-3">Demo environment · Not secure</p>
+        </div>
       </div>
     </>
   );
 };
 
-export default function App() {
+function AppInner({ logout }: { logout: () => void }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -666,57 +622,9 @@ export default function App() {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over) return;
 
-    const activeId = active.id;
-    const overId = over.id;
 
-    if (activeId !== overId) {
-      setTasks(prev => {
-        const activeIndex = prev.findIndex(t => t.id === activeId);
-        if (activeIndex === -1) return prev;
-
-        const activeItem = prev[activeIndex];
-
-        if (['morning', 'afternoon', 'evening'].includes(overId as string)) {
-          const destBlock = overId as Task['timeBlock'];
-          if (activeItem.timeBlock !== destBlock) {
-            const newTasks = [...prev];
-            newTasks[activeIndex] = { ...activeItem, timeBlock: destBlock, time: defaultTimeForBlock(destBlock) };
-            return newTasks;
-          }
-          return prev;
-        }
-
-        const overIndex = prev.findIndex(t => t.id === overId);
-        if (overIndex !== -1) {
-          const overItem = prev[overIndex];
-          let newTasks = [...prev];
-
-          if (activeItem.timeBlock !== overItem.timeBlock) {
-            newTasks[activeIndex] = { ...activeItem, timeBlock: overItem.timeBlock, time: defaultTimeForBlock(overItem.timeBlock) };
-          }
-
-          return arrayMove(newTasks, activeIndex, overIndex);
-        }
-
-        return prev;
-      });
-    }
-  };
 
   // Sync to local storage on change
   useEffect(() => {
@@ -903,11 +811,15 @@ export default function App() {
 
         {activeTab === 'today' ? (
           <div className="flex flex-col gap-8">
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <DroppableTaskSection id="morning" title="Morning" timeRange="06:00 - 12:00" colorClass="bg-blue-400" shadowClass="shadow-[0_0_10px_rgba(96,165,250,0.5)]" tasks={morningTasks} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} />
-              <DroppableTaskSection id="afternoon" title="Afternoon" timeRange="12:00 - 18:00" colorClass="bg-orange-400" shadowClass="shadow-[0_0_10px_rgba(251,146,60,0.5)]" tasks={afternoonTasks} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} />
-              <DroppableTaskSection id="evening" title="Evening" timeRange="18:00 - 23:00" colorClass="bg-indigo-400" shadowClass="shadow-[0_0_10px_rgba(129,140,248,0.5)]" tasks={eveningTasks} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} />
-            </DndContext>
+            <TaskSection title="Morning" timeRange="06:00 - 12:00" colorClass="bg-blue-400" shadowClass="shadow-[0_0_10px_rgba(96,165,250,0.5)]">
+              {morningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} />)}
+            </TaskSection>
+            <TaskSection title="Afternoon" timeRange="12:00 - 18:00" colorClass="bg-orange-400" shadowClass="shadow-[0_0_10px_rgba(251,146,60,0.5)]">
+              {afternoonTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} />)}
+            </TaskSection>
+            <TaskSection title="Evening" timeRange="18:00 - 23:00" colorClass="bg-indigo-400" shadowClass="shadow-[0_0_10px_rgba(129,140,248,0.5)]">
+              {eveningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} />)}
+            </TaskSection>
 
             {pendingTasks.length === 0 && (
               <div className="text-center py-12 text-text-secondary mt-10">
@@ -1035,7 +947,19 @@ export default function App() {
         onRemindersEnabledChange={setRemindersEnabled}
         permission={notifPermission}
         onPermissionChange={setNotifPermission}
+        onLogout={logout}
       />
     </div>
   );
+}
+
+// ─── Auth gate ────────────────────────────────────────────────────────────────
+// Thin wrapper that handles login state before rendering the full app.
+// ⚠️  Demo-only. Not secure.
+export default function App() {
+  const { user, login, logout } = useAuth();
+  if (!user) {
+    return <LoginPage onLogin={login} />;
+  }
+  return <AppInner logout={logout} />;
 }
