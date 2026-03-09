@@ -4,84 +4,19 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-export interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  time: string;
-  duration: string;
-  timeBlock: 'morning' | 'afternoon' | 'evening';
-  completed: boolean;
-  priority: 'low' | 'medium' | 'high';
-  createdAt: string;
-  date: string;            // YYYY-MM-DD, local timezone
-  rolledOverFrom?: string; // original date when rolled over
-}
-
-const isValidTaskArray = (data: unknown): data is Task[] => {
-  if (!Array.isArray(data)) return false;
-
-  return data.every(item => {
-    if (!item || typeof item !== 'object') return false;
-    const t = item as Record<string, unknown>;
-    return (
-      typeof t.id === 'string' &&
-      typeof t.title === 'string' &&
-      (t.description === undefined || typeof t.description === 'string') &&
-      typeof t.time === 'string' &&
-      typeof t.duration === 'string' &&
-      ['morning', 'afternoon', 'evening'].includes(t.timeBlock as string) &&
-      typeof t.completed === 'boolean' &&
-      ['low', 'medium', 'high'].includes(t.priority as string) &&
-      typeof t.createdAt === 'string' &&
-      // date is optional here to support migration of old data
-      (t.date === undefined || typeof t.date === 'string') &&
-      (t.rolledOverFrom === undefined || typeof t.rolledOverFrom === 'string')
-    );
-  });
-};
-
-interface StorageWrapper {
-  version: number;
-  data: Task[];
-}
-
-const isStorageWrapper = (data: unknown): data is StorageWrapper => {
-  if (!data || typeof data !== 'object') return false;
-  const w = data as Record<string, unknown>;
-  return typeof w.version === 'number' && isValidTaskArray(w.data);
-};
-
-// Returns the current local date as YYYY-MM-DD.
-const getTodayString = (): string => {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
-
-// Returns YYYY-MM-DD for yesterday (local timezone).
-const getYesterdayString = (): string => {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
-
-// Formats a YYYY-MM-DD string into a human-readable label.
-const formatDateLabel = (dateStr: string): string => {
-  const today = getTodayString();
-  const yesterday = getYesterdayString();
-  if (dateStr === today) return 'Today';
-  if (dateStr === yesterday) return 'Yesterday';
-  const [y, mo, d] = dateStr.split('-').map(Number);
-  // Use UTC noon to avoid timezone shifts when constructing the date
-  const dt = new Date(Date.UTC(y, mo - 1, d, 12));
-  return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).format(dt);
-};
+import type { Task } from './types/task';
+import { isValidTaskArray, isStorageWrapper } from './types/task';
+import type { StorageWrapper } from './types/task';
+import {
+  getTodayString,
+  getYesterdayString,
+  getRolloverLabel,
+  defaultTimeForBlock,
+  filterTasksBySearch,
+  groupTasksByDate,
+} from './utils/taskUtils';
+import DateGroupHeader from './components/DateGroupHeader';
+import AllTasksFilterBar from './components/AllTasksFilterBar';
 
 const ProgressRing = ({ percentage, completed, total }: { percentage: number, completed: number, total: number }) => {
   const radius = 88;
@@ -167,12 +102,17 @@ const TaskCard = ({
           {priority === 'medium' && <div className="w-2 h-2 flex-shrink-0 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]" title="Medium Priority"></div>}
           {priority === 'low' && <div className="w-2 h-2 flex-shrink-0 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" title="Low Priority"></div>}
         </div>
-        <div className="flex items-center gap-2 mt-1">
+        <div className="flex items-center gap-2 mt-1 flex-wrap">
           <span className={`text-xs flex items-center gap-1 ${active ? 'text-primary font-medium' : 'text-text-secondary'}`}>
             <Clock size={14} /> {time}
           </span>
           <span className="w-1 h-1 rounded-full bg-text-secondary"></span>
           <span className="text-xs text-text-secondary">{duration}</span>
+          {task.rolledOverFrom && !completed && (
+            <span className="flex items-center gap-1 text-[10px] font-medium text-amber-400/80 bg-amber-400/10 px-1.5 py-0.5 rounded-full leading-tight">
+              ↩ {getRolloverLabel(task.rolledOverFrom)}
+            </span>
+          )}
         </div>
       </div>
 
@@ -726,12 +666,6 @@ export default function App() {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const defaultTimeForBlock = (block: Task['timeBlock']): string => {
-    if (block === 'morning') return '09:00';
-    if (block === 'afternoon') return '14:00';
-    return '18:00';
-  };
-
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -868,12 +802,7 @@ export default function App() {
 
   // Derived state
   const today = getTodayString();
-
-  const filteredTasks = tasks.filter(t => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    return t.title.toLowerCase().includes(query) || (t.description && t.description.toLowerCase().includes(query));
-  });
+  const filteredTasks = filterTasksBySearch(tasks, searchQuery);
 
   // Today tab: only tasks dated today
   const todayTasks = filteredTasks.filter(t => t.date === today);
@@ -897,26 +826,11 @@ export default function App() {
     return allDateFilter; // specific YYYY-MM-DD
   })();
 
-  // Apply search + date filter to all tasks
+  // Apply search + date filter, then group by date
   const allFilteredTasks = filteredTasks.filter(t =>
     resolvedDateFilter === null || t.date === resolvedDateFilter
   );
-
-  // Group tasks by date, newest date first, time ascending within group
-  const allTaskGroups: Array<{ date: string; tasks: Task[] }> = (() => {
-    const map = new Map<string, Task[]>();
-    for (const t of allFilteredTasks) {
-      const key = t.date ?? today;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(t);
-    }
-    return Array.from(map.entries())
-      .sort(([a], [b]) => (a < b ? 1 : a > b ? -1 : 0))
-      .map(([date, tasks]) => ({
-        date,
-        tasks: [...tasks].sort((a, b) => a.time.localeCompare(b.time)),
-      }));
-  })();
+  const allTaskGroups = groupTasksByDate(allFilteredTasks, today);
 
   return (
     <div className="bg-background-dark font-display text-slate-100 min-h-screen flex flex-col overflow-hidden relative selection:bg-primary selection:text-white">
@@ -1003,62 +917,49 @@ export default function App() {
             )}
           </div>
         ) : activeTab === 'all' ? (
-          <div className="flex flex-col gap-6">
-            {/* Date filter bar */}
-            <div className="flex flex-wrap items-center gap-2 pt-2">
-              {(['all', 'today', 'yesterday'] as const).map(f => (
-                <button
-                  key={f}
-                  onClick={() => { setAllDateFilter(f); setAllDatePicker(''); }}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${allDateFilter === f
-                      ? 'bg-primary text-white border-primary shadow-[0_0_10px_rgba(19,91,236,0.35)]'
-                      : 'bg-[#1e273b] text-text-secondary border-[#232f48] hover:border-primary/50'
-                    }`}
-                >
-                  {f === 'all' ? 'All' : f === 'today' ? 'Today' : 'Yesterday'}
-                </button>
-              ))}
-              <input
-                type="date"
-                value={allDatePicker}
-                onChange={e => {
-                  const v = e.target.value;
-                  setAllDatePicker(v);
-                  setAllDateFilter(v || 'all');
-                }}
-                className="bg-[#1e273b] text-text-secondary border border-[#232f48] hover:border-primary/50 rounded-full px-3 py-1.5 text-xs font-semibold outline-none [color-scheme:dark] cursor-pointer transition-all"
-              />
-              {allDateFilter !== 'all' && (
-                <button
-                  onClick={() => { setAllDateFilter('all'); setAllDatePicker(''); }}
-                  className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#1e273b] text-text-secondary border border-[#232f48] hover:border-red-400/50 hover:text-red-400 transition-all"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
+          <div className="flex flex-col gap-2">
+            <AllTasksFilterBar
+              allDateFilter={allDateFilter}
+              setAllDateFilter={setAllDateFilter}
+              allDatePicker={allDatePicker}
+              setAllDatePicker={setAllDatePicker}
+            />
 
             {/* Task groups */}
             {allTaskGroups.length > 0 ? (
-              allTaskGroups.map(group => (
-                <div key={group.date} className="flex flex-col gap-3">
-                  {/* Date header */}
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-1 rounded-full bg-primary/60 shadow-[0_0_8px_rgba(19,91,236,0.4)]" />
-                    <div>
-                      <h2 className="text-base font-semibold text-white">{formatDateLabel(group.date)}</h2>
-                      <p className="text-xs text-text-secondary">{group.tasks.length} task{group.tasks.length !== 1 ? 's' : ''}</p>
+              <div className="flex flex-col mt-2">
+                {allTaskGroups.map((group, idx) => (
+                  <div
+                    key={group.date}
+                    className={`flex flex-col gap-3 py-5 ${idx < allTaskGroups.length - 1
+                      ? 'border-b border-[#1e273b]'
+                      : ''
+                      }`}
+                  >
+                    <DateGroupHeader date={group.date} count={group.tasks.length} />
+                    {/* Task cards */}
+                    <div className="flex flex-col gap-3">
+                      {group.tasks.map(t => (
+                        <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} />
+                      ))}
                     </div>
                   </div>
-                  {group.tasks.map(t => (
-                    <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} />
-                  ))}
-                </div>
-              ))
+                ))}
+              </div>
             ) : (
-              <div className="text-center py-12 text-text-secondary mt-10">
-                <List size={48} className="mx-auto mb-4 opacity-30" />
-                <p>No tasks found{allDateFilter !== 'all' ? ' for this date' : ''}.</p>
+              <div className="flex flex-col items-center justify-center text-center py-16 mt-6 gap-3">
+                <List size={44} className="text-text-secondary opacity-40" />
+                {allDateFilter !== 'all' ? (
+                  <>
+                    <p className="text-white font-semibold">No tasks on this date</p>
+                    <p className="text-text-secondary text-sm">Try a different date or clear the filter.</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-white font-semibold">No tasks yet</p>
+                    <p className="text-text-secondary text-sm">Add your first task using the + button.</p>
+                  </>
+                )}
               </div>
             )}
           </div>
