@@ -4,7 +4,7 @@ import { useAuth } from './hooks/useAuth';
 import LoginPage from './components/LoginPage';
 
 
-import type { Task } from './types/task';
+import type { Task, ChecklistItem, Recurrence } from './types/task';
 import { isValidTaskArray, isStorageWrapper } from './types/task';
 import type { StorageWrapper } from './types/task';
 import {
@@ -14,6 +14,7 @@ import {
   defaultTimeForBlock,
   filterTasksBySearch,
   groupTasksByDate,
+  nextRecurrenceDate,
 } from './utils/taskUtils';
 import DateGroupHeader from './components/DateGroupHeader';
 import AllTasksFilterBar from './components/AllTasksFilterBar';
@@ -65,6 +66,7 @@ interface TaskCardProps {
   onToggleComplete: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: (task: Task) => void;
+  onToggleChecklistItem: (taskId: string, itemId: string) => void;
   key?: React.Key;
 }
 
@@ -72,58 +74,118 @@ const TaskCard = ({
   task,
   onToggleComplete,
   onDelete,
-  onEdit
+  onEdit,
+  onToggleChecklistItem,
 }: TaskCardProps) => {
   const { id, title, time, duration, completed, priority } = task;
-  // A task is 'active' visually if it is the closest upcoming relative to current time, but for now we'll just not make any task arbitrarily active.
   const active = false;
+
+  const hasChecklist = task.checklistItems && task.checklistItems.length > 0;
+  const checklistDone = hasChecklist ? task.checklistItems!.filter(i => i.completed).length : 0;
+  const checklistTotal = hasChecklist ? task.checklistItems!.length : 0;
+  const hasNotes = !!task.notes && task.notes.trim().length > 0;
 
   return (
     <div
       onDoubleClick={() => onEdit(task)}
-      className={`group flex items-center p-4 bg-card-dark rounded-xl transition-all duration-300 relative overflow-hidden ${active ? 'border-l-4 border-l-primary border-y border-r border-y-[#232f48] border-r-[#232f48] shadow-lg hover:shadow-primary/10' : 'border border-[#232f48] hover:border-primary/50'
-        }`}>
+      className={`group flex flex-col p-4 bg-card-dark rounded-xl transition-all duration-300 relative overflow-hidden ${
+        active
+          ? 'border-l-4 border-l-primary border-y border-r border-y-[#232f48] border-r-[#232f48] shadow-lg hover:shadow-primary/10'
+          : 'border border-[#232f48] hover:border-primary/50'
+      }`}
+    >
       {active && <div className="absolute inset-0 bg-primary/5 pointer-events-none"></div>}
 
-      <button
-        onClick={() => onToggleComplete(id)}
-        className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center mr-4 transition-colors ${completed ? 'bg-primary text-white' : active ? 'border-2 border-primary hover:bg-primary/20' : 'border-2 border-text-secondary hover:border-primary'
+      {/* Top row: checkbox + title + meta + actions */}
+      <div className="flex items-center">
+        <button
+          onClick={() => onToggleComplete(id)}
+          className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center mr-4 transition-colors ${
+            completed
+              ? 'bg-primary text-white'
+              : active
+              ? 'border-2 border-primary hover:bg-primary/20'
+              : 'border-2 border-text-secondary hover:border-primary'
           }`}
-      >
-        {completed && <Check size={16} strokeWidth={3} />}
-      </button>
+        >
+          {completed && <Check size={16} strokeWidth={3} />}
+        </button>
 
-      <div className={`flex-1 min-w-0 ${completed ? 'opacity-50' : ''}`}>
-        <div className="flex items-center justify-between">
-          <h3 className={`font-semibold text-white truncate ${completed ? 'line-through decoration-slate-500 font-medium' : ''}`}>
-            {title}
-          </h3>
-          {priority === 'high' && <div className="w-2 h-2 flex-shrink-0 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" title="High Priority"></div>}
-          {priority === 'medium' && <div className="w-2 h-2 flex-shrink-0 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]" title="Medium Priority"></div>}
-          {priority === 'low' && <div className="w-2 h-2 flex-shrink-0 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" title="Low Priority"></div>}
-        </div>
-        <div className="flex items-center gap-2 mt-1 flex-wrap">
-          <span className={`text-xs flex items-center gap-1 ${active ? 'text-primary font-medium' : 'text-text-secondary'}`}>
-            <Clock size={14} /> {time}
-          </span>
-          <span className="w-1 h-1 rounded-full bg-text-secondary"></span>
-          <span className="text-xs text-text-secondary">{duration}</span>
-          {task.rolledOverFrom && !completed && (
-            <span className="flex items-center gap-1 text-[10px] font-medium text-amber-400/80 bg-amber-400/10 px-1.5 py-0.5 rounded-full leading-tight">
-              ↩ {getRolloverLabel(task.rolledOverFrom)}
+        <div className={`flex-1 min-w-0 ${completed ? 'opacity-50' : ''}`}>
+          <div className="flex items-center justify-between">
+            <h3 className={`font-semibold text-white truncate ${completed ? 'line-through decoration-slate-500 font-medium' : ''}`}>
+              {title}
+            </h3>
+            {priority === 'high' && <div className="w-2 h-2 flex-shrink-0 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" title="High Priority"></div>}
+            {priority === 'medium' && <div className="w-2 h-2 flex-shrink-0 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]" title="Medium Priority"></div>}
+            {priority === 'low' && <div className="w-2 h-2 flex-shrink-0 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" title="Low Priority"></div>}
+          </div>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <span className={`text-xs flex items-center gap-1 ${active ? 'text-primary font-medium' : 'text-text-secondary'}`}>
+              <Clock size={14} /> {time}
             </span>
-          )}
+            <span className="w-1 h-1 rounded-full bg-text-secondary"></span>
+            <span className="text-xs text-text-secondary">{duration}</span>
+            {task.rolledOverFrom && !completed && (
+              <span className="flex items-center gap-1 text-[10px] font-medium text-amber-400/80 bg-amber-400/10 px-1.5 py-0.5 rounded-full leading-tight">
+                ↩ {getRolloverLabel(task.rolledOverFrom)}
+              </span>
+            )}
+            {hasChecklist && (
+              <span className="flex items-center gap-1 text-[10px] font-medium text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded-full leading-tight">
+                ☑ {checklistDone}/{checklistTotal}
+              </span>
+            )}
+            {task.recurrence && task.recurrence !== 'none' && (
+              <span className="flex items-center gap-1 text-[10px] font-medium text-violet-400/80 bg-violet-400/10 px-1.5 py-0.5 rounded-full leading-tight">
+                🔁
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-shrink-0 ml-3 gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+          <button onClick={(e) => { e.stopPropagation(); onEdit(task); }} className="text-text-secondary hover:text-blue-400 transition-colors p-1">
+            <Pencil size={20} />
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); onDelete(id); }} className="text-text-secondary hover:text-red-400 transition-colors p-1">
+            <Trash2 size={20} />
+          </button>
         </div>
       </div>
 
-      <div className="flex flex-shrink-0 ml-3 gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-        <button onClick={(e) => { e.stopPropagation(); onEdit(task); }} className="text-text-secondary hover:text-blue-400 transition-colors p-1">
-          <Pencil size={20} />
-        </button>
-        <button onClick={(e) => { e.stopPropagation(); onDelete(id); }} className="text-text-secondary hover:text-red-400 transition-colors p-1">
-          <Trash2 size={20} />
-        </button>
-      </div>
+      {/* Checklist items */}
+      {hasChecklist && (
+        <div className={`mt-3 ml-10 flex flex-col gap-1.5 ${completed ? 'opacity-50' : ''}`}>
+          {task.checklistItems!.map(item => (
+            <button
+              key={item.id}
+              onClick={(e) => { e.stopPropagation(); onToggleChecklistItem(id, item.id); }}
+              className="flex items-center gap-2.5 text-left group/item"
+            >
+              <div className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                item.completed
+                  ? 'bg-primary/80 border-primary'
+                  : 'border-[#384666] group-hover/item:border-primary/60'
+              }`}>
+                {item.completed && <Check size={10} strokeWidth={3} className="text-white" />}
+              </div>
+              <span className={`text-[13px] leading-snug ${
+                item.completed ? 'line-through text-text-secondary' : 'text-slate-300'
+              }`}>
+                {item.text}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Notes */}
+      {hasNotes && (
+        <p className={`mt-3 ml-10 text-[13px] leading-relaxed text-text-secondary whitespace-pre-wrap ${completed ? 'opacity-50' : ''}`}>
+          {task.notes}
+        </p>
+      )}
     </div>
   );
 };
@@ -160,44 +222,72 @@ const NewTaskModal = ({
 }) => {
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
+  const [newChecklistText, setNewChecklistText] = useState('');
   const [selectedTime, setSelectedTime] = useState('14:00');
   const [selectedDuration, setSelectedDuration] = useState('30m');
   const [selectedTimeBlock, setSelectedTimeBlock] = useState('Afternoon');
   const [isReminderEnabled, setIsReminderEnabled] = useState(true);
   const [selectedPriority, setSelectedPriority] = useState('Medium');
+  const [selectedRecurrence, setSelectedRecurrence] = useState<Recurrence>('none');
 
   useEffect(() => {
     if (isOpen) {
       if (taskToEdit) {
         setTitle(taskToEdit.title);
-        setNotes(taskToEdit.description || '');
+        setNotes(taskToEdit.notes || taskToEdit.description || '');
+        setChecklistItems(taskToEdit.checklistItems ? [...taskToEdit.checklistItems] : []);
+        setNewChecklistText('');
         setSelectedTime(taskToEdit.time);
         setSelectedDuration(taskToEdit.duration);
         setSelectedTimeBlock(taskToEdit.timeBlock.charAt(0).toUpperCase() + taskToEdit.timeBlock.slice(1));
         setSelectedPriority(taskToEdit.priority.charAt(0).toUpperCase() + taskToEdit.priority.slice(1));
+        setSelectedRecurrence(taskToEdit.recurrence ?? 'none');
         setIsReminderEnabled(false);
       } else {
         setTitle('');
         setNotes('');
+        setChecklistItems([]);
+        setNewChecklistText('');
         setSelectedTime('14:00');
         setSelectedDuration('30m');
         setSelectedTimeBlock('Afternoon');
         setIsReminderEnabled(true);
         setSelectedPriority('Medium');
+        setSelectedRecurrence('none');
       }
     }
   }, [isOpen, taskToEdit]);
+
+  const addChecklistItem = () => {
+    const text = newChecklistText.trim();
+    if (!text) return;
+    const item: ChecklistItem = { id: Math.random().toString(36).substr(2, 9), text, completed: false };
+    setChecklistItems(prev => [...prev, item]);
+    setNewChecklistText('');
+  };
+
+  const removeChecklistItem = (id: string) => {
+    setChecklistItems(prev => prev.filter(i => i.id !== id));
+  };
+
+  const handleChecklistKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') { e.preventDefault(); addChecklistItem(); }
+  };
 
   const handleSaveClick = () => {
     if (!title.trim()) return; // Don't save empty tasks
 
     onSave({
       title: title.trim(),
-      description: notes.trim(),
+      description: notes.trim(), // keep for backwards compat
+      notes: notes.trim(),
+      checklistItems: checklistItems.length > 0 ? checklistItems : undefined,
       time: selectedTime,
       duration: selectedDuration,
       timeBlock: selectedTimeBlock.toLowerCase() as Task['timeBlock'],
-      priority: selectedPriority.toLowerCase() as Task['priority']
+      priority: selectedPriority.toLowerCase() as Task['priority'],
+      recurrence: selectedRecurrence,
     }, isReminderEnabled);
 
     onClose();
@@ -229,15 +319,58 @@ const NewTaskModal = ({
             className="w-full bg-transparent text-white text-[22px] font-semibold placeholder:text-[#384666] focus:outline-none mb-4"
           />
           <div className="w-full h-[1px] bg-[#232f48] mb-4" />
-          <div className="flex items-center justify-between">
-            <input
-              type="text"
+          <div className="flex items-start gap-2">
+            <Menu className="text-text-secondary w-5 h-5 mt-1 flex-shrink-0" />
+            <textarea
+              rows={2}
               placeholder="Add notes..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full bg-transparent text-text-secondary placeholder:text-text-secondary/60 focus:outline-none text-[15px]"
+              className="w-full bg-transparent text-text-secondary placeholder:text-text-secondary/60 focus:outline-none text-[15px] resize-none leading-relaxed"
             />
-            <Menu className="text-text-secondary w-5 h-5 ml-2 flex-shrink-0" />
+          </div>
+        </div>
+
+        {/* Checklist section */}
+        <div className="mb-8">
+          <h3 className="text-text-secondary text-xs font-semibold tracking-wider mb-3">CHECKLIST</h3>
+          {checklistItems.length > 0 && (
+            <div className="flex flex-col gap-2 mb-3">
+              {checklistItems.map(item => (
+                <div key={item.id} className="flex items-center gap-3 bg-[#1e273b] rounded-2xl px-4 py-3">
+                  <div className="flex-shrink-0 w-4 h-4 rounded border border-[#384666] flex items-center justify-center">
+                    {item.completed && <Check size={10} strokeWidth={3} className="text-primary" />}
+                  </div>
+                  <span className="flex-1 text-[14px] text-slate-300">{item.text}</span>
+                  <button
+                    onClick={() => removeChecklistItem(item.id)}
+                    className="text-text-secondary hover:text-red-400 transition-colors flex-shrink-0 p-0.5"
+                    aria-label="Remove item"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex items-center gap-2 bg-[#1e273b] rounded-2xl px-4 py-3 border border-[#232f48]/50">
+            <Plus size={16} className="text-text-secondary flex-shrink-0" />
+            <input
+              type="text"
+              placeholder="Add checklist item..."
+              value={newChecklistText}
+              onChange={(e) => setNewChecklistText(e.target.value)}
+              onKeyDown={handleChecklistKeyDown}
+              className="flex-1 bg-transparent text-[14px] text-white placeholder:text-text-secondary/60 focus:outline-none"
+            />
+            {newChecklistText.trim() && (
+              <button
+                onClick={addChecklistItem}
+                className="text-primary text-[13px] font-semibold active:opacity-70 transition-opacity flex-shrink-0"
+              >
+                Add
+              </button>
+            )}
           </div>
         </div>
 
@@ -326,6 +459,33 @@ const NewTaskModal = ({
               </div>
             </div>
           </button>
+        </div>
+
+        {/* ─── Recurrence ──────────────────────────────────────── */}
+        <div className="mb-10">
+          <h3 className="text-text-secondary text-xs font-semibold tracking-wider mb-3">WIEDERHOLUNG</h3>
+          <div className="flex flex-col gap-2">
+            {([
+              { value: 'none',      label: 'Wiederholt sich nicht' },
+              { value: 'daily',     label: 'Täglich' },
+              { value: 'every2days',label: 'Alle 2 Tage' },
+              { value: 'weekly',    label: 'Wöchentlich' },
+              { value: 'monthly',   label: 'Monatlich' },
+            ] as { value: Recurrence; label: string }[]).map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setSelectedRecurrence(opt.value)}
+                className={`w-full py-3 px-4 rounded-2xl font-medium text-[15px] text-left transition-all border ${
+                  selectedRecurrence === opt.value
+                    ? 'bg-violet-500/20 border-violet-500/60 text-violet-300'
+                    : 'bg-[#1e273b] border-transparent text-text-secondary hover:bg-[#232f48]'
+                }`}
+              >
+                {selectedRecurrence === opt.value && <span className="mr-2">🔁</span>}
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="mb-10">
@@ -701,7 +861,60 @@ function AppInner({ logout }: { logout: () => void }) {
   };
 
   const toggleTaskStatus = (id: string) => {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
+    setTasks(prev => {
+      const target = prev.find(t => t.id === id);
+      if (!target) return prev;
+
+      const nowCompleted = !target.completed;
+      const updated = prev.map(t => t.id === id ? { ...t, completed: nowCompleted } : t);
+
+      // ── Completion-triggered recurrence generation ──────────────────────────
+      if (
+        nowCompleted &&
+        target.recurrence &&
+        target.recurrence !== 'none'
+      ) {
+        // Dedup: if any task already has recurrenceSourceId === target.id, skip
+        const alreadySpawned = updated.some(t => t.recurrenceSourceId === target.id);
+        if (!alreadySpawned) {
+          const nextDate = nextRecurrenceDate(target.date, target.recurrence);
+          const nextTask: Task = {
+            id: Math.random().toString(36).substr(2, 9),
+            createdAt: new Date().toISOString(),
+            completed: false,
+            date: nextDate,
+            title: target.title,
+            description: target.description,
+            notes: target.notes,
+            time: target.time,
+            duration: target.duration,
+            timeBlock: target.timeBlock,
+            priority: target.priority,
+            recurrence: target.recurrence,
+            recurrenceSourceId: target.id,
+            // Reset checklist items — keep text, clear completion
+            checklistItems: target.checklistItems
+              ? target.checklistItems.map(ci => ({ ...ci, completed: false }))
+              : undefined,
+          };
+          return [...updated, nextTask];
+        }
+      }
+
+      return updated;
+    });
+  };
+
+  const toggleChecklistItem = (taskId: string, itemId: string) => {
+    setTasks(prev => prev.map(t => {
+      if (t.id !== taskId || !t.checklistItems) return t;
+      return {
+        ...t,
+        checklistItems: t.checklistItems.map(ci =>
+          ci.id === itemId ? { ...ci, completed: !ci.completed } : ci
+        ),
+      };
+    }));
   };
 
   const deleteTask = (id: string) => {
@@ -812,13 +1025,13 @@ function AppInner({ logout }: { logout: () => void }) {
         {activeTab === 'today' ? (
           <div className="flex flex-col gap-8">
             <TaskSection title="Morning" timeRange="06:00 - 12:00" colorClass="bg-blue-400" shadowClass="shadow-[0_0_10px_rgba(96,165,250,0.5)]">
-              {morningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} />)}
+              {morningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} />)}
             </TaskSection>
             <TaskSection title="Afternoon" timeRange="12:00 - 18:00" colorClass="bg-orange-400" shadowClass="shadow-[0_0_10px_rgba(251,146,60,0.5)]">
-              {afternoonTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} />)}
+              {afternoonTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} />)}
             </TaskSection>
             <TaskSection title="Evening" timeRange="18:00 - 23:00" colorClass="bg-indigo-400" shadowClass="shadow-[0_0_10px_rgba(129,140,248,0.5)]">
-              {eveningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} />)}
+              {eveningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} />)}
             </TaskSection>
 
             {pendingTasks.length === 0 && (
@@ -852,7 +1065,7 @@ function AppInner({ logout }: { logout: () => void }) {
                     {/* Task cards */}
                     <div className="flex flex-col gap-3">
                       {group.tasks.map(t => (
-                        <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} />
+                        <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} />
                       ))}
                     </div>
                   </div>
@@ -879,7 +1092,7 @@ function AppInner({ logout }: { logout: () => void }) {
           <div className="flex flex-col gap-8">
             {doneTasks.length > 0 ? (
               <TaskSection title="Completed Tasks" colorClass="bg-emerald-400" shadowClass="shadow-[0_0_10px_rgba(52,211,153,0.5)]">
-                {doneTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} />)}
+                {doneTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} />)}
               </TaskSection>
             ) : (
               <div className="text-center py-12 text-text-secondary mt-10">

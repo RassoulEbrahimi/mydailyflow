@@ -1,5 +1,6 @@
 // ─── Pure task utility helpers ────────────────────────────────────────────────
 import type { Task } from '../types/task';
+import type { Recurrence } from '../types/task';
 
 // Returns the current local date as YYYY-MM-DD.
 export const getTodayString = (): string => {
@@ -71,4 +72,36 @@ export const groupTasksByDate = (
             date,
             tasks: [...group].sort((a, b) => a.time.localeCompare(b.time)),
         }));
+};
+
+// ─── Recurrence helper ────────────────────────────────────────────────────────
+
+// Given a base date string (YYYY-MM-DD) and a recurrence rule, returns the
+// next occurrence date as a YYYY-MM-DD string.
+export const nextRecurrenceDate = (baseDate: string, recurrence: Recurrence): string => {
+    const [y, mo, d] = baseDate.split('-').map(Number);
+    // Use local noon to avoid DST edge cases
+    const date = new Date(y, mo - 1, d, 12, 0, 0);
+
+    switch (recurrence) {
+        case 'daily':
+            date.setDate(date.getDate() + 1);
+            break;
+        case 'every2days':
+            date.setDate(date.getDate() + 2);
+            break;
+        case 'weekly':
+            date.setDate(date.getDate() + 7);
+            break;
+        case 'monthly':
+            date.setMonth(date.getMonth() + 1);
+            break;
+        default:
+            break; // 'none' — no change
+    }
+
+    const ny = date.getFullYear();
+    const nm = String(date.getMonth() + 1).padStart(2, '0');
+    const nd = String(date.getDate()).padStart(2, '0');
+    return `${ny}-${nm}-${nd}`;
 };
