@@ -46,6 +46,15 @@ export const defaultTimeForBlock = (block: Task['timeBlock']): string => {
     return '18:00';
 };
 
+// Derives the time block from a 24-hour time string "HH:MM".
+// morning: 06:00–11:59, afternoon: 12:00–17:59, evening: 18:00–23:59 (+ 00:00–05:59 → evening).
+export const deriveTimeBlock = (time: string): Task['timeBlock'] => {
+    const [h] = time.split(':').map(Number);
+    if (h >= 6 && h < 12) return 'morning';
+    if (h >= 12 && h < 18) return 'afternoon';
+    return 'evening';
+};
+
 // Filters tasks by a search query (title or description, case-insensitive).
 export const filterTasksBySearch = (tasks: Task[], query: string): Task[] => {
     if (!query.trim()) return tasks;
