@@ -1,4 +1,4 @@
-import { Waves, Search, Bell, Check, Clock, Pencil, Plus, Sun, List, CheckCircle2, Menu, CloudSun, Moon, Trash2, Settings, LogOut } from 'lucide-react';
+import { Waves, Search, Bell, Check, Plus, Sun, List, CheckCircle2, Trash2, Settings, LogOut } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from './hooks/useAuth';
 import LoginPage from './components/LoginPage';
@@ -18,6 +18,7 @@ import {
 } from './utils/taskUtils';
 import DateGroupHeader from './components/DateGroupHeader';
 import AllTasksFilterBar from './components/AllTasksFilterBar';
+import TaskCard from './components/TaskCard';
 
 const ProgressRing = ({ percentage, completed, total }: { percentage: number, completed: number, total: number }) => {
   const radius = 88;
@@ -61,146 +62,17 @@ const ProgressRing = ({ percentage, completed, total }: { percentage: number, co
   );
 };
 
-interface TaskCardProps {
-  task: Task;
-  onToggleComplete: (id: string) => void;
-  onDelete: (id: string) => void;
-  onEdit: (task: Task) => void;
-  onToggleChecklistItem: (taskId: string, itemId: string) => void;
-  key?: React.Key;
-}
-
-const TaskCard = ({
-  task,
-  onToggleComplete,
-  onDelete,
-  onEdit,
-  onToggleChecklistItem,
-}: TaskCardProps) => {
-  const { id, title, time, duration, completed, priority } = task;
-  const active = false;
-
-  const hasChecklist = task.checklistItems && task.checklistItems.length > 0;
-  const checklistDone = hasChecklist ? task.checklistItems!.filter(i => i.completed).length : 0;
-  const checklistTotal = hasChecklist ? task.checklistItems!.length : 0;
-  const hasNotes = !!task.notes && task.notes.trim().length > 0;
-
-  return (
-    <div
-      onDoubleClick={() => onEdit(task)}
-      className={`group flex flex-col p-4 bg-card-dark rounded-xl transition-all duration-300 relative overflow-hidden ${
-        active
-          ? 'border-l-4 border-l-primary border-y border-r border-y-[#232f48] border-r-[#232f48] shadow-lg hover:shadow-primary/10'
-          : 'border border-[#232f48] hover:border-primary/50'
-      }`}
-    >
-      {active && <div className="absolute inset-0 bg-primary/5 pointer-events-none"></div>}
-
-      {/* Top row: checkbox + title + meta + actions */}
-      <div className="flex items-center">
-        <button
-          onClick={() => onToggleComplete(id)}
-          className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center mr-4 transition-colors ${
-            completed
-              ? 'bg-primary text-white'
-              : active
-              ? 'border-2 border-primary hover:bg-primary/20'
-              : 'border-2 border-text-secondary hover:border-primary'
-          }`}
-        >
-          {completed && <Check size={16} strokeWidth={3} />}
-        </button>
-
-        <div className={`flex-1 min-w-0 ${completed ? 'opacity-50' : ''}`}>
-          <div className="flex items-center justify-between">
-            <h3 className={`font-semibold text-white truncate ${completed ? 'line-through decoration-slate-500 font-medium' : ''}`}>
-              {title}
-            </h3>
-            {priority === 'high' && <div className="w-2 h-2 flex-shrink-0 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" title="High Priority"></div>}
-            {priority === 'medium' && <div className="w-2 h-2 flex-shrink-0 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]" title="Medium Priority"></div>}
-            {priority === 'low' && <div className="w-2 h-2 flex-shrink-0 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" title="Low Priority"></div>}
-          </div>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <span className={`text-xs flex items-center gap-1 ${active ? 'text-primary font-medium' : 'text-text-secondary'}`}>
-              <Clock size={14} /> {time}
-            </span>
-            <span className="w-1 h-1 rounded-full bg-text-secondary"></span>
-            <span className="text-xs text-text-secondary">{duration}</span>
-            {task.rolledOverFrom && !completed && (
-              <span className="flex items-center gap-1 text-[10px] font-medium text-amber-400/80 bg-amber-400/10 px-1.5 py-0.5 rounded-full leading-tight">
-                ↩ {getRolloverLabel(task.rolledOverFrom)}
-              </span>
-            )}
-            {hasChecklist && (
-              <span className="flex items-center gap-1 text-[10px] font-medium text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded-full leading-tight">
-                ☑ {checklistDone}/{checklistTotal}
-              </span>
-            )}
-            {task.recurrence && task.recurrence !== 'none' && (
-              <span className="flex items-center gap-1 text-[10px] font-medium text-violet-400/80 bg-violet-400/10 px-1.5 py-0.5 rounded-full leading-tight">
-                🔁
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-shrink-0 ml-3 gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-          <button onClick={(e) => { e.stopPropagation(); onEdit(task); }} className="text-text-secondary hover:text-blue-400 transition-colors p-1">
-            <Pencil size={20} />
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); onDelete(id); }} className="text-text-secondary hover:text-red-400 transition-colors p-1">
-            <Trash2 size={20} />
-          </button>
-        </div>
-      </div>
-
-      {/* Checklist items */}
-      {hasChecklist && (
-        <div className={`mt-3 ml-10 flex flex-col gap-1.5 ${completed ? 'opacity-50' : ''}`}>
-          {task.checklistItems!.map(item => (
-            <button
-              key={item.id}
-              onClick={(e) => { e.stopPropagation(); onToggleChecklistItem(id, item.id); }}
-              className="flex items-center gap-2.5 text-left group/item"
-            >
-              <div className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors ${
-                item.completed
-                  ? 'bg-primary/80 border-primary'
-                  : 'border-[#384666] group-hover/item:border-primary/60'
-              }`}>
-                {item.completed && <Check size={10} strokeWidth={3} className="text-white" />}
-              </div>
-              <span className={`text-[13px] leading-snug ${
-                item.completed ? 'line-through text-text-secondary' : 'text-slate-300'
-              }`}>
-                {item.text}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Notes */}
-      {hasNotes && (
-        <p className={`mt-3 ml-10 text-[13px] leading-relaxed text-text-secondary whitespace-pre-wrap ${completed ? 'opacity-50' : ''}`}>
-          {task.notes}
-        </p>
-      )}
-    </div>
-  );
-};
-
 const TaskSection = ({ title, timeRange, colorClass, shadowClass, children }: { title: string, timeRange?: string, colorClass: string, shadowClass: string, children: React.ReactNode }) => {
   return (
     <section>
-      <div className="flex items-center gap-3 mb-4">
-        <div className={`h-8 w-1 rounded-full ${colorClass} ${shadowClass}`}></div>
-        <div>
-          <h2 className="text-lg font-semibold text-white">{title}</h2>
-          {timeRange && <p className="text-xs text-text-secondary">{timeRange}</p>}
+      <div className="flex items-center gap-2.5 mb-3">
+        <div className={`h-7 w-[3px] rounded-full ${colorClass} ${shadowClass}`}></div>
+        <div className="flex items-baseline gap-2.5">
+          <h2 className="text-[16px] font-bold text-white tracking-tight">{title}</h2>
+          {timeRange && <span className="text-[11px] font-medium text-[#5a7299]">{timeRange}</span>}
         </div>
       </div>
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2.5">
         {children}
       </div>
     </section>
@@ -679,6 +551,8 @@ const SettingsModal = ({
 
 function AppInner({ logout }: { logout: () => void }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  /** ID of the task card currently swiped open — only one allowed at a time */
+  const [openSwipeId, setOpenSwipeId] = useState<string | null>(null);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -1048,14 +922,14 @@ function AppInner({ logout }: { logout: () => void }) {
 
         {activeTab === 'today' ? (
           <div className="flex flex-col gap-8">
-            <TaskSection title="Morning" timeRange="06:00 - 12:00" colorClass="bg-blue-400" shadowClass="shadow-[0_0_10px_rgba(96,165,250,0.5)]">
-              {morningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} />)}
+            <TaskSection title="Morning" timeRange="06:00 – 12:00" colorClass="bg-blue-400" shadowClass="shadow-[0_0_10px_rgba(96,165,250,0.5)]">
+              {morningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} />)}
             </TaskSection>
-            <TaskSection title="Afternoon" timeRange="12:00 - 18:00" colorClass="bg-orange-400" shadowClass="shadow-[0_0_10px_rgba(251,146,60,0.5)]">
-              {afternoonTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} />)}
+            <TaskSection title="Afternoon" timeRange="12:00 – 18:00" colorClass="bg-orange-400" shadowClass="shadow-[0_0_10px_rgba(251,146,60,0.5)]">
+              {afternoonTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} />)}
             </TaskSection>
-            <TaskSection title="Evening" timeRange="18:00 - 23:00" colorClass="bg-indigo-400" shadowClass="shadow-[0_0_10px_rgba(129,140,248,0.5)]">
-              {eveningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} />)}
+            <TaskSection title="Evening" timeRange="18:00 – 23:00" colorClass="bg-indigo-400" shadowClass="shadow-[0_0_10px_rgba(129,140,248,0.5)]">
+              {eveningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} />)}
             </TaskSection>
 
             {pendingTasks.length === 0 && (
@@ -1087,9 +961,9 @@ function AppInner({ logout }: { logout: () => void }) {
                   >
                     <DateGroupHeader date={group.date} count={group.tasks.length} />
                     {/* Task cards */}
-                    <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-2.5">
                       {group.tasks.map(t => (
-                        <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} />
+                        <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} />
                       ))}
                     </div>
                   </div>
@@ -1116,7 +990,7 @@ function AppInner({ logout }: { logout: () => void }) {
           <div className="flex flex-col gap-8">
             {doneTasks.length > 0 ? (
               <TaskSection title="Completed Tasks" colorClass="bg-emerald-400" shadowClass="shadow-[0_0_10px_rgba(52,211,153,0.5)]">
-                {doneTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} />)}
+                {doneTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} />)}
               </TaskSection>
             ) : (
               <div className="text-center py-12 text-text-secondary mt-10">
@@ -1131,48 +1005,69 @@ function AppInner({ logout }: { logout: () => void }) {
       {/* Floating Action Button */}
       <button
         onClick={openNewTaskModal}
-        className="fixed bottom-24 right-5 h-14 w-14 bg-primary text-white rounded-full shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-105 transition-transform z-20"
+        className="fixed bottom-[5.5rem] right-5 h-14 w-14 bg-primary text-white rounded-full shadow-[0_4px_20px_rgba(19,91,236,0.55)] flex items-center justify-center active:scale-95 hover:scale-105 transition-transform z-20"
+        aria-label="Add new task"
       >
-        <Plus size={32} />
+        <Plus size={28} strokeWidth={2.5} />
       </button>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 w-full bg-card-dark border-t border-[#232f48] px-4 pb-6 pt-3 z-10">
-        <div className="flex justify-between items-end">
+      <nav className="fixed bottom-0 left-0 w-full bg-[#0d1520]/95 backdrop-blur-md border-t border-[#1a2438] px-2 pb-safe pt-2 z-10" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}>
+        <div className="flex justify-around items-center">
+
+          {/* Today */}
           <button
             onClick={() => setActiveTab('today')}
-            className={`flex flex-col items-center gap-1 flex-1 transition-colors ${activeTab === 'today' ? 'text-primary' : 'text-text-secondary hover:text-white'}`}
+            className="flex flex-col items-center gap-1 flex-1 py-1 transition-colors"
           >
-            <div className={`${activeTab === 'today' ? 'bg-primary/10 w-12 h-8 rounded-full flex items-center justify-center' : ''}`}>
-              <Sun size={24} className={activeTab === 'today' ? 'fill-current' : ''} />
+            <div className={`flex items-center justify-center w-11 h-7 rounded-full transition-all ${
+              activeTab === 'today' ? 'bg-primary/15' : ''
+            }`}>
+              <Sun size={22} className={activeTab === 'today' ? 'text-primary' : 'text-[#4e6285]'} strokeWidth={activeTab === 'today' ? 2.5 : 2} />
             </div>
-            <span className="text-xs font-semibold">Today</span>
+            <span className={`text-[11px] font-semibold tracking-tight ${
+              activeTab === 'today' ? 'text-primary' : 'text-[#4e6285]'
+            }`}>Today</span>
           </button>
 
+          {/* All Tasks */}
           <button
             onClick={() => setActiveTab('all')}
-            className={`flex flex-col items-center gap-1 flex-1 transition-colors ${activeTab === 'all' ? 'text-primary' : 'text-text-secondary hover:text-white'}`}
+            className="flex flex-col items-center gap-1 flex-1 py-1 transition-colors"
           >
-            <div className={`${activeTab === 'all' ? 'bg-primary/10 w-12 h-8 rounded-full flex items-center justify-center' : ''}`}>
-              <List size={24} className={activeTab === 'all' ? 'fill-current' : 'group-hover:scale-110 transition-transform'} />
+            <div className={`flex items-center justify-center w-11 h-7 rounded-full transition-all ${
+              activeTab === 'all' ? 'bg-primary/15' : ''
+            }`}>
+              <List size={22} className={activeTab === 'all' ? 'text-primary' : 'text-[#4e6285]'} strokeWidth={activeTab === 'all' ? 2.5 : 2} />
             </div>
-            <span className="text-xs font-medium">All Tasks</span>
+            <span className={`text-[11px] font-semibold tracking-tight ${
+              activeTab === 'all' ? 'text-primary' : 'text-[#4e6285]'
+            }`}>All Tasks</span>
           </button>
 
-          <button className="flex flex-col items-center gap-1 flex-1 text-text-secondary hover:text-white transition-colors group">
-            <Bell size={24} className="group-hover:scale-110 transition-transform" />
-            <span className="text-xs font-medium">Reminders</span>
+          {/* Reminders (non-functional tab, keep stable) */}
+          <button className="flex flex-col items-center gap-1 flex-1 py-1 transition-colors">
+            <div className="flex items-center justify-center w-11 h-7">
+              <Bell size={22} className="text-[#4e6285]" strokeWidth={2} />
+            </div>
+            <span className="text-[11px] font-semibold tracking-tight text-[#4e6285]">Reminders</span>
           </button>
 
+          {/* Done */}
           <button
             onClick={() => setActiveTab('done')}
-            className={`flex flex-col items-center gap-1 flex-1 transition-colors ${activeTab === 'done' ? 'text-primary' : 'text-text-secondary hover:text-white'}`}
+            className="flex flex-col items-center gap-1 flex-1 py-1 transition-colors"
           >
-            <div className={`${activeTab === 'done' ? 'bg-primary/10 w-12 h-8 rounded-full flex items-center justify-center' : ''}`}>
-              <CheckCircle2 size={24} className={`group-hover:scale-110 transition-transform ${activeTab === 'done' ? 'fill-current' : ''}`} />
+            <div className={`flex items-center justify-center w-11 h-7 rounded-full transition-all ${
+              activeTab === 'done' ? 'bg-primary/15' : ''
+            }`}>
+              <CheckCircle2 size={22} className={activeTab === 'done' ? 'text-primary' : 'text-[#4e6285]'} strokeWidth={activeTab === 'done' ? 2.5 : 2} />
             </div>
-            <span className="text-xs font-medium">Done</span>
+            <span className={`text-[11px] font-semibold tracking-tight ${
+              activeTab === 'done' ? 'text-primary' : 'text-[#4e6285]'
+            }`}>Done</span>
           </button>
+
         </div>
       </nav>
 
