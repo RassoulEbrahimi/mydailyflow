@@ -19,6 +19,7 @@ import {
 import DateGroupHeader from './components/DateGroupHeader';
 import AllTasksFilterBar from './components/AllTasksFilterBar';
 import TaskCard from './components/TaskCard';
+import HomeHero from './components/HomeHero';
 
 const ProgressRing = ({ percentage, completed, total }: { percentage: number, completed: number, total: number }) => {
   const radius = 88;
@@ -426,6 +427,8 @@ interface SettingsModalProps {
   permission: NotificationPermission;
   onPermissionChange: (p: NotificationPermission) => void;
   onLogout: () => void;
+  stickyHeroEnabled: boolean;
+  onStickyHeroChange: (val: boolean) => void;
 }
 
 const SettingsModal = ({
@@ -436,6 +439,8 @@ const SettingsModal = ({
   permission,
   onPermissionChange,
   onLogout,
+  stickyHeroEnabled,
+  onStickyHeroChange,
 }: SettingsModalProps) => {
   const [requesting, setRequesting] = React.useState(false);
 
@@ -475,6 +480,27 @@ const SettingsModal = ({
         <div className="flex justify-between items-center mb-8 relative">
           <button onClick={onClose} className="text-text-secondary active:opacity-70 transition-opacity absolute left-0 text-[15px]">Close</button>
           <h2 className="text-white font-bold text-lg w-full text-center">Settings</h2>
+        </div>
+
+        {/* ── Home section ─────────────────────────────────────────────── */}
+        <div className="mb-6">
+          <h3 className="text-text-secondary text-xs font-semibold tracking-wider mb-3">HOME</h3>
+          <button
+            onClick={() => onStickyHeroChange(!stickyHeroEnabled)}
+            className="w-full bg-[#1e273b] p-4 px-5 rounded-[1.5rem] flex items-center justify-between border border-[#232f48]/50 active:scale-[0.98] transition-transform"
+          >
+            <div>
+              <span className="text-white font-semibold text-[16px]">Sticky header</span>
+              <p className="text-text-secondary text-[12px] mt-0.5">Keeps progress visible while scrolling</p>
+            </div>
+            <div className={`w-[52px] h-[30px] rounded-full relative transition-all duration-300 flex-shrink-0 ml-3 ${
+              stickyHeroEnabled ? 'bg-primary shadow-[0_0_12px_rgba(19,91,236,0.4)]' : 'bg-[#232f48]'
+            }`}>
+              <div className={`absolute top-[2px] w-[26px] h-[26px] bg-white rounded-full shadow-sm transition-transform duration-300 ${
+                stickyHeroEnabled ? 'right-1' : 'left-1'
+              }`} />
+            </div>
+          </button>
         </div>
 
         {/* Notification Permission Status */}
@@ -555,6 +581,15 @@ function AppInner({ logout }: { logout: () => void }) {
   const [openSwipeId, setOpenSwipeId] = useState<string | null>(null);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  /** Sticky hero header preference — default on */
+  const [stickyHeroEnabled, setStickyHeroEnabled] = useState<boolean>(
+    () => localStorage.getItem('stickyHeroEnabled') !== 'false'
+  );
+  /** Measured height of the app bar — used to position the fixed hero below it */
+  const headerRef = useRef<HTMLElement>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  /** Measured height of the hero panel itself — used to offset main content */
+  const [heroHeight, setHeroHeight] = useState(0);
 
   // ─── Service Worker update banner ──────────────────────────────────────────
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -608,6 +643,21 @@ function AppInner({ logout }: { logout: () => void }) {
   const [remindersEnabled, setRemindersEnabled] = useState<boolean>(() =>
     localStorage.getItem('remindersEnabled') === 'true'
   );
+
+  // Persist sticky hero preference
+  useEffect(() => {
+    localStorage.setItem('stickyHeroEnabled', String(stickyHeroEnabled));
+  }, [stickyHeroEnabled]);
+
+  // Measure app bar height so the fixed hero can be positioned just below it
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setHeaderHeight(el.getBoundingClientRect().height));
+    ro.observe(el);
+    setHeaderHeight(el.getBoundingClientRect().height);
+    return () => ro.disconnect();
+  }, []);
 
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     'Notification' in window ? Notification.permission : 'denied'
@@ -866,62 +916,81 @@ function AppInner({ logout }: { logout: () => void }) {
         </div>
       )}
 
-      {/* Header Section */}
-      <header className="flex-none px-5 pt-6 pb-2">
-        <div className="flex items-center justify-between mb-4">
-          {isSearchActive ? (
-            <div className="flex-1 flex items-center bg-[#1e273b] rounded-full px-4 py-2 mr-4 border border-[#232f48]/50 overflow-hidden">
-              <Search size={18} className="text-text-secondary mr-2 flex-shrink-0" />
-              <input
-                autoFocus
-                type="text"
-                placeholder="Search tasks..."
-                className="bg-transparent border-none outline-none text-white text-[15px] w-full placeholder:text-text-secondary"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <button onClick={() => { setIsSearchActive(false); setSearchQuery(''); }} className="text-text-secondary hover:text-white ml-2 flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/10">
-                ✕
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-primary">
-              <Waves size={28} strokeWidth={2.5} />
-              <span className="font-bold text-lg tracking-tight text-white">My Daily Flow</span>
-            </div>
-          )}
-          <div className="flex items-center gap-4 flex-shrink-0">
-            {!isSearchActive && (
-              <button onClick={() => setIsSearchActive(true)} className="text-text-secondary hover:text-white transition-colors">
-                <Search size={24} />
-              </button>
-            )}
+      {/* ── Top app bar: always visible, sits above everything ───────────── */}
+      <header ref={headerRef} className="flex-none px-5 pt-5 pb-2 flex items-center justify-between gap-3">
+        {/* Left: logo or search */}
+        {isSearchActive ? (
+          <div className="flex-1 flex items-center bg-[#1e273b] rounded-full px-4 py-2 border border-[#232f48]/50 overflow-hidden">
+            <Search size={18} className="text-text-secondary mr-2 flex-shrink-0" />
+            <input
+              autoFocus
+              type="text"
+              placeholder="Search tasks..."
+              className="bg-transparent border-none outline-none text-white text-[15px] w-full placeholder:text-text-secondary"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
             <button
-              onClick={() => {
-                setNotifPermission('Notification' in window ? Notification.permission : 'denied');
-                setIsSettingsOpen(true);
-              }}
-              className="text-text-secondary hover:text-white transition-colors"
-              title="Settings"
+              onClick={() => { setIsSearchActive(false); setSearchQuery(''); }}
+              className="text-text-secondary hover:text-white ml-2 flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/10"
             >
-              <Settings size={24} />
+              ✕
             </button>
           </div>
-        </div>
-        <div className="flex flex-col items-center justify-center text-center mt-2">
-          <p className="text-text-secondary text-sm font-medium uppercase tracking-wider">
-            {new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date())}
-          </p>
-          <h1 className="text-2xl font-bold mt-1 text-white">Good morning, SolariuS!</h1>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Waves size={24} strokeWidth={2.5} className="text-primary" />
+            <span className="font-bold text-[17px] tracking-tight text-white">My Daily Flow</span>
+          </div>
+        )}
+
+        {/* Right: search + settings icons */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {!isSearchActive && (
+            <button
+              onClick={() => setIsSearchActive(true)}
+              className="text-[#4e6285] hover:text-white transition-colors"
+              aria-label="Search"
+            >
+              <Search size={22} />
+            </button>
+          )}
+          <button
+            onClick={() => {
+              setNotifPermission('Notification' in window ? Notification.permission : 'denied');
+              setIsSettingsOpen(true);
+            }}
+            className="text-[#4e6285] hover:text-white transition-colors"
+            aria-label="Settings"
+          >
+            <Settings size={22} />
+          </button>
         </div>
       </header>
 
-      {/* Scrollable Content */}
-      <main className="flex-1 overflow-y-auto px-5 pb-24 custom-scrollbar">
-        <ProgressRing percentage={progressPercentage} completed={completedTasksCount} total={totalTasksCount} />
+      {/* Phase 2: Hero header — only shown on Today tab, sits outside scrollable area so sticky works */}
+      {activeTab === 'today' && (
+        <HomeHero
+          completed={completedTasksCount}
+          total={totalTasksCount}
+          percentage={progressPercentage}
+          stickyEnabled={stickyHeroEnabled}
+          topOffset={headerHeight}
+          onHeightChange={setHeroHeight}
+        />
+      )}
+
+      {/* Scrollable Content — when hero is fixed, paddingTop = header + hero height */}
+      <main
+        className="flex-1 overflow-y-auto pb-24 custom-scrollbar"
+        style={activeTab === 'today' && stickyHeroEnabled && headerHeight > 0
+          ? { paddingTop: headerHeight + heroHeight }
+          : undefined
+        }
+      >
 
         {activeTab === 'today' ? (
-          <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-8 px-5 pt-5">
             <TaskSection title="Morning" timeRange="06:00 – 12:00" colorClass="bg-blue-400" shadowClass="shadow-[0_0_10px_rgba(96,165,250,0.5)]">
               {morningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} />)}
             </TaskSection>
@@ -938,9 +1007,9 @@ function AppInner({ logout }: { logout: () => void }) {
                 <p>All tasks completed for today!</p>
               </div>
             )}
-          </div>
+            </div>
         ) : activeTab === 'all' ? (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 px-5">
             <AllTasksFilterBar
               allDateFilter={allDateFilter}
               setAllDateFilter={setAllDateFilter}
@@ -987,7 +1056,7 @@ function AppInner({ logout }: { logout: () => void }) {
             )}
           </div>
         ) : (
-          <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-8 px-5">
             {doneTasks.length > 0 ? (
               <TaskSection title="Completed Tasks" colorClass="bg-emerald-400" shadowClass="shadow-[0_0_10px_rgba(52,211,153,0.5)]">
                 {doneTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} />)}
@@ -1080,6 +1149,8 @@ function AppInner({ logout }: { logout: () => void }) {
         permission={notifPermission}
         onPermissionChange={setNotifPermission}
         onLogout={logout}
+        stickyHeroEnabled={stickyHeroEnabled}
+        onStickyHeroChange={setStickyHeroEnabled}
       />
     </div>
   );
