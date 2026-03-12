@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useLayoutEffect } from 'react';
+import React, { useMemo } from 'react';
 
 // ─── Time-aware greeting ───────────────────────────────────────────────────────
 function getGreeting(): string {
@@ -60,18 +60,8 @@ interface HomeHeroProps {
   completed: number;
   total: number;
   percentage: number;
-  /** Whether to pin the hero (position:fixed) while content scrolls */
+  /** Whether to pin the hero with CSS sticky while content scrolls */
   stickyEnabled: boolean;
-  /**
-   * Pixel distance from the top of the viewport to position the fixed hero.
-   * Should equal the measured height of the app bar above.
-   */
-  topOffset?: number;
-  /**
-   * Callback to report this hero panel's rendered height back to the parent
-   * so it can set correct paddingTop on the scrollable content area.
-   */
-  onHeightChange?: (height: number) => void;
   userName?: string;
 }
 
@@ -80,8 +70,6 @@ const HomeHero = ({
   total,
   percentage,
   stickyEnabled,
-  topOffset = 0,
-  onHeightChange,
   userName = 'SolariuS',
 }: HomeHeroProps) => {
   const greeting = useMemo(() => getGreeting(), []);
@@ -90,23 +78,8 @@ const HomeHero = ({
     [],
   );
 
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  // Report panel height whenever it changes (initial render + any resize)
-  useLayoutEffect(() => {
-    if (!onHeightChange || !panelRef.current) return;
-    const ro = new ResizeObserver(() => {
-      if (panelRef.current) onHeightChange(panelRef.current.getBoundingClientRect().height);
-    });
-    ro.observe(panelRef.current);
-    onHeightChange(panelRef.current.getBoundingClientRect().height);
-    return () => ro.disconnect();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const panel = (
     <div
-      ref={panelRef}
       className="relative overflow-hidden rounded-b-[2rem] px-5 pt-5 pb-5"
       style={{
         background: 'linear-gradient(155deg, #1a2644 0%, #111827 60%, #0f1622 100%)',
@@ -133,11 +106,12 @@ const HomeHero = ({
   );
 
   if (stickyEnabled) {
+    // Sticky container: sticks to top: 0 once the header above it has scrolled out of view.
+    // No fixed offset needed — the header is a sibling above us in the scroll container.
     return (
-      // Fixed container: pinned just below the app bar (topOffset from parent measurement)
       <div
         className="left-0 right-0 z-20"
-        style={{ position: 'fixed', top: topOffset }}
+        style={{ position: 'sticky', top: 0 }}
       >
         {panel}
       </div>
