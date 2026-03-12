@@ -889,7 +889,7 @@ function AppInner({ logout }: { logout: () => void }) {
   const allTaskGroups = groupTasksByDate(allFilteredTasks, today);
 
   return (
-    <div className="bg-background-dark font-display text-slate-100 min-h-screen flex flex-col overflow-hidden relative selection:bg-primary selection:text-white">
+    <div className="bg-background-dark font-display text-slate-100 h-screen flex flex-col overflow-hidden relative selection:bg-primary selection:text-white">
       {/* SW Update Banner */}
       {updateAvailable && (
         <div className="fixed top-0 left-0 right-0 z-[60] flex items-center justify-between gap-3 px-4 py-3 bg-[#1e273b] border-b border-primary/40 shadow-lg">
