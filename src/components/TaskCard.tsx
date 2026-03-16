@@ -55,12 +55,16 @@ const TaskCard = ({
     const dy = e.touches[0].clientY - touchStartY.current;
 
     // Decide axis on first significant movement
-    if (!isDragging.current && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) {
-      if (Math.abs(dy) > Math.abs(dx)) {
-        // Primarily vertical → let the scroll happen, ignore swipe
-        return;
+    if (!isDragging.current) {
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        if (Math.abs(dy) > Math.abs(dx)) {
+          // Primarily vertical → let the scroll happen, ignore swipe
+          return;
+        }
+        isDragging.current = true;
+      } else {
+        return; // wait for threshold
       }
-      isDragging.current = true;
     }
 
     if (!isDragging.current) return;

@@ -106,12 +106,12 @@ const HomeHero = ({
   );
 
   if (stickyEnabled) {
-    // Sticky container: sticks to top: 0 once the header above it has scrolled out of view.
-    // No fixed offset needed — the header is a sibling above us in the scroll container.
+    // Sticky container: sticks to top: -1px once the header above it has scrolled out of view.
+    // This removes any sub-pixel gap lines above the hero while scrolling.
     return (
       <div
         className="left-0 right-0 z-20"
-        style={{ position: 'sticky', top: 0 }}
+        style={{ position: 'sticky', top: '-1px' }}
       >
         {panel}
       </div>
