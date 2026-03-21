@@ -10,7 +10,7 @@ function getGreeting(): string {
 
 // ─── Compact progress arc ──────────────────────────────────────────────────────
 const MiniRing = ({ percentage, completed, total }: { percentage: number; completed: number; total: number }) => {
-  const size   = 64;
+  const size   = 54;
   const stroke = 5;
   const r      = (size - stroke) / 2;
   const circ   = 2 * Math.PI * r;
@@ -44,10 +44,10 @@ const MiniRing = ({ percentage, completed, total }: { percentage: number; comple
           </defs>
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-[15px] font-bold text-white leading-none">{percentage}%</span>
+          <span className="text-[13px] font-bold text-white leading-none">{percentage}%</span>
         </div>
       </div>
-      <span className="text-[11px] text-white/50 font-medium leading-none">
+      <span className="text-[10px] text-white/50 font-medium leading-none mt-0.5">
         {completed}/{total}
       </span>
     </div>
@@ -80,7 +80,7 @@ const HomeHero = ({
 
   const panel = (
     <div
-      className="relative overflow-hidden rounded-b-[2rem] px-5 pt-5 pb-5"
+      className="relative overflow-hidden rounded-b-[2rem] px-5 pt-4 pb-4"
       style={{
         background: 'linear-gradient(155deg, #1a2644 0%, #111827 60%, #0f1622 100%)',
         boxShadow: '0 4px 24px rgba(0,0,0,0.45)',
@@ -94,8 +94,8 @@ const HomeHero = ({
       {/* Content row */}
       <div className="relative flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <p className="text-[11px] font-semibold text-white/40 uppercase tracking-widest mb-1.5">{dateLabel}</p>
-          <h1 className="text-[22px] font-bold text-white leading-tight tracking-tight">
+          <p className="text-[10px] font-semibold text-white/40 uppercase tracking-widest mb-1">{dateLabel}</p>
+          <h1 className="text-[20px] font-bold text-white leading-tight tracking-tight">
             {greeting},<br />
             <span className="text-primary/90">{userName}!</span>
           </h1>

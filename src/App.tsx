@@ -25,7 +25,7 @@ const TaskSection = ({ title, timeRange, colorClass, shadowClass, children }: { 
         <div className={`h-7 w-[3px] rounded-full ${colorClass} ${shadowClass}`}></div>
         <div className="flex items-baseline gap-2.5">
           <h2 className="text-[16px] font-bold text-white tracking-tight">{title}</h2>
-          {timeRange && <span className="text-[11px] font-medium text-[#5a7299]">{timeRange}</span>}
+          {timeRange && <span className="text-[12px] font-medium text-slate-400">{timeRange}</span>}
         </div>
       </div>
       <div className="flex flex-col gap-2.5">

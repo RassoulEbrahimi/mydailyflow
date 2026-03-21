@@ -213,7 +213,7 @@ const TaskCard = ({
               {/* Title — dir="auto" so Persian renders RTL */}
               <h3
                 dir="auto"
-                className={`flex-1 min-w-0 font-semibold text-[15px] leading-snug break-words ${
+                className={`flex-1 min-w-0 font-semibold text-[15px] leading-relaxed break-words py-0.5 ${
                   completed ? 'line-through text-slate-400 decoration-slate-500' : 'text-white'
                 }`}
               >
@@ -224,31 +224,29 @@ const TaskCard = ({
             </div>
 
             {/* Meta row */}
-            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-              <span className="flex items-center gap-1 text-[12px] text-text-secondary">
-                <Clock size={12} className="flex-shrink-0" />
-                {time}
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <span className="flex items-center gap-1.5 text-[11.5px] text-[#7a8ba8] font-medium">
+                <Clock size={12} className="flex-shrink-0 opacity-70" />
+                {time} • {duration}
               </span>
-              <span className="w-0.5 h-0.5 rounded-full bg-[#3a4e72]" />
-              <span className="text-[12px] text-text-secondary">{duration}</span>
 
               {/* Recurrence badge */}
               {task.recurrence && task.recurrence !== 'none' && (
-                <span className="flex items-center gap-1 text-[10px] font-medium text-violet-400/80 bg-violet-400/10 px-1.5 py-0.5 rounded-full leading-tight flex-shrink-0">
+                <span className="flex items-center gap-1 text-[10px] font-medium text-violet-300 bg-violet-400/10 px-1.5 py-0.5 rounded-md leading-tight flex-shrink-0">
                   <RepeatIcon size={9} />
                 </span>
               )}
 
               {/* Rollover badge */}
               {task.rolledOverFrom && !completed && (
-                <span className="flex items-center gap-1 text-[10px] font-medium text-amber-400/80 bg-amber-400/10 px-1.5 py-0.5 rounded-full leading-tight flex-shrink-0">
+                <span className="flex items-center gap-1 text-[10px] font-medium text-amber-300/90 bg-amber-400/10 px-1.5 py-0.5 rounded-md leading-tight flex-shrink-0">
                   ↩ {getRolloverLabel(task.rolledOverFrom)}
                 </span>
               )}
 
               {/* Checklist progress badge */}
               {hasChecklist && (
-                <span className="flex items-center gap-1 text-[10px] font-medium text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded-full leading-tight flex-shrink-0">
+                <span className="flex items-center gap-1 text-[10px] font-medium text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded-md leading-tight flex-shrink-0">
                   ☑ {checklistDone}/{checklistTotal}
                 </span>
               )}
@@ -258,7 +256,7 @@ const TaskCard = ({
 
         {/* ── Checklist items preview (inline, tappable) ─────────────────── */}
         {hasChecklist && (
-          <div className={`mt-3 ml-[34px] flex flex-col gap-1 ${completed ? 'opacity-40' : ''}`}>
+          <div className={`mt-2.5 ml-[34px] flex flex-col gap-0.5 ${completed ? 'opacity-40' : ''}`}>
             {task.checklistItems!.slice(0, 4).map(item => (
               <button
                 key={item.id}
@@ -275,8 +273,8 @@ const TaskCard = ({
                 </div>
                 <span
                   dir="auto"
-                  className={`text-[12px] leading-tight ${
-                    item.completed ? 'line-through text-[#4a5a78]' : 'text-[#8fa3c8]'
+                  className={`text-[11.5px] leading-relaxed ${
+                    item.completed ? 'line-through text-[#4a5a78]' : 'text-[#7a8da8]'
                   }`}
                 >
                   {item.text}
@@ -295,7 +293,7 @@ const TaskCard = ({
         {hasNotes && (
           <p
             dir="auto"
-            className={`mt-2.5 ml-[34px] text-[12px] leading-relaxed text-[#6a7f9e] line-clamp-2 ${completed ? 'opacity-40' : ''}`}
+            className={`mt-2 ml-[34px] text-[11.5px] leading-relaxed text-[#6a7f9e] line-clamp-2 ${completed ? 'opacity-40' : ''}`}
           >
             {task.notes}
           </p>
