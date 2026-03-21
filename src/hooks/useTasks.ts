@@ -141,5 +141,16 @@ export function useTasks() {
     setTasks(prev => prev.filter(t => t.id !== id));
   };
 
-  return { tasks, saveTask, toggleTaskStatus, toggleChecklistItem, deleteTask };
+  const sortedTasks = [...tasks].sort((a, b) => {
+    const timeA = a.time || '23:59';
+    const timeB = b.time || '23:59';
+    if (timeA !== timeB) {
+      return timeA.localeCompare(timeB);
+    }
+    const createdA = a.createdAt || '';
+    const createdB = b.createdAt || '';
+    return createdA.localeCompare(createdB);
+  });
+
+  return { tasks: sortedTasks, saveTask, toggleTaskStatus, toggleChecklistItem, deleteTask };
 }
