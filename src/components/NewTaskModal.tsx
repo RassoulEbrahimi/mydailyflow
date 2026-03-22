@@ -20,7 +20,7 @@ const NewTaskModal = ({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (task: Omit<Task, 'id' | 'createdAt' | 'completed' | 'date' | 'rolledOverFrom'>, reminderEnabled: boolean) => void;
+  onSave: (task: Omit<Task, 'id' | 'createdAt' | 'completed' | 'date' | 'rolledOverFrom'>) => void;
   taskToEdit?: Task | null;
 }) => {
   const [title, setTitle] = useState('');
@@ -50,7 +50,7 @@ const NewTaskModal = ({
         setSelectedDuration(taskToEdit.duration);
         setSelectedPriority(taskToEdit.priority.charAt(0).toUpperCase() + taskToEdit.priority.slice(1));
         setSelectedRecurrence(taskToEdit.recurrence ?? 'none');
-        setIsReminderEnabled(false);
+        setIsReminderEnabled(taskToEdit.reminderEnabled ?? true);
       } else {
         setTitle('');
         setNotes('');
@@ -96,7 +96,8 @@ const NewTaskModal = ({
       timeBlock: deriveTimeBlock(selectedTime),
       priority: selectedPriority.toLowerCase() as Task['priority'],
       recurrence: selectedRecurrence,
-    }, isReminderEnabled);
+      reminderEnabled: isReminderEnabled,
+    });
 
     onClose();
   };

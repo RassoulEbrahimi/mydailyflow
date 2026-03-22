@@ -26,6 +26,7 @@ export interface Task {
     notes?: string;
     recurrence?: Recurrence;       // recurrence rule; 'none' or undefined = no recurrence
     recurrenceSourceId?: string;   // ID of the completed task that spawned this occurrence (dedup)
+    reminderEnabled?: boolean;     // whether a notification reminder is enabled for this task
 }
 
 export interface StorageWrapper {
@@ -65,7 +66,8 @@ export const isValidTaskArray = (data: unknown): data is Task[] => {
             (t.checklistItems === undefined || (Array.isArray(t.checklistItems) && t.checklistItems.every(isChecklistItem))) &&
             (t.notes === undefined || typeof t.notes === 'string') &&
             (t.recurrence === undefined || VALID_RECURRENCES.includes(t.recurrence as Recurrence)) &&
-            (t.recurrenceSourceId === undefined || typeof t.recurrenceSourceId === 'string')
+            (t.recurrenceSourceId === undefined || typeof t.recurrenceSourceId === 'string') &&
+            (t.reminderEnabled === undefined || typeof t.reminderEnabled === 'boolean')
         );
     });
 };

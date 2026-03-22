@@ -17,9 +17,7 @@ import HomeHero from './components/HomeHero';
 import NewTaskModal from './components/NewTaskModal';
 import SettingsModal from './components/SettingsModal';
 import { useTasks } from './hooks/useTasks';
-
-// Track scheduled reminder timeouts by task ID to prevent duplicates
-const scheduledReminders = new Map<string, ReturnType<typeof setTimeout>>();
+import { useReminders } from './hooks/useReminders';
 
 const TaskSection = ({ title, timeRange, colorClass, shadowClass, children }: { title: string, timeRange?: string, colorClass: string, shadowClass: string, children: React.ReactNode }) => {
   return (
@@ -123,6 +121,8 @@ function AppInner({ logout }: { logout: () => void }) {
 
   const { tasks, saveTask, toggleTaskStatus, toggleChecklistItem, deleteTask, moveTaskToTomorrow } = useTasks();
 
+  useReminders(tasks, remindersEnabled);
+
   const [activeTab, setActiveTab] = useState<'today' | 'all' | 'done'>('today');
 
   // 'all' | 'today' | 'yesterday' | YYYY-MM-DD
@@ -136,39 +136,11 @@ function AppInner({ logout }: { logout: () => void }) {
     localStorage.setItem('remindersEnabled', String(remindersEnabled));
   }, [remindersEnabled]);
 
-  const handleSaveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed' | 'date' | 'rolledOverFrom'>, reminderEnabled: boolean) => {
-    const savedTask = saveTask(taskData, taskToEdit);
-
-    // Clear any existing reminder timeout for this task
-    if (scheduledReminders.has(savedTask.id)) {
-      clearTimeout(scheduledReminders.get(savedTask.id)!);
-      scheduledReminders.delete(savedTask.id);
-    }
-
-    // Only schedule reminder if user has explicitly enabled reminders AND browser permission is granted
-    if (reminderEnabled && remindersEnabled && 'Notification' in window && Notification.permission === 'granted') {
-      const [hours, minutes] = savedTask.time.split(':').map(Number);
-      const now = new Date();
-      const taskDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-
-      // 10 minutes before
-      const reminderTime = new Date(taskDate.getTime() - 10 * 60000);
-      let timeToWait = reminderTime.getTime() - now.getTime();
-
-      if (timeToWait < 0) {
-        // For testing, schedule immediately if time is already past
-        timeToWait = 2000;
-      }
-
-      const timeoutId = setTimeout(() => {
-        new Notification(`🔔 Reminder: ${savedTask.title}`, {
-          body: `Your task is scheduled for ${savedTask.time}`
-        });
-        scheduledReminders.delete(savedTask.id);
-      }, timeToWait);
-      scheduledReminders.set(savedTask.id, timeoutId);
-    }
+  const handleSaveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed' | 'date' | 'rolledOverFrom'>) => {
+    saveTask(taskData, taskToEdit);
   };
+
+
 
   // Derived state
   const today = getTodayString();
