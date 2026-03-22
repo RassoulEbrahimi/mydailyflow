@@ -18,6 +18,9 @@ import NewTaskModal from './components/NewTaskModal';
 import SettingsModal from './components/SettingsModal';
 import { useTasks } from './hooks/useTasks';
 
+// Track scheduled reminder timeouts by task ID to prevent duplicates
+const scheduledReminders = new Map<string, ReturnType<typeof setTimeout>>();
+
 const TaskSection = ({ title, timeRange, colorClass, shadowClass, children }: { title: string, timeRange?: string, colorClass: string, shadowClass: string, children: React.ReactNode }) => {
   return (
     <section>
@@ -136,6 +139,12 @@ function AppInner({ logout }: { logout: () => void }) {
   const handleSaveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed' | 'date' | 'rolledOverFrom'>, reminderEnabled: boolean) => {
     const savedTask = saveTask(taskData, taskToEdit);
 
+    // Clear any existing reminder timeout for this task
+    if (scheduledReminders.has(savedTask.id)) {
+      clearTimeout(scheduledReminders.get(savedTask.id)!);
+      scheduledReminders.delete(savedTask.id);
+    }
+
     // Only schedule reminder if user has explicitly enabled reminders AND browser permission is granted
     if (reminderEnabled && remindersEnabled && 'Notification' in window && Notification.permission === 'granted') {
       const [hours, minutes] = savedTask.time.split(':').map(Number);
@@ -151,11 +160,13 @@ function AppInner({ logout }: { logout: () => void }) {
         timeToWait = 2000;
       }
 
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         new Notification(`🔔 Reminder: ${savedTask.title}`, {
           body: `Your task is scheduled for ${savedTask.time}`
         });
+        scheduledReminders.delete(savedTask.id);
       }, timeToWait);
+      scheduledReminders.set(savedTask.id, timeoutId);
     }
   };
 
