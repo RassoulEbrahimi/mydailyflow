@@ -152,5 +152,14 @@ export function useTasks() {
     return createdA.localeCompare(createdB);
   });
 
-  return { tasks: sortedTasks, saveTask, toggleTaskStatus, toggleChecklistItem, deleteTask };
+  const moveTaskToTomorrow = (id: string) => {
+    setTasks(prev => prev.map(t => {
+      if (t.id === id) {
+        return { ...t, date: nextRecurrenceDate(getTodayString(), 'daily') };
+      }
+      return t;
+    }));
+  };
+
+  return { tasks: sortedTasks, saveTask, toggleTaskStatus, toggleChecklistItem, deleteTask, moveTaskToTomorrow };
 }

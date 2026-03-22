@@ -114,3 +114,18 @@ export const nextRecurrenceDate = (baseDate: string, recurrence: Recurrence): st
     const nd = String(date.getDate()).padStart(2, '0');
     return `${ny}-${nm}-${nd}`;
 };
+
+// Returns true if a task is scheduled for today, incomplete, and its scheduled time has passed.
+export const isTaskOverdue = (task: Task): boolean => {
+    if (task.completed) return false;
+    const today = getTodayString();
+    if (task.date !== today) return false;
+    
+    // Compare task time "HH:MM" with current local time (24-hour HH:MM format)
+    const d = new Date();
+    const currH = String(d.getHours()).padStart(2, '0');
+    const currM = String(d.getMinutes()).padStart(2, '0');
+    const currTime = `${currH}:${currM}`;
+    
+    return task.time < currTime;
+};

@@ -1,7 +1,7 @@
 import React, { useRef, useState, useCallback } from 'react';
-import { Check, Clock, Pencil, Trash2, RepeatIcon, RotateCcw } from 'lucide-react';
+import { Check, Clock, Pencil, Trash2, RepeatIcon, RotateCcw, ArrowRight } from 'lucide-react';
 import type { Task } from '../types/task';
-import { getRolloverLabel } from '../utils/taskUtils';
+import { getRolloverLabel, isTaskOverdue } from '../utils/taskUtils';
 
 // ─── Swipe constants ──────────────────────────────────────────────────────────
 const SWIPE_THRESHOLD = 60;   // px — must drag this far before actions reveal
@@ -18,6 +18,7 @@ interface TaskCardProps {
   setOpenSwipeId: (id: string | null) => void;
   /** React key — declared to satisfy stricter tsconfig settings */
   key?: React.Key;
+  onMoveTomorrow?: (id: string) => void;
 }
 
 const TaskCard = ({
@@ -28,6 +29,7 @@ const TaskCard = ({
   onToggleChecklistItem,
   openSwipeId,
   setOpenSwipeId,
+  onMoveTomorrow,
 }: TaskCardProps) => {
   const { id, title, time, duration, completed, priority } = task;
 
@@ -35,6 +37,8 @@ const TaskCard = ({
   const checklistDone  = hasChecklist ? task.checklistItems!.filter(i => i.completed).length : 0;
   const checklistTotal = hasChecklist ? task.checklistItems!.length : 0;
   const hasNotes       = !!task.notes && task.notes.trim().length > 0;
+
+  const overdue = isTaskOverdue(task);
 
   const isSwipeOpen = openSwipeId === id;
 
@@ -144,34 +148,62 @@ const TaskCard = ({
           <span className="text-[11px] font-semibold text-white">Edit</span>
         </button>
 
-        {/* Done / Undo */}
-        <button
-          onPointerDown={e => e.stopPropagation()}
-          onClick={e => { e.stopPropagation(); closeSwipe(); onToggleComplete(id); }}
-          className={`flex flex-1 flex-col items-center justify-center gap-1 active:brightness-90 transition-all ${
-            completed ? 'bg-amber-600' : 'bg-emerald-600'
-          }`}
-          style={{ minWidth: 0 }}
-        >
-          {completed
-            ? <RotateCcw size={18} className="text-white" />
-            : <Check size={18} className="text-white" />
-          }
-          <span className="text-[11px] font-semibold text-white">
-            {completed ? 'Undo' : 'Done'}
-          </span>
-        </button>
+        {overdue && onMoveTomorrow ? (
+          <>
+            {/* Tomorrow */}
+            <button
+              onPointerDown={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); closeSwipe(); onMoveTomorrow(id); }}
+              className="flex flex-1 flex-col items-center justify-center gap-1 bg-[#475569] active:brightness-90 transition-all"
+              style={{ minWidth: 0 }}
+            >
+              <ArrowRight size={18} className="text-white" />
+              <span className="text-[11px] font-semibold text-white">Tomorrow</span>
+            </button>
 
-        {/* Delete */}
-        <button
-          onPointerDown={e => e.stopPropagation()}
-          onClick={e => { e.stopPropagation(); closeSwipe(); onDelete(id); }}
-          className="flex flex-1 flex-col items-center justify-center gap-1 bg-red-600 active:brightness-90 transition-all rounded-r-2xl"
-          style={{ minWidth: 0 }}
-        >
-          <Trash2 size={18} className="text-white" />
-          <span className="text-[11px] font-semibold text-white">Delete</span>
-        </button>
+            {/* Done */}
+            <button
+              onPointerDown={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); closeSwipe(); onToggleComplete(id); }}
+              className="flex flex-1 flex-col items-center justify-center gap-1 bg-emerald-600 active:brightness-90 transition-all rounded-r-2xl"
+              style={{ minWidth: 0 }}
+            >
+              <Check size={18} className="text-white" />
+              <span className="text-[11px] font-semibold text-white">Done</span>
+            </button>
+          </>
+        ) : (
+          <>
+            {/* Done / Undo */}
+            <button
+              onPointerDown={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); closeSwipe(); onToggleComplete(id); }}
+              className={`flex flex-1 flex-col items-center justify-center gap-1 active:brightness-90 transition-all ${
+                completed ? 'bg-amber-600' : 'bg-emerald-600'
+              }`}
+              style={{ minWidth: 0 }}
+            >
+              {completed
+                ? <RotateCcw size={18} className="text-white" />
+                : <Check size={18} className="text-white" />
+              }
+              <span className="text-[11px] font-semibold text-white">
+                {completed ? 'Undo' : 'Done'}
+              </span>
+            </button>
+
+            {/* Delete */}
+            <button
+              onPointerDown={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); closeSwipe(); onDelete(id); }}
+              className="flex flex-1 flex-col items-center justify-center gap-1 bg-red-600 active:brightness-90 transition-all rounded-r-2xl"
+              style={{ minWidth: 0 }}
+            >
+              <Trash2 size={18} className="text-white" />
+              <span className="text-[11px] font-semibold text-white">Delete</span>
+            </button>
+          </>
+        )}
       </div>
 
       {/* ── Card body (slides left to reveal actions) ───────────────────────*/}
@@ -241,6 +273,13 @@ const TaskCard = ({
               {task.rolledOverFrom && !completed && (
                 <span className="flex items-center gap-1 text-[10px] font-medium text-amber-300/90 bg-amber-400/10 px-1.5 py-0.5 rounded-md leading-tight flex-shrink-0">
                   ↩ {getRolloverLabel(task.rolledOverFrom)}
+                </span>
+              )}
+
+              {/* Overdue badge */}
+              {overdue && (
+                <span className="flex items-center gap-1 text-[10px] font-medium text-rose-300/90 bg-rose-500/10 px-1.5 py-0.5 rounded-md leading-tight flex-shrink-0">
+                  Overdue
                 </span>
               )}
 
