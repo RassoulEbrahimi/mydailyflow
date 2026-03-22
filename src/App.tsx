@@ -156,9 +156,17 @@ function AppInner({ logout }: { logout: () => void }) {
   // Done tab: all completed tasks, regardless of date
   const doneTasks = filteredTasks.filter(t => t.completed).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  const morningTasks = pendingTasks.filter(t => t.timeBlock === 'morning');
-  const afternoonTasks = pendingTasks.filter(t => t.timeBlock === 'afternoon');
-  const eveningTasks = pendingTasks.filter(t => t.timeBlock === 'evening');
+  // Sort incomplete tasks first, then completed tasks. Existing time-based sort is preserved.
+  const sortSectionTasks = (sectionTasks: Task[]) => {
+    return [...sectionTasks].sort((a, b) => {
+      if (a.completed === b.completed) return 0;
+      return a.completed ? 1 : -1;
+    });
+  };
+
+  const morningTasks = sortSectionTasks(todayTasks.filter(t => t.timeBlock === 'morning'));
+  const afternoonTasks = sortSectionTasks(todayTasks.filter(t => t.timeBlock === 'afternoon'));
+  const eveningTasks = sortSectionTasks(todayTasks.filter(t => t.timeBlock === 'evening'));
 
   // ─── All Tasks tab: resolve the effective date string for filtering ─────────
   const resolvedDateFilter: string | null = (() => {
