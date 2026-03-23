@@ -18,6 +18,9 @@ import NewTaskModal from './components/NewTaskModal';
 import SettingsModal from './components/SettingsModal';
 import { useTasks } from './hooks/useTasks';
 import { useReminders } from './hooks/useReminders';
+import { useDailyEssentials } from './hooks/useDailyEssentials';
+import DailyEssentialsSection from './components/DailyEssentialsSection';
+import ManageEssentialsModal from './components/ManageEssentialsModal';
 
 const TaskSection = ({ title, timeRange, colorClass, shadowClass, children }: { title: string, timeRange?: string, colorClass: string, shadowClass: string, children: React.ReactNode }) => {
   return (
@@ -42,6 +45,7 @@ function AppInner({ logout }: { logout: () => void }) {
   const [openSwipeId, setOpenSwipeId] = useState<string | null>(null);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isManageEssentialsOpen, setIsManageEssentialsOpen] = useState(false);
   /** Sticky hero header preference — default on */
   const [stickyHeroEnabled, setStickyHeroEnabled] = useState<boolean>(
     () => localStorage.getItem('stickyHeroEnabled') !== 'false'
@@ -122,6 +126,15 @@ function AppInner({ logout }: { logout: () => void }) {
   const { tasks, saveTask, toggleTaskStatus, toggleChecklistItem, deleteTask, moveTaskToTomorrow } = useTasks();
 
   useReminders(tasks, remindersEnabled);
+  
+  const { 
+    essentials, 
+    progressById, 
+    addEssential, 
+    editEssential, 
+    deleteEssential, 
+    updateProgress 
+  } = useDailyEssentials();
 
   const [activeTab, setActiveTab] = useState<'today' | 'all' | 'done'>('today');
 
@@ -260,9 +273,15 @@ function AppInner({ logout }: { logout: () => void }) {
           />
         )}
 
-
         {activeTab === 'today' ? (
-          <div className="flex flex-col gap-8 px-5 pt-5">
+          <>
+            <DailyEssentialsSection
+              essentials={essentials}
+              progressById={progressById}
+              onUpdateProgress={updateProgress}
+              onManageClick={() => setIsManageEssentialsOpen(true)}
+            />
+            <div className="flex flex-col gap-8 px-5 pt-2">
             <TaskSection title="Morning" timeRange="06:00 – 12:00" colorClass="bg-blue-400" shadowClass="shadow-[0_0_10px_rgba(96,165,250,0.5)]">
               {morningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />)}
             </TaskSection>
@@ -280,6 +299,7 @@ function AppInner({ logout }: { logout: () => void }) {
               </div>
             )}
             </div>
+          </>
         ) : activeTab === 'all' ? (
           <div className="flex flex-col gap-2 px-5">
             <AllTasksFilterBar
@@ -413,6 +433,14 @@ function AppInner({ logout }: { logout: () => void }) {
       </nav>
 
       <NewTaskModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveTask} taskToEdit={taskToEdit} />
+      <ManageEssentialsModal
+        isOpen={isManageEssentialsOpen}
+        onClose={() => setIsManageEssentialsOpen(false)}
+        essentials={essentials}
+        onAdd={addEssential}
+        onEdit={editEssential}
+        onDelete={deleteEssential}
+      />
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
