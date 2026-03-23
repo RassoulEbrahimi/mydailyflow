@@ -16,12 +16,14 @@ const NewTaskModal = ({
   isOpen,
   onClose,
   onSave,
-  taskToEdit
+  taskToEdit,
+  initialDraft,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onSave: (task: Omit<Task, 'id' | 'createdAt' | 'completed' | 'date' | 'rolledOverFrom'>) => void;
   taskToEdit?: Task | null;
+  initialDraft?: Partial<Task> | null;
 }) => {
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
@@ -38,7 +40,7 @@ const NewTaskModal = ({
   useEffect(() => {
     if (isOpen) {
       if (taskToEdit) {
-        setTitle(taskToEdit.title);
+        setTitle(taskToEdit.title || '');
         const existingNotes = taskToEdit.notes || taskToEdit.description || '';
         setNotes(existingNotes);
         setShowNotes(!!existingNotes);
@@ -51,6 +53,19 @@ const NewTaskModal = ({
         setSelectedPriority(taskToEdit.priority.charAt(0).toUpperCase() + taskToEdit.priority.slice(1));
         setSelectedRecurrence(taskToEdit.recurrence ?? 'none');
         setIsReminderEnabled(taskToEdit.reminderEnabled ?? true);
+      } else if (initialDraft) {
+        setTitle(initialDraft.title || '');
+        const existingNotes = initialDraft.notes || initialDraft.description || '';
+        setNotes(existingNotes);
+        setShowNotes(!!existingNotes);
+        setChecklistItems([]);
+        setShowChecklist(false);
+        setNewChecklistText('');
+        setSelectedTime(initialDraft.time || '14:00');
+        setSelectedDuration(initialDraft.duration || '30m');
+        setIsReminderEnabled(initialDraft.reminderEnabled ?? true);
+        setSelectedPriority(initialDraft.priority ? initialDraft.priority.charAt(0).toUpperCase() + initialDraft.priority.slice(1) : 'Medium');
+        setSelectedRecurrence(initialDraft.recurrence ?? 'none');
       } else {
         setTitle('');
         setNotes('');
@@ -65,7 +80,7 @@ const NewTaskModal = ({
         setSelectedRecurrence('none');
       }
     }
-  }, [isOpen, taskToEdit]);
+  }, [isOpen, taskToEdit, initialDraft]);
 
   const addChecklistItem = () => {
     const text = newChecklistText.trim();

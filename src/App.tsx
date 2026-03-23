@@ -21,6 +21,7 @@ import { useReminders } from './hooks/useReminders';
 import { useDailyEssentials } from './hooks/useDailyEssentials';
 import DailyEssentialsSection from './components/DailyEssentialsSection';
 import ManageEssentialsModal from './components/ManageEssentialsModal';
+import VoiceTaskModal from './components/VoiceTaskModal';
 
 const TaskSection = ({ title, timeRange, colorClass, shadowClass, children }: { title: string, timeRange?: string, colorClass: string, shadowClass: string, children: React.ReactNode }) => {
   return (
@@ -41,6 +42,9 @@ const TaskSection = ({ title, timeRange, colorClass, shadowClass, children }: { 
 
 function AppInner({ logout }: { logout: () => void }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+  const [showPlusMenu, setShowPlusMenu] = useState(false);
+  const [voiceDraft, setVoiceDraft] = useState<Partial<Task> | null>(null);
   /** ID of the task card currently swiped open — only one allowed at a time */
   const [openSwipeId, setOpenSwipeId] = useState<string | null>(null);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
@@ -115,7 +119,14 @@ function AppInner({ logout }: { logout: () => void }) {
 
   const openNewTaskModal = () => {
     setTaskToEdit(null);
+    setVoiceDraft(null);
     setIsModalOpen(true);
+    setShowPlusMenu(false);
+  };
+
+  const openVoiceTaskModal = () => {
+    setIsVoiceModalOpen(true);
+    setShowPlusMenu(false);
   };
 
   const openEditTaskModal = (task: Task) => {
@@ -150,7 +161,11 @@ function AppInner({ logout }: { logout: () => void }) {
   }, [remindersEnabled]);
 
   const handleSaveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed' | 'date' | 'rolledOverFrom'>) => {
-    saveTask(taskData, taskToEdit);
+    const saved = saveTask(taskData, taskToEdit);
+    // If we have a voice draft meant for tomorrow, move it immediately
+    if (!taskToEdit && voiceDraft?.date && voiceDraft.date > getTodayString()) {
+      moveTaskToTomorrow(saved.id);
+    }
   };
 
 
@@ -364,13 +379,32 @@ function AppInner({ logout }: { logout: () => void }) {
       </main>
 
       {/* Floating Action Button */}
-      <button
-        onClick={openNewTaskModal}
-        className="fixed bottom-[5.5rem] right-5 h-14 w-14 bg-primary text-white rounded-full shadow-[0_4px_20px_rgba(19,91,236,0.55)] flex items-center justify-center active:scale-95 hover:scale-105 transition-transform z-20"
-        aria-label="Add new task"
-      >
-        <div className="pointer-events-none p-1 rounded-full"><Plus size={28} strokeWidth={2.5} /></div>
-      </button>
+      <div className="fixed bottom-[5.5rem] right-5 z-20 flex flex-col items-end">
+        {showPlusMenu && (
+          <div className="mb-3 bg-[#1e273b] border border-[#2e3d58] rounded-2xl shadow-xl flex flex-col overflow-hidden animate-fade-in origin-bottom-right">
+            <button
+              onClick={openNewTaskModal}
+              className="px-5 py-3.5 text-white font-semibold text-[15px] hover:bg-white/5 transition-colors border-b border-[#2e3d58]/50 text-left whitespace-nowrap"
+            >
+              Manual Task
+            </button>
+            <button
+              onClick={openVoiceTaskModal}
+              className="px-5 py-3.5 text-primary font-semibold text-[15px] hover:bg-white/5 transition-colors text-left flex items-center gap-2 whitespace-nowrap"
+            >
+              <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+              Voice Task
+            </button>
+          </div>
+        )}
+        <button
+          onClick={() => setShowPlusMenu(v => !v)}
+          className={`h-14 w-14 bg-primary text-white rounded-full shadow-[0_4px_20px_rgba(19,91,236,0.55)] flex items-center justify-center active:scale-95 hover:scale-105 transition-transform ${showPlusMenu ? 'rotate-45 bg-[#2a3650] shadow-none border border-[#384666]' : ''}`}
+          aria-label={showPlusMenu ? "Close menu" : "Add task menu"}
+        >
+          <div className="pointer-events-none p-1 rounded-full"><Plus size={28} strokeWidth={2.5} /></div>
+        </button>
+      </div>
 
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 w-full bg-[#0d1520]/95 backdrop-blur-md border-t border-[#1a2438] px-2 pb-safe pt-2 z-10" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}>
@@ -432,7 +466,16 @@ function AppInner({ logout }: { logout: () => void }) {
         </div>
       </nav>
 
-      <NewTaskModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveTask} taskToEdit={taskToEdit} />
+      <NewTaskModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveTask} taskToEdit={taskToEdit} initialDraft={voiceDraft} />
+      <VoiceTaskModal
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+        onSuccess={(draft) => {
+          setVoiceDraft(draft);
+          setTaskToEdit(null);
+          setIsModalOpen(true);
+        }}
+      />
       <ManageEssentialsModal
         isOpen={isManageEssentialsOpen}
         onClose={() => setIsManageEssentialsOpen(false)}
