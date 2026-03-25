@@ -35,6 +35,10 @@ export const transcribeAudio = async (audioBlob: Blob): Promise<TranscribeRespon
 
   const formData = new FormData();
   formData.append('audio', audioBlob, 'recording.webm');
+  
+  // Add an optional language hint for better transcription accuracy
+  const lang = navigator.language ? navigator.language.split('-')[0] : 'en';
+  formData.append('language', lang);
 
   let response: Response;
   try {

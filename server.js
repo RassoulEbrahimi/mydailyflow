@@ -53,10 +53,22 @@ function parseVoiceDraft(transcript) {
 
   // ----- Time Parsing -----
   // 1. Check for "at 3 pm", "um 15 uhr", "ساعت ۱۵", "ساعت 15", "15:00"
-  // Persian numbers: ۰ ۱ ۲ ۳ ۴ ۵ ۶ ۷ ۸ ۹
-  const persianToEnglishMap = { '۰': '0', '۱': '1', '۲': '2', '۳': '3', '۴': '4', '۵': '5', '۶': '6', '۷': '7', '۸': '8', '۹': '9' };
+  // Persian and Arabic numbers to English: ۰-۹, ٠-٩
+  const persianToEnglishMap = {
+    '۰': '0', '۱': '1', '۲': '2', '۳': '3', '۴': '4', '۵': '5', '۶': '6', '۷': '7', '۸': '8', '۹': '9',
+    '٠': '0', '١': '1', '٢': '2', '٣': '3', '٤': '4', '٥': '5', '٦': '6', '٧': '7', '٨': '8', '٩': '9'
+  };
 
-  let normalizedForTime = title.replace(/[۰-۹]/g, c => persianToEnglishMap[c]);
+  title = title.replace(/[۰-۹٠-٩]/g, c => persianToEnglishMap[c]); // apply map directly to title
+  let normalizedForTime = title.toLowerCase();
+
+  // Map text words to digits for simpler time extraction regex
+  const wordMap = {
+    'eins': '1', 'zwei': '2', 'drei': '3', 'vier': '4', 'fünf': '5', 'sechs': '6', 'sieben': '7', 'acht': '8', 'neun': '9', 'zehn': '10', 'elf': '11', 'zwölf': '12',
+    'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10', 'eleven': '11', 'twelve': '12',
+    'یک': '1', 'دو': '2', 'سه': '3', 'چهار': '4', 'پنج': '5', 'شش': '6', 'هفت': '7', 'هشت': '8', 'نه': '9', 'ده': '10', 'یازده': '11', 'دوازده': '12'
+  };
+  const wordsPattern = Object.keys(wordMap).join('|');
 
   // Match times like 15:30, 9:00
   const hmMatch = normalizedForTime.match(/(?:^|\s)([01]?[0-9]|2[0-3]):([0-5][0-9])(?:\s|$)/);
@@ -64,12 +76,14 @@ function parseVoiceDraft(transcript) {
     timeStr = `${hmMatch[1].padStart(2, '0')}:${hmMatch[2]}`;
     // Remove from title
     title = title.replace(hmMatch[0], ' ').trim();
-    title = title.replace(/(?:^|\s)(at|um|ساعت)(?:\s|$)/ig, ' ').trim();
+    title = title.replace(/(?:^|\s)(at|um|ساعت|ساعة)(?:\s|$)/ig, ' ').trim();
   } else {
-    // Match "3 pm", "3 am", "15 uhr", "ساعت 15"
-    const ampmMatch = normalizedForTime.match(/(?:^|\s)(1[0-2]|[1-9])\s*(am|pm|a\.m\.|p\.m\.)(?:\s|$)/i);
+    // Word-based am/pm matcher
+    const ampmWords = 'one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve';
+    const ampmMatch = title.match(new RegExp(`(?:^|\\s)(1[0-2]|[1-9]|${ampmWords})\\s*(am|pm|a\\.m\\.|p\\.m\\.)(?:\\s|$)`, 'i'));
     if (ampmMatch) {
-      let hour = parseInt(ampmMatch[1], 10);
+      let rawHour = ampmMatch[1].toLowerCase();
+      let hour = parseInt(wordMap[rawHour] || rawHour, 10);
       const isPm = ampmMatch[2].toLowerCase().startsWith('p');
       if (isPm && hour < 12) hour += 12;
       if (!isPm && hour === 12) hour = 0;
@@ -78,21 +92,23 @@ function parseVoiceDraft(transcript) {
       title = title.replace(ampmMatch[0], ' ').trim();
       title = title.replace(/(?:^|\s)(at)(?:\s|$)/ig, ' ').trim();
     } else {
-      // um 9, ساعت 15 (German / Persian specific pattern)
-      // Or just "at 9"
-      const hrMatch = normalizedForTime.match(/(?:^|\s)(um|ساعت|at)\s+([01]?[0-9]|2[0-3])(?:\s|$)/i);
+      // um 9 uhr, ساعت 15, at 9
+      let hrMatch = title.match(new RegExp(`(?:^|\\s)(um|ساعت|ساعة|at)?\\s*([01]?[0-9]|2[0-3]|${wordsPattern})\\s+(uhr|o'clock)(?:\\s|$)`, 'i'));
+      if (!hrMatch) {
+        hrMatch = title.match(new RegExp(`(?:^|\\s)(um|ساعت|ساعة|at)\\s+([01]?[0-9]|2[0-3]|${wordsPattern})(?:\\s|$)`, 'i'));
+      }
+      
       if (hrMatch) {
-        let hour = parseInt(hrMatch[2], 10);
+        let rawHour = hrMatch[2].toLowerCase();
+        let hour = parseInt(wordMap[rawHour] || rawHour, 10);
         timeStr = `${String(hour).padStart(2, '0')}:00`;
         title = title.replace(hrMatch[0], ' ').trim();
-        // if "uhr" follows, drop it
-        title = title.replace(/(?:^|\s)uhr(?:\s|$)/ig, ' ').trim();
       }
     }
   }
 
   // Cleanup extra spaces and prepositions left dangling
-  title = title.replace(/(?:^|\s)(at|um|ساعت)(?:\s|$)/ig, ' ').replace(/\s+/g, ' ').trim();
+  title = title.replace(/(?:^|\s)(at|um|ساعت|ساعة)(?:\s|$)/ig, ' ').replace(/\s+/g, ' ').trim();
 
   // If title ends up empty but we have time/date, fallback to a default title
   if (!title) {
@@ -135,6 +151,10 @@ app.post('/api/voice-task/transcribe', upload.single('audio'), asyncHandler(asyn
 
   formData.append('file', audioBlob, 'audio.webm');
   formData.append('model', modelName);
+
+  if (req.body.language) {
+    formData.append('language', req.body.language);
+  }
 
   // Let's actually use a mock or standard fetch for Mistral
 
