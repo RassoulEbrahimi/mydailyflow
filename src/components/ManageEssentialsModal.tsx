@@ -69,18 +69,18 @@ export default function ManageEssentialsModal({
   const renderForm = () => (
     <div className="bg-[#1e273b] p-4 rounded-xl border border-[#2a364d] flex flex-col gap-4 mb-4">
       <div>
-        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Item Name</label>
+        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Elementname</label>
         <input 
           autoFocus
           type="text"
           value={formTitle}
           onChange={e => setFormTitle(e.target.value)}
-          placeholder="e.g. Vitamins, Gym, Water"
+          placeholder="z.B. Vitamine, Sport, Wasser"
           className="w-full bg-[#0d1520] border border-[#2a364d] rounded-lg px-3 py-2.5 text-white text-[15px] outline-none focus:border-blue-500 transition-colors"
         />
       </div>
       <div>
-        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Daily Target</label>
+        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Tagesziel</label>
         <div className="flex items-center gap-3">
           <input 
             type="range"
@@ -95,7 +95,7 @@ export default function ManageEssentialsModal({
           </div>
         </div>
         <p className="text-[12px] text-slate-500 mt-1.5">
-          {formTargetCount === 1 ? 'Simple toggle (Done / Not Done)' : `Requires ${formTargetCount} checks to complete`}
+          {formTargetCount === 1 ? 'Einfacher Schalter (Erledigt / Nicht erledigt)' : `Benötigt ${formTargetCount} Häkchen zum Abschließen`}
         </p>
       </div>
       <div className="flex gap-2 mt-2">
@@ -103,7 +103,7 @@ export default function ManageEssentialsModal({
           onClick={cancelForm}
           className="flex-1 py-2.5 rounded-lg font-semibold text-[14px] text-slate-300 bg-[#2a364d] hover:bg-[#334155] transition-colors"
         >
-          Cancel
+          Abbrechen
         </button>
         <button 
           onClick={handleSave}
@@ -111,7 +111,7 @@ export default function ManageEssentialsModal({
           className="flex-1 py-2.5 rounded-lg font-semibold text-[14px] text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1.5"
         >
           <Check size={16} strokeWidth={2.5} />
-          Save
+          Speichern
         </button>
       </div>
     </div>
@@ -124,7 +124,7 @@ export default function ManageEssentialsModal({
         onClick={e => e.stopPropagation()}
       >
         <div className="p-4 border-b border-[#1e273b] flex items-center justify-between">
-          <h2 className="text-[18px] font-bold text-white tracking-tight">Manage Essentials</h2>
+          <h2 className="text-[18px] font-bold text-white tracking-tight">Essentials verwalten</h2>
           <button 
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-slate-400 transition-colors"
@@ -143,8 +143,8 @@ export default function ManageEssentialsModal({
                   <div className="w-12 h-12 rounded-full bg-slate-800/50 flex items-center justify-center mx-auto mb-3">
                     <Check size={24} className="opacity-50" />
                   </div>
-                  <p className="font-medium text-[15px] text-slate-300 mb-1">No Daily Essentials</p>
-                  <p className="text-[14px]">Add daily habits you want to track.</p>
+                  <p className="font-medium text-[15px] text-slate-300 mb-1">Keine täglichen Essentials</p>
+                  <p className="text-[14px]">Füge tägliche Gewohnheiten hinzu, die du verfolgen möchtest.</p>
                 </div>
               ) : (
                 essentials.map(e => (
@@ -152,7 +152,7 @@ export default function ManageEssentialsModal({
                     <div className="flex flex-col">
                       <span className="text-[15px] font-semibold text-slate-200">{e.title}</span>
                       <span className="text-[13px] text-slate-500">
-                        {e.targetCount === 1 ? 'Simple Item' : `Multi-check (${e.targetCount})`}
+                        {e.targetCount === 1 ? 'Einfaches Element' : `Mehrfach-Häkchen (${e.targetCount})`}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -178,7 +178,7 @@ export default function ManageEssentialsModal({
                 className="mt-2 w-full py-3.5 rounded-xl border-2 border-dashed border-[#2a364d] text-slate-400 hover:text-blue-400 hover:border-blue-500/50 hover:bg-blue-500/5 transition-all flex items-center justify-center gap-2 font-semibold text-[15px]"
               >
                 <Plus size={18} strokeWidth={2.5} />
-                Add New Essential
+                Neues Essential hinzufügen
               </button>
             </div>
           )}

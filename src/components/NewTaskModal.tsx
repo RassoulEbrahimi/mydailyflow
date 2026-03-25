@@ -5,11 +5,11 @@ import type { Task, ChecklistItem, Recurrence } from '../types/task';
 import { deriveTimeBlock } from '../utils/taskUtils';
 
 const RECURRENCE_LABELS: Record<Recurrence, string> = {
-  none: 'Never',
-  daily: 'Daily',
-  every2days: 'Every 2 days',
-  weekly: 'Weekly',
-  monthly: 'Monthly',
+  none: 'Nie',
+  daily: 'Täglich',
+  every2days: 'Alle 2 Tage',
+  weekly: 'Wöchentlich',
+  monthly: 'Monatlich',
 };
 
 const NewTaskModal = ({
@@ -136,14 +136,14 @@ const NewTaskModal = ({
               onClick={onClose}
               className="text-text-secondary text-[15px] active:opacity-60 transition-opacity w-16"
             >
-              Cancel
+              Abbrechen
             </button>
-            <h2 className="text-white font-bold text-[16px]">{taskToEdit ? 'Edit Task' : 'New Task'}</h2>
+            <h2 className="text-white font-bold text-[16px]">{taskToEdit ? 'Aufgabe bearbeiten' : 'Neue Aufgabe'}</h2>
             <button
               onClick={handleSaveClick}
               className="text-primary font-semibold text-[15px] active:opacity-60 transition-opacity w-16 text-right"
             >
-              Done
+              Fertig
             </button>
           </div>
         </div>
@@ -154,7 +154,7 @@ const NewTaskModal = ({
           {/* Task title */}
           <input
             type="text"
-            placeholder="Task title"
+            placeholder="Aufgabentitel"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             autoFocus={isOpen && !taskToEdit}
@@ -172,7 +172,7 @@ const NewTaskModal = ({
               }`}
             >
               <Plus size={15} />
-              Add Note
+              Notiz hinzufügen
             </button>
             <button
               onClick={() => setShowChecklist(v => !v)}
@@ -183,7 +183,7 @@ const NewTaskModal = ({
               }`}
             >
               <Plus size={15} />
-              Add Checklist
+              Checkliste hinzufügen
             </button>
           </div>
 
@@ -192,7 +192,7 @@ const NewTaskModal = ({
             <div className="mb-5 bg-[#1a2336] rounded-2xl px-4 py-3 border border-[#232f48]/50">
               <textarea
                 rows={3}
-                placeholder="Add a note..."
+                placeholder="Notiz hinzufügen..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 autoFocus
@@ -227,7 +227,7 @@ const NewTaskModal = ({
                 <Plus size={16} className="text-text-secondary flex-shrink-0" />
                 <input
                   type="text"
-                  placeholder="Add item..."
+                  placeholder="Element hinzufügen..."
                   value={newChecklistText}
                   onChange={(e) => setNewChecklistText(e.target.value)}
                   onKeyDown={handleChecklistKeyDown}
@@ -238,7 +238,7 @@ const NewTaskModal = ({
                     onClick={addChecklistItem}
                     className="text-primary text-[13px] font-semibold active:opacity-70 transition-opacity flex-shrink-0"
                   >
-                    Add
+                    Hinzufügen
                   </button>
                 )}
               </div>
@@ -247,10 +247,10 @@ const NewTaskModal = ({
 
           {/* ── Schedule card ── */}
           <div className="bg-[#1a2a47] rounded-2xl p-4 mb-5 border border-[#243356]">
-            <h3 className="text-white font-bold text-[17px] mb-4">Schedule</h3>
+            <h3 className="text-white font-bold text-[17px] mb-4">Zeitplan</h3>
 
             {/* Start Time */}
-            <p className="text-[#6f89b0] text-[11px] font-semibold tracking-widest mb-2">START TIME</p>
+            <p className="text-[#6f89b0] text-[11px] font-semibold tracking-widest mb-2">STARTZEIT</p>
             <div>
               <input
                 type="time"
@@ -267,10 +267,12 @@ const NewTaskModal = ({
                 className="w-full flex items-center justify-between text-left focus:outline-none group"
               >
                 <div>
-                  <span className="text-white font-medium text-[15px] block">Task details</span>
+                  <span className="text-white font-medium text-[15px] block">Aufgabendetails</span>
                   {!isAdvancedExpanded && (
                     <span className="text-[#6f89b0] text-[13px] mt-0.5 block">
-                      {selectedDuration} • {RECURRENCE_LABELS[selectedRecurrence]} • {isReminderEnabled ? 'Reminder on' : 'Reminder off'} • {selectedPriority}
+                      {selectedDuration} • {RECURRENCE_LABELS[selectedRecurrence]} • {isReminderEnabled ? 'Erinnerung an' : 'Erinnerung aus'} • {
+                        selectedPriority === 'High' ? 'Hoch' : selectedPriority === 'Medium' ? 'Mittel' : 'Niedrig'
+                      }
                     </span>
                   )}
                 </div>
@@ -282,7 +284,7 @@ const NewTaskModal = ({
               <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isAdvancedExpanded ? 'max-h-[600px] opacity-100 mt-5' : 'max-h-0 opacity-0'}`}>
                 {/* Duration chips */}
                 <div className="mb-5">
-                  <p className="text-[#6f89b0] text-[11px] font-semibold tracking-widest mb-2">DURATION</p>
+                  <p className="text-[#6f89b0] text-[11px] font-semibold tracking-widest mb-2">DAUER</p>
                   <div className="flex gap-2">
                     {['15m', '30m', '1h', '2h'].map((d) => (
                       <button
@@ -302,7 +304,7 @@ const NewTaskModal = ({
 
                 {/* Repeat row */}
                 <div className="flex items-center justify-between py-3 border-t border-[#243356]">
-                  <span className="text-white text-[15px] font-medium">Repeat</span>
+                  <span className="text-white text-[15px] font-medium">Wiederholen</span>
                   <div className="relative">
                     <select
                       value={selectedRecurrence}
@@ -319,9 +321,9 @@ const NewTaskModal = ({
 
                 {/* Remind me row */}
                 <div className="flex items-center justify-between py-3 border-t border-[#243356]">
-                  <span className="text-white text-[15px] font-medium">Remind me</span>
+                  <span className="text-white text-[15px] font-medium">Erinnern</span>
                   <div className="flex items-center gap-3">
-                    <span className="text-text-secondary text-[13px]">{isReminderEnabled ? '10 min before' : 'Off'}</span>
+                    <span className="text-text-secondary text-[13px]">{isReminderEnabled ? '10 Min vorher' : 'Aus'}</span>
                     <button
                       onClick={() => setIsReminderEnabled(v => !v)}
                       className={`w-[46px] h-[26px] rounded-full relative transition-all duration-300 flex-shrink-0 ${
@@ -337,18 +339,18 @@ const NewTaskModal = ({
 
                 {/* Priority section */}
                 <div className="pt-4 border-t border-[#243356]">
-                  <p className="text-[#6f89b0] text-[11px] font-semibold tracking-widest mb-3">PRIORITY</p>
+                  <p className="text-[#6f89b0] text-[11px] font-semibold tracking-widest mb-3">PRIORITÄT</p>
                   <div className="flex gap-0 bg-[#141e30] rounded-2xl p-1 shadow-inner border border-[#243356]/50">
                     {[
-                      { label: 'Low',    activeColor: 'text-emerald-400' },
-                      { label: 'Medium', activeColor: 'text-amber-400' },
-                      { label: 'High',   activeColor: 'text-red-400' },
+                      { value: 'Low',    label: 'Niedrig', activeColor: 'text-emerald-400' },
+                      { value: 'Medium', label: 'Mittel',  activeColor: 'text-amber-400' },
+                      { value: 'High',   label: 'Hoch',    activeColor: 'text-red-400' },
                     ].map((p) => (
                       <button
-                        key={p.label}
-                        onClick={() => setSelectedPriority(p.label)}
+                        key={p.value}
+                        onClick={() => setSelectedPriority(p.value)}
                         className={`flex-1 py-2.5 rounded-xl font-semibold text-[14px] transition-all ${
-                          p.label === selectedPriority
+                          p.value === selectedPriority
                             ? `bg-[#2a3650] ${p.activeColor} shadow-sm`
                             : 'text-text-secondary hover:text-white'
                         }`}
@@ -371,7 +373,7 @@ const NewTaskModal = ({
             className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(19,91,236,0.45)] active:scale-[0.98] transition-all text-[16px]"
           >
             <CheckCircle2 size={20} strokeWidth={2.5} />
-            <span>Save Changes</span>
+            <span>Speichern</span>
           </button>
         </div>
       </div>

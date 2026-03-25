@@ -126,7 +126,7 @@ export default function VoiceTaskModal({ isOpen, onClose, onSuccess }: VoiceTask
         <div className="w-10 h-1 bg-[#2a364f] rounded-full mx-auto mb-6" />
 
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-white font-bold text-[18px]">Voice Task</h2>
+          <h2 className="text-white font-bold text-[18px]">Sprachaufgabe</h2>
           <button onClick={handleCancel} className="text-[#6f89b0] hover:text-white p-1" disabled={isProcessing}>
             <X size={22} />
           </button>
@@ -145,16 +145,16 @@ export default function VoiceTaskModal({ isOpen, onClose, onSuccess }: VoiceTask
                 <Mic size={24} className="text-red-400 opacity-50" />
               </div>
               <div>
-                <p className="text-white font-semibold text-[15px] mb-1">Voice Setup Incomplete</p>
+                <p className="text-white font-semibold text-[15px] mb-1">Spracheinrichtung unvollständig</p>
                 <p className="text-[#6f89b0] text-[13px] px-4">
-                  The backend service is not configured for this environment.
+                  Der Backend-Dienst ist für diese Umgebung nicht konfiguriert.
                 </p>
               </div>
             </div>
           ) : isProcessing ? (
             <div className="flex flex-col items-center gap-4 animate-pulse">
               <Loader2 size={40} className="text-primary animate-spin" />
-              <p className="text-[#6f89b0] text-[15px] font-medium">Preparing task...</p>
+              <p className="text-[#6f89b0] text-[15px] font-medium">Aufgabe wird vorbereitet...</p>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-6">
@@ -174,13 +174,13 @@ export default function VoiceTaskModal({ isOpen, onClose, onSuccess }: VoiceTask
               
               <div className="text-center flex flex-col items-center">
                 <p className="text-white font-semibold text-[16px] mb-1">
-                  {isRecording ? `Recording... 0:${recordingTime.toString().padStart(2, '0')}` : 'Tap to speak'}
+                  {isRecording ? `Aufnahme... 0:${recordingTime.toString().padStart(2, '0')}` : 'Zum Sprechen tippen'}
                 </p>
                 <p className="text-[#6f89b0] text-[13px] mb-2">
-                  e.g. "Buy protein shake tomorrow"
+                  z.B. "Morgen Proteinshake kaufen"
                 </p>
                 <span className="text-[11px] text-[#6f89b0]/80 bg-[#2a364f]/50 px-2 py-0.5 rounded-md font-medium">
-                  Optimized for German
+                  Optimiert für Deutsch
                 </span>
               </div>
             </div>

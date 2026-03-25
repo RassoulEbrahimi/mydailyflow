@@ -26,7 +26,7 @@ const AllTasksFilterBar = ({
                             : 'bg-[#1e273b] text-text-secondary border-[#232f48] hover:border-primary/50'
                         }`}
                 >
-                    {f === 'all' ? 'All dates' : f === 'today' ? 'Today' : 'Yesterday'}
+                    {f === 'all' ? 'Alle Daten' : f === 'today' ? 'Heute' : 'Gestern'}
                 </button>
             ))}
         </div>
@@ -47,7 +47,7 @@ const AllTasksFilterBar = ({
                     onClick={() => { setAllDateFilter('all'); setAllDatePicker(''); }}
                     className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#1e273b] text-text-secondary border border-[#232f48] hover:border-red-400/50 hover:text-red-400 transition-all"
                 >
-                    Clear
+                    Löschen
                 </button>
             )}
         </div>

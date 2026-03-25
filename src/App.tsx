@@ -215,12 +215,12 @@ function AppInner({ logout }: { logout: () => void }) {
       {/* SW Update Banner */}
       {updateAvailable && (
         <div className="fixed top-0 left-0 right-0 z-[60] flex items-center justify-between gap-3 px-4 py-3 bg-[#1e273b] border-b border-primary/40 shadow-lg">
-          <span className="text-sm font-medium text-white">🚀 New version available</span>
+          <span className="text-sm font-medium text-white">🚀 Neue Version verfügbar</span>
           <button
             onClick={handleRefresh}
             className="text-sm font-semibold text-primary hover:text-blue-300 transition-colors flex-shrink-0 px-3 py-1 rounded-lg hover:bg-primary/10 active:scale-95"
           >
-            Refresh
+            Aktualisieren
           </button>
         </div>
       )}
@@ -235,7 +235,7 @@ function AppInner({ logout }: { logout: () => void }) {
               <input
                 autoFocus
                 type="text"
-                placeholder="Search tasks..."
+                placeholder="Suche..."
                 className="bg-transparent border-none outline-none text-white text-[15px] w-full placeholder:text-text-secondary"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -297,20 +297,20 @@ function AppInner({ logout }: { logout: () => void }) {
               onManageClick={() => setIsManageEssentialsOpen(true)}
             />
             <div className="flex flex-col gap-8 px-5 pt-2">
-            <TaskSection title="Morning" timeRange="06:00 – 12:00" colorClass="bg-blue-400" shadowClass="shadow-[0_0_10px_rgba(96,165,250,0.5)]">
+            <TaskSection title="Morgen" timeRange="06:00 – 12:00" colorClass="bg-blue-400" shadowClass="shadow-[0_0_10px_rgba(96,165,250,0.5)]">
               {morningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />)}
             </TaskSection>
-            <TaskSection title="Afternoon" timeRange="12:00 – 18:00" colorClass="bg-orange-400" shadowClass="shadow-[0_0_10px_rgba(251,146,60,0.5)]">
+            <TaskSection title="Nachmittag" timeRange="12:00 – 18:00" colorClass="bg-orange-400" shadowClass="shadow-[0_0_10px_rgba(251,146,60,0.5)]">
               {afternoonTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />)}
             </TaskSection>
-            <TaskSection title="Evening" timeRange="18:00 – 23:00" colorClass="bg-indigo-400" shadowClass="shadow-[0_0_10px_rgba(129,140,248,0.5)]">
+            <TaskSection title="Abend" timeRange="18:00 – 23:00" colorClass="bg-indigo-400" shadowClass="shadow-[0_0_10px_rgba(129,140,248,0.5)]">
               {eveningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />)}
             </TaskSection>
 
             {pendingTasks.length === 0 && (
               <div className="text-center py-12 text-text-secondary mt-10">
                 <CheckCircle2 size={48} className="mx-auto mb-4 opacity-30" />
-                <p>All tasks completed for today!</p>
+                <p>Alle Aufgaben für heute erledigt!</p>
               </div>
             )}
             </div>
@@ -350,13 +350,13 @@ function AppInner({ logout }: { logout: () => void }) {
                 <List size={44} className="text-text-secondary opacity-40" />
                 {allDateFilter !== 'all' ? (
                   <>
-                    <p className="text-white font-semibold">No tasks on this date</p>
-                    <p className="text-text-secondary text-sm">Try a different date or clear the filter.</p>
+                    <p className="text-white font-semibold">Keine Aufgaben an diesem Datum</p>
+                    <p className="text-text-secondary text-sm">Versuche ein anderes Datum oder lösche den Filter.</p>
                   </>
                 ) : (
                   <>
-                    <p className="text-white font-semibold">No tasks yet</p>
-                    <p className="text-text-secondary text-sm">Add your first task using the + button.</p>
+                    <p className="text-white font-semibold">Noch keine Aufgaben</p>
+                    <p className="text-text-secondary text-sm">Füge deine erste Aufgabe mit dem + Button hinzu.</p>
                   </>
                 )}
               </div>
@@ -365,13 +365,13 @@ function AppInner({ logout }: { logout: () => void }) {
         ) : (
           <div className="flex flex-col gap-8 px-5">
             {doneTasks.length > 0 ? (
-              <TaskSection title="Completed Tasks" colorClass="bg-emerald-400" shadowClass="shadow-[0_0_10px_rgba(52,211,153,0.5)]">
+              <TaskSection title="Erledigte Aufgaben" colorClass="bg-emerald-400" shadowClass="shadow-[0_0_10px_rgba(52,211,153,0.5)]">
                 {doneTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />)}
               </TaskSection>
             ) : (
               <div className="text-center py-12 text-text-secondary mt-10">
                 <List size={48} className="mx-auto mb-4 opacity-30" />
-                <p>No completed tasks yet.</p>
+                <p>Noch keine erledigten Aufgaben.</p>
               </div>
             )}
           </div>
@@ -386,14 +386,14 @@ function AppInner({ logout }: { logout: () => void }) {
               onClick={openNewTaskModal}
               className="px-5 py-3.5 text-white font-semibold text-[15px] hover:bg-white/5 transition-colors border-b border-[#2e3d58]/50 text-left whitespace-nowrap"
             >
-              Manual Task
+              Manuelle Aufgabe
             </button>
             <button
               onClick={openVoiceTaskModal}
               className="px-5 py-3.5 text-primary font-semibold text-[15px] hover:bg-white/5 transition-colors text-left flex items-center gap-2 whitespace-nowrap"
             >
               <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-              Voice Task
+              Sprachaufgabe
             </button>
           </div>
         )}
@@ -422,7 +422,7 @@ function AppInner({ logout }: { logout: () => void }) {
             </div>
             <span className={`text-[11px] font-semibold tracking-tight ${
               activeTab === 'today' ? 'text-primary' : 'text-[#4e6285]'
-            }`}>Today</span>
+            }`}>Heute</span>
           </button>
 
           {/* All Tasks */}
@@ -437,7 +437,7 @@ function AppInner({ logout }: { logout: () => void }) {
             </div>
             <span className={`text-[11px] font-semibold tracking-tight ${
               activeTab === 'all' ? 'text-primary' : 'text-[#4e6285]'
-            }`}>All Tasks</span>
+            }`}>Alle Aufgaben</span>
           </button>
 
           {/* Reminders (non-functional tab, keep stable) */}
@@ -445,7 +445,7 @@ function AppInner({ logout }: { logout: () => void }) {
             <div className="flex items-center justify-center w-11 h-7">
               <Bell size={22} className="text-[#4e6285]" strokeWidth={2} />
             </div>
-            <span className="text-[11px] font-semibold tracking-tight text-[#4e6285]">Reminders</span>
+            <span className="text-[11px] font-semibold tracking-tight text-[#4e6285]">Erinnerungen</span>
           </button>
 
           {/* Done */}
@@ -460,7 +460,7 @@ function AppInner({ logout }: { logout: () => void }) {
             </div>
             <span className={`text-[11px] font-semibold tracking-tight ${
               activeTab === 'done' ? 'text-primary' : 'text-[#4e6285]'
-            }`}>Done</span>
+            }`}>Erledigt</span>
           </button>
 
         </div>

@@ -3,9 +3,9 @@ import React, { useMemo } from 'react';
 // ─── Time-aware greeting ───────────────────────────────────────────────────────
 function getGreeting(): string {
   const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12) return 'Good morning';
-  if (hour >= 12 && hour < 18) return 'Good afternoon';
-  return 'Good evening';
+  if (hour >= 5 && hour < 12) return 'Guten Morgen';
+  if (hour >= 12 && hour < 18) return 'Guten Tag';
+  return 'Guten Abend';
 }
 
 // ─── Compact progress arc ──────────────────────────────────────────────────────
@@ -74,7 +74,7 @@ const HomeHero = ({
 }: HomeHeroProps) => {
   const greeting = useMemo(() => getGreeting(), []);
   const dateLabel = useMemo(() =>
-    new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date()),
+    new Intl.DateTimeFormat('de-DE', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date()),
     [],
   );
 

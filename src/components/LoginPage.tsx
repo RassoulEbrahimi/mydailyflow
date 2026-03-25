@@ -21,7 +21,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!username.trim() || !password) {
-            setError('Please enter your username and password.');
+            setError('Bitte gib deinen Benutzernamen und dein Passwort ein.');
             return;
         }
         setIsLoading(true);
@@ -31,7 +31,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
         setTimeout(() => {
             const ok = onLogin(username, password, remember);
             if (!ok) {
-                setError('Invalid username or password.');
+                setError('Ungültiger Benutzername oder Passwort.');
             }
             setIsLoading(false);
         }, 300);
@@ -47,14 +47,14 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
 
             {/* Card */}
             <div className="w-full max-w-sm bg-[#151c2c] rounded-[2rem] p-7 border border-[#232f48] shadow-2xl">
-                <h2 className="text-white font-bold text-xl mb-1">Welcome back</h2>
-                <p className="text-text-secondary text-sm mb-8">Sign in to continue</p>
+                <h2 className="text-white font-bold text-xl mb-1">Willkommen zurück</h2>
+                <p className="text-text-secondary text-sm mb-8">Melde dich an, um fortzufahren</p>
 
                 <form onSubmit={handleSubmit} noValidate>
                     {/* Username */}
                     <div className="mb-4">
                         <label htmlFor="login-username" className="block text-text-secondary text-xs font-semibold tracking-wider mb-2">
-                            USERNAME
+                            BENUTZERNAME
                         </label>
                         <input
                             id="login-username"
@@ -64,7 +64,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                             spellCheck={false}
                             value={username}
                             onChange={(e) => { setUsername(e.target.value); setError(''); }}
-                            placeholder="Enter username"
+                            placeholder="Benutzername eingeben"
                             className="w-full bg-[#1e273b] text-white placeholder:text-[#384666] rounded-2xl px-4 py-3.5 text-[15px] outline-none border border-[#232f48]/50 focus:border-primary/60 transition-colors"
                         />
                     </div>
@@ -72,7 +72,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                     {/* Password */}
                     <div className="mb-6">
                         <label htmlFor="login-password" className="block text-text-secondary text-xs font-semibold tracking-wider mb-2">
-                            PASSWORD
+                            PASSWORT
                         </label>
                         <input
                             id="login-password"
@@ -80,7 +80,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                             autoComplete="current-password"
                             value={password}
                             onChange={(e) => { setPassword(e.target.value); setError(''); }}
-                            placeholder="Enter password"
+                            placeholder="Passwort eingeben"
                             className="w-full bg-[#1e273b] text-white placeholder:text-[#384666] rounded-2xl px-4 py-3.5 text-[15px] outline-none border border-[#232f48]/50 focus:border-primary/60 transition-colors"
                         />
                     </div>
@@ -109,7 +109,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                             onClick={() => setRemember((r) => !r)}
                             className="text-text-secondary text-sm cursor-pointer select-none"
                         >
-                            Remember me <span className="text-[#384666] text-xs">(stays logged in for 5 days)</span>
+                            Angemeldet bleiben <span className="text-[#384666] text-xs">(bleibt 5 Tage angemeldet)</span>
                         </label>
                     </div>
 
@@ -127,14 +127,14 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                         className="w-full bg-primary hover:bg-blue-600 disabled:opacity-60 text-white font-semibold py-4 rounded-[1.5rem] flex items-center justify-center gap-2 shadow-[0_8px_25px_rgba(19,91,236,0.4)] active:scale-[0.98] transition-all text-[17px]"
                     >
                         <LogIn size={20} strokeWidth={2.5} />
-                        {isLoading ? 'Signing in…' : 'Sign in'}
+                        {isLoading ? 'Anmeldung…' : 'Anmelden'}
                     </button>
                 </form>
             </div>
 
             {/* Demo notice */}
             <p className="mt-8 text-[11px] text-[#384666] text-center max-w-xs leading-relaxed">
-                Demo environment · Not secure · Do not use real passwords
+                Demo-Umgebung · Nicht sicher · Verwende keine echten Passwörter
             </p>
         </div>
     );

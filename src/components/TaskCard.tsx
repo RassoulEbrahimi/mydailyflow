@@ -145,7 +145,7 @@ const TaskCard = ({
           style={{ minWidth: 0 }}
         >
           <Pencil size={18} className="text-white" />
-          <span className="text-[11px] font-semibold text-white">Edit</span>
+          <span className="text-[11px] font-semibold text-white">Bearbeiten</span>
         </button>
 
         {overdue && onMoveTomorrow ? (
@@ -158,7 +158,7 @@ const TaskCard = ({
               style={{ minWidth: 0 }}
             >
               <ArrowRight size={18} className="text-white" />
-              <span className="text-[11px] font-semibold text-white">Tomorrow</span>
+              <span className="text-[11px] font-semibold text-white">Morgen</span>
             </button>
 
             {/* Done */}
@@ -169,7 +169,7 @@ const TaskCard = ({
               style={{ minWidth: 0 }}
             >
               <Check size={18} className="text-white" />
-              <span className="text-[11px] font-semibold text-white">Done</span>
+              <span className="text-[11px] font-semibold text-white">Erledigt</span>
             </button>
           </>
         ) : (
@@ -188,7 +188,7 @@ const TaskCard = ({
                 : <Check size={18} className="text-white" />
               }
               <span className="text-[11px] font-semibold text-white">
-                {completed ? 'Undo' : 'Done'}
+                {completed ? 'Rückgängig' : 'Erledigt'}
               </span>
             </button>
 
@@ -200,7 +200,7 @@ const TaskCard = ({
               style={{ minWidth: 0 }}
             >
               <Trash2 size={18} className="text-white" />
-              <span className="text-[11px] font-semibold text-white">Delete</span>
+              <span className="text-[11px] font-semibold text-white">Löschen</span>
             </button>
           </>
         )}
@@ -279,7 +279,7 @@ const TaskCard = ({
               {/* Overdue badge */}
               {overdue && (
                 <span className="flex items-center gap-1 text-[10px] font-medium text-rose-300/90 bg-rose-500/10 px-1.5 py-0.5 rounded-md leading-tight flex-shrink-0">
-                  Overdue
+                  Überfällig
                 </span>
               )}
 
@@ -322,7 +322,7 @@ const TaskCard = ({
             ))}
             {task.checklistItems!.length > 4 && (
               <span className="text-[11px] text-[#4a5a78] ml-[18px]">
-                +{task.checklistItems!.length - 4} more
+                +{task.checklistItems!.length - 4} weitere
               </span>
             )}
           </div>

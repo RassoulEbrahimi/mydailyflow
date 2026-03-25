@@ -40,7 +40,7 @@ export default function DailyEssentialsSection({
           <div className="flex items-center justify-center w-7 h-7 rounded-full bg-blue-500/15 text-blue-400">
             <Droplets size={16} strokeWidth={2.5} />
           </div>
-          <h2 className="text-[16px] font-bold text-white tracking-tight">Daily Essentials</h2>
+          <h2 className="text-[16px] font-bold text-white tracking-tight">Tägliche Essentials</h2>
           <span className="text-[13px] font-medium text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full ml-1">
             {completedCount}/{totalCount}
           </span>
@@ -56,7 +56,7 @@ export default function DailyEssentialsSection({
           className="text-[13px] font-medium text-blue-400 hover:text-blue-300 px-2 py-1 rounded-md hover:bg-blue-500/10 transition-colors flex items-center gap-1"
         >
           <Settings size={14} />
-          <span>Manage</span>
+          <span>Verwalten</span>
         </button>
       </div>
 
@@ -65,7 +65,7 @@ export default function DailyEssentialsSection({
         <div className="flex flex-col gap-2.5 bg-[#162032] p-3 rounded-[16px] border border-[#232f48]/50 shadow-sm">
           {essentials.length === 0 ? (
             <div className="text-center py-4 text-slate-400 text-[14px]">
-              No essentials yet. <span className="text-blue-400 cursor-pointer" onClick={onManageClick}>Add one</span>
+              Noch keine Essentials. <span className="text-blue-400 cursor-pointer" onClick={onManageClick}>Hinzufügen</span>
             </div>
           ) : (
             essentials.map(essential => {

@@ -38,9 +38,9 @@ const SettingsModal = ({
   };
 
   const permissionLabel: Record<NotificationPermission, string> = {
-    granted: 'Granted',
-    denied: 'Denied',
-    default: 'Not set',
+    granted: 'Erlaubt',
+    denied: 'Blockiert',
+    default: 'Nicht konfiguriert',
   };
 
   const permissionColor: Record<NotificationPermission, string> = {
@@ -60,20 +60,20 @@ const SettingsModal = ({
         <div className="w-12 h-1.5 bg-[#2a364f] rounded-full mx-auto mb-6" />
 
         <div className="flex justify-between items-center mb-8 relative">
-          <button onClick={onClose} className="text-text-secondary active:opacity-70 transition-opacity absolute left-0 text-[15px]">Close</button>
-          <h2 className="text-white font-bold text-lg w-full text-center">Settings</h2>
+          <button onClick={onClose} className="text-text-secondary active:opacity-70 transition-opacity absolute left-0 text-[15px]">Schließen</button>
+          <h2 className="text-white font-bold text-lg w-full text-center">Einstellungen</h2>
         </div>
 
         {/* ── Home section ─────────────────────────────────────────────── */}
         <div className="mb-6">
-          <h3 className="text-text-secondary text-xs font-semibold tracking-wider mb-3">HOME</h3>
+          <h3 className="text-text-secondary text-xs font-semibold tracking-wider mb-3">STARTBILDSCHIRM</h3>
           <button
             onClick={() => onStickyHeroChange(!stickyHeroEnabled)}
             className="w-full bg-[#1e273b] p-4 px-5 rounded-[1.5rem] flex items-center justify-between border border-[#232f48]/50 active:scale-[0.98] transition-transform"
           >
             <div>
-              <span className="text-white font-semibold text-[16px]">Sticky header</span>
-              <p className="text-text-secondary text-[12px] mt-0.5">Keeps progress visible while scrolling</p>
+              <span className="text-white font-semibold text-[16px]">Kopfzeile fixieren</span>
+              <p className="text-text-secondary text-[12px] mt-0.5">Hält den Fortschritt beim Scrollen sichtbar</p>
             </div>
             <div className={`w-[52px] h-[30px] rounded-full relative transition-all duration-300 flex-shrink-0 ml-3 ${
               stickyHeroEnabled ? 'bg-primary shadow-[0_0_12px_rgba(19,91,236,0.4)]' : 'bg-[#232f48]'
@@ -87,13 +87,13 @@ const SettingsModal = ({
 
         {/* Notification Permission Status */}
         <div className="mb-6">
-          <h3 className="text-text-secondary text-xs font-semibold tracking-wider mb-3">NOTIFICATION PERMISSION</h3>
+          <h3 className="text-text-secondary text-xs font-semibold tracking-wider mb-3">BENACHRICHTIGUNGEN</h3>
           <div className="bg-[#1e273b] rounded-[1.5rem] p-4 px-5 border border-[#232f48]/50 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="text-orange-500 opacity-90 drop-shadow-[0_0_4px_rgba(249,115,22,0.4)]">
                 <Bell size={22} strokeWidth={2.5} className="fill-current" />
               </div>
-              <span className="text-white font-semibold text-[16px]">Browser notifications</span>
+              <span className="text-white font-semibold text-[16px]">Browser-Benachrichtigungen</span>
             </div>
             <span className={`text-sm font-semibold ${permissionColor[permission]}`}>
               {permissionLabel[permission]}
@@ -104,8 +104,8 @@ const SettingsModal = ({
         {/* Denied warning */}
         {permission === 'denied' && (
           <div className="mb-6 bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
-            <p className="text-amber-400 text-sm font-semibold mb-1">Notifications are blocked</p>
-            <p className="text-text-secondary text-sm">To enable reminders, open your browser's site settings and allow notifications for this page, then refresh.</p>
+            <p className="text-amber-400 text-sm font-semibold mb-1">Benachrichtigungen sind blockiert</p>
+            <p className="text-text-secondary text-sm">Um Erinnerungen zu aktivieren, öffne die Website-Einstellungen deines Browsers und erlaube Benachrichtigungen für diese Seite, lade dann neu.</p>
           </div>
         )}
 
@@ -113,15 +113,15 @@ const SettingsModal = ({
         {permission === 'granted' && (
           <div className="mb-6">
             <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 mb-4">
-              <p className="text-emerald-400 text-sm font-semibold">Reminders enabled ✓</p>
-              <p className="text-text-secondary text-sm mt-1">Browser notifications are allowed for this site.</p>
+              <p className="text-emerald-400 text-sm font-semibold">Erinnerungen aktiviert ✓</p>
+              <p className="text-text-secondary text-sm mt-1">Browser-Benachrichtigungen sind für diese Seite erlaubt.</p>
             </div>
             {/* Reminders on/off toggle */}
             <button
               onClick={() => onRemindersEnabledChange(!remindersEnabled)}
               className="w-full bg-[#1e273b] p-4 px-5 rounded-[1.5rem] flex items-center justify-between border border-[#232f48]/50 active:scale-[0.98] transition-transform"
             >
-              <span className="text-white font-semibold text-[16px]">Schedule reminders</span>
+              <span className="text-white font-semibold text-[16px]">Erinnerungen planen</span>
               <div className={`w-[52px] h-[30px] rounded-full relative transition-all duration-300 ${remindersEnabled ? 'bg-primary shadow-[0_0_12px_rgba(19,91,236,0.4)]' : 'bg-[#232f48]'}`}>
                 <div className={`absolute top-[2px] w-[26px] h-[26px] bg-white rounded-full shadow-sm transition-transform duration-300 ${remindersEnabled ? 'right-1 translate-x-0' : 'left-1 translate-x-0'}`} />
               </div>
@@ -137,7 +137,7 @@ const SettingsModal = ({
             className="w-full bg-primary hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-[1.5rem] flex items-center justify-center gap-2 shadow-[0_8px_25px_rgba(19,91,236,0.4)] active:scale-[0.98] transition-all text-[17px]"
           >
             <Bell size={22} strokeWidth={2.5} />
-            {requesting ? 'Requesting…' : 'Enable Reminders'}
+            {requesting ? 'Wird angefragt…' : 'Erinnerungen aktivieren'}
           </button>
         )}
 
@@ -148,9 +148,9 @@ const SettingsModal = ({
             className="w-full bg-[#1e273b] hover:bg-red-500/10 border border-[#232f48]/50 hover:border-red-500/30 text-text-secondary hover:text-red-400 font-semibold py-4 rounded-[1.5rem] flex items-center justify-center gap-2 transition-all active:scale-[0.98] text-[16px]"
           >
             <LogOut size={20} strokeWidth={2.5} />
-            Log out
+            Abmelden
           </button>
-          <p className="text-center text-[11px] text-[#384666] mt-3">Demo environment · Not secure</p>
+          <p className="text-center text-[11px] text-[#384666] mt-3">Demo-Umgebung · Nicht sicher</p>
         </div>
       </div>
     </>

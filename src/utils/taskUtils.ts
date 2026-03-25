@@ -25,18 +25,18 @@ export const getYesterdayString = (): string => {
 export const formatDateLabel = (dateStr: string): string => {
     const today = getTodayString();
     const yesterday = getYesterdayString();
-    if (dateStr === today) return 'Today';
-    if (dateStr === yesterday) return 'Yesterday';
+    if (dateStr === today) return 'Heute';
+    if (dateStr === yesterday) return 'Gestern';
     const [y, mo, d] = dateStr.split('-').map(Number);
     // Use UTC noon to avoid timezone shifts when constructing the date
     const dt = new Date(Date.UTC(y, mo - 1, d, 12));
-    return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).format(dt);
+    return new Intl.DateTimeFormat('de-DE', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).format(dt);
 };
 
 // Returns a concise label describing where a rolled-over task originated.
 export const getRolloverLabel = (rolledOverFrom: string): string => {
-    if (rolledOverFrom === getYesterdayString()) return 'From yesterday';
-    return `From ${formatDateLabel(rolledOverFrom)}`;
+    if (rolledOverFrom === getYesterdayString()) return 'Von gestern';
+    return `Von ${formatDateLabel(rolledOverFrom)}`;
 };
 
 // Returns the default start time for a given time block.

@@ -14,7 +14,7 @@ const DateGroupHeader = ({ date, count }: DateGroupHeaderProps) => (
             <h2 className="text-sm font-semibold text-white tracking-wide">
                 {formatDateLabel(date)}
                 <span className="ml-2 text-text-secondary font-normal">
-                    · {count} task{count !== 1 ? 's' : ''}
+                    · {count} Aufgabe{count !== 1 ? 'n' : ''}
                 </span>
             </h2>
         </div>
