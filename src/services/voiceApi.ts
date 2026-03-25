@@ -36,10 +36,8 @@ export const transcribeAudio = async (audioBlob: Blob): Promise<TranscribeRespon
   const formData = new FormData();
   formData.append('audio', audioBlob, 'recording.webm');
   
-  // Note: We intentionally do NOT send a default language hint (like navigator.language)
-  // here because forcing a language degrades transcription quality for multilingual users 
-  // (e.g., Persian speech being transcribed poorly when forced to 'de').
-  // The Mistral backend will automatically detect the language.
+  // For v1, the backend explicitly enforces German transcription,
+  // so no frontend language parameter is needed.
 
   let response: Response;
   try {

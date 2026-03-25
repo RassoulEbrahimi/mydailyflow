@@ -172,13 +172,16 @@ export default function VoiceTaskModal({ isOpen, onClose, onSuccess }: VoiceTask
                 )}
               </button>
               
-              <div className="text-center">
+              <div className="text-center flex flex-col items-center">
                 <p className="text-white font-semibold text-[16px] mb-1">
                   {isRecording ? `Recording... 0:${recordingTime.toString().padStart(2, '0')}` : 'Tap to speak'}
                 </p>
-                <p className="text-[#6f89b0] text-[13px]">
+                <p className="text-[#6f89b0] text-[13px] mb-2">
                   e.g. "Buy protein shake tomorrow"
                 </p>
+                <span className="text-[11px] text-[#6f89b0]/80 bg-[#2a364f]/50 px-2 py-0.5 rounded-md font-medium">
+                  Optimized for German
+                </span>
               </div>
             </div>
           )}

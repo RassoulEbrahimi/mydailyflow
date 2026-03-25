@@ -152,9 +152,8 @@ app.post('/api/voice-task/transcribe', upload.single('audio'), asyncHandler(asyn
   formData.append('file', audioBlob, 'audio.webm');
   formData.append('model', modelName);
 
-  if (req.body.language) {
-    formData.append('language', req.body.language);
-  }
+  // For v1, Voice Task is explicitly optimized for German, removing auto-detect
+  formData.append('language', 'de');
 
   // Let's actually use a mock or standard fetch for Mistral
 
