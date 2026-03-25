@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Check, Trash2, CheckCircle2 } from 'lucide-react';
+import { Plus, Check, Trash2, CheckCircle2, ChevronDown } from 'lucide-react';
 
 import type { Task, ChecklistItem, Recurrence } from '../types/task';
 import { deriveTimeBlock } from '../utils/taskUtils';
@@ -36,6 +36,7 @@ const NewTaskModal = ({
   const [isReminderEnabled, setIsReminderEnabled] = useState(true);
   const [selectedPriority, setSelectedPriority] = useState('Medium');
   const [selectedRecurrence, setSelectedRecurrence] = useState<Recurrence>('none');
+  const [isAdvancedExpanded, setIsAdvancedExpanded] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -250,90 +251,114 @@ const NewTaskModal = ({
 
             {/* Start Time */}
             <p className="text-[#6f89b0] text-[11px] font-semibold tracking-widest mb-2">START TIME</p>
-            <div className="mb-4">
+            <div>
               <input
                 type="time"
                 value={selectedTime}
                 onChange={(e) => setSelectedTime(e.target.value)}
-                className="bg-[#141e30] text-white text-[28px] font-bold tracking-wider px-4 py-3 rounded-xl outline-none w-36 [&::-webkit-calendar-picker-indicator]:opacity-0 cursor-pointer"
+                className="bg-[#141e30] text-white text-[26px] font-bold tabular-nums tracking-tight px-3 py-3 rounded-xl outline-none w-36 [&::-webkit-calendar-picker-indicator]:opacity-0 cursor-pointer"
               />
             </div>
 
-            {/* Duration chips */}
-            <p className="text-[#6f89b0] text-[11px] font-semibold tracking-widest mb-2">DURATION</p>
-            <div className="flex gap-2 mb-5">
-              {['15m', '30m', '1h', '2h'].map((d) => (
-                <button
-                  key={d}
-                  onClick={() => setSelectedDuration(d)}
-                  className={`flex-1 py-2 rounded-full font-semibold text-[14px] border transition-all ${
-                    d === selectedDuration
-                      ? 'bg-primary border-primary text-white shadow-[0_0_12px_rgba(19,91,236,0.4)]'
-                      : 'border-[#2e3d58] text-text-secondary hover:border-primary/40'
-                  }`}
-                >
-                  {d}
-                </button>
-              ))}
-            </div>
+            {/* Collapsible Advanced Options */}
+            <div className="mt-5 pt-4 border-t border-[#243356]">
+              <button
+                onClick={() => setIsAdvancedExpanded(!isAdvancedExpanded)}
+                className="w-full flex items-center justify-between text-left focus:outline-none group"
+              >
+                <div>
+                  <span className="text-white font-medium text-[15px] block">Task details</span>
+                  {!isAdvancedExpanded && (
+                    <span className="text-[#6f89b0] text-[13px] mt-0.5 block">
+                      {selectedDuration} • {RECURRENCE_LABELS[selectedRecurrence]} • {isReminderEnabled ? 'Reminder on' : 'Reminder off'} • {selectedPriority}
+                    </span>
+                  )}
+                </div>
+                <div className="w-8 h-8 rounded-full bg-[#243356]/50 flex items-center justify-center group-hover:bg-[#243356] transition-colors">
+                  <ChevronDown className={`text-[#6f89b0] transition-transform duration-300 ${isAdvancedExpanded ? 'rotate-180' : ''}`} size={18} />
+                </div>
+              </button>
 
-            {/* Repeat row */}
-            <div className="flex items-center justify-between py-3 border-t border-[#243356]">
-              <span className="text-white text-[15px] font-medium">Repeat</span>
-              <div className="relative">
-                <select
-                  value={selectedRecurrence}
-                  onChange={(e) => setSelectedRecurrence(e.target.value as Recurrence)}
-                  className="appearance-none bg-transparent text-text-secondary text-[14px] pr-5 focus:outline-none cursor-pointer"
-                >
-                  {(Object.entries(RECURRENCE_LABELS) as [Recurrence, string][]).map(([val, lbl]) => (
-                    <option key={val} value={val} className="bg-[#1a2a47] text-white">{lbl}</option>
-                  ))}
-                </select>
-                <span className="absolute right-0 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none text-[12px]">▾</span>
+              <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isAdvancedExpanded ? 'max-h-[600px] opacity-100 mt-5' : 'max-h-0 opacity-0'}`}>
+                {/* Duration chips */}
+                <div className="mb-5">
+                  <p className="text-[#6f89b0] text-[11px] font-semibold tracking-widest mb-2">DURATION</p>
+                  <div className="flex gap-2">
+                    {['15m', '30m', '1h', '2h'].map((d) => (
+                      <button
+                        key={d}
+                        onClick={() => setSelectedDuration(d)}
+                        className={`flex-1 py-2 rounded-full font-semibold text-[14px] border transition-all ${
+                          d === selectedDuration
+                            ? 'bg-primary border-primary text-white shadow-[0_0_12px_rgba(19,91,236,0.4)]'
+                            : 'border-[#2e3d58] text-text-secondary hover:border-primary/40'
+                        }`}
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Repeat row */}
+                <div className="flex items-center justify-between py-3 border-t border-[#243356]">
+                  <span className="text-white text-[15px] font-medium">Repeat</span>
+                  <div className="relative">
+                    <select
+                      value={selectedRecurrence}
+                      onChange={(e) => setSelectedRecurrence(e.target.value as Recurrence)}
+                      className="appearance-none bg-transparent text-text-secondary text-[14px] pr-5 focus:outline-none cursor-pointer"
+                    >
+                      {(Object.entries(RECURRENCE_LABELS) as [Recurrence, string][]).map(([val, lbl]) => (
+                        <option key={val} value={val} className="bg-[#1a2a47] text-white">{lbl}</option>
+                      ))}
+                    </select>
+                    <span className="absolute right-0 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none text-[12px]">▾</span>
+                  </div>
+                </div>
+
+                {/* Remind me row */}
+                <div className="flex items-center justify-between py-3 border-t border-[#243356]">
+                  <span className="text-white text-[15px] font-medium">Remind me</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-text-secondary text-[13px]">{isReminderEnabled ? '10 min before' : 'Off'}</span>
+                    <button
+                      onClick={() => setIsReminderEnabled(v => !v)}
+                      className={`w-[46px] h-[26px] rounded-full relative transition-all duration-300 flex-shrink-0 ${
+                        isReminderEnabled ? 'bg-primary shadow-[0_0_10px_rgba(19,91,236,0.4)]' : 'bg-[#2a3650]'
+                      }`}
+                    >
+                      <div className={`absolute top-[2px] w-[22px] h-[22px] bg-white rounded-full shadow transition-all duration-300 ${
+                        isReminderEnabled ? 'left-[22px]' : 'left-[2px]'
+                      }`} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Priority section */}
+                <div className="pt-4 border-t border-[#243356]">
+                  <p className="text-[#6f89b0] text-[11px] font-semibold tracking-widest mb-3">PRIORITY</p>
+                  <div className="flex gap-0 bg-[#141e30] rounded-2xl p-1 shadow-inner border border-[#243356]/50">
+                    {[
+                      { label: 'Low',    activeColor: 'text-emerald-400' },
+                      { label: 'Medium', activeColor: 'text-amber-400' },
+                      { label: 'High',   activeColor: 'text-red-400' },
+                    ].map((p) => (
+                      <button
+                        key={p.label}
+                        onClick={() => setSelectedPriority(p.label)}
+                        className={`flex-1 py-2.5 rounded-xl font-semibold text-[14px] transition-all ${
+                          p.label === selectedPriority
+                            ? `bg-[#2a3650] ${p.activeColor} shadow-sm`
+                            : 'text-text-secondary hover:text-white'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-
-            {/* Remind me row */}
-            <div className="flex items-center justify-between py-3 border-t border-[#243356]">
-              <span className="text-white text-[15px] font-medium">Remind me</span>
-              <div className="flex items-center gap-3">
-                <span className="text-text-secondary text-[13px]">{isReminderEnabled ? '10 min before' : 'Off'}</span>
-                <button
-                  onClick={() => setIsReminderEnabled(v => !v)}
-                  className={`w-[46px] h-[26px] rounded-full relative transition-all duration-300 flex-shrink-0 ${
-                    isReminderEnabled ? 'bg-primary shadow-[0_0_10px_rgba(19,91,236,0.4)]' : 'bg-[#2a3650]'
-                  }`}
-                >
-                  <div className={`absolute top-[2px] w-[22px] h-[22px] bg-white rounded-full shadow transition-all duration-300 ${
-                    isReminderEnabled ? 'left-[22px]' : 'left-[2px]'
-                  }`} />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Priority section */}
-          <div className="mb-6">
-            <p className="text-[#6f89b0] text-[11px] font-semibold tracking-widest mb-3">PRIORITY</p>
-            <div className="flex gap-0 bg-[#1a2336] rounded-2xl p-1">
-              {[
-                { label: 'Low',    activeColor: 'text-emerald-400' },
-                { label: 'Medium', activeColor: 'text-amber-400' },
-                { label: 'High',   activeColor: 'text-red-400' },
-              ].map((p) => (
-                <button
-                  key={p.label}
-                  onClick={() => setSelectedPriority(p.label)}
-                  className={`flex-1 py-2.5 rounded-xl font-semibold text-[14px] transition-all ${
-                    p.label === selectedPriority
-                      ? `bg-[#2a3650] ${p.activeColor}`
-                      : 'text-text-secondary hover:text-white'
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
             </div>
           </div>
 
