@@ -1,0 +1,11 @@
+.git
+.gitignore
+node_modules/
+dist/
+src/
+public/
+vite.config.ts
+tsconfig.json
+.env*
+!.env.example
+README.md
