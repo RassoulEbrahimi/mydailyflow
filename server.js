@@ -15,7 +15,7 @@ app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 app.use(express.json());
 
 // Set up multer for processing audio blob uploads
-const upload = multer({ 
+const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB max
 });
@@ -55,7 +55,7 @@ function parseVoiceDraft(transcript) {
   // 1. Check for "at 3 pm", "um 15 uhr", "ساعت ۱۵", "ساعت 15", "15:00"
   // Persian numbers: ۰ ۱ ۲ ۳ ۴ ۵ ۶ ۷ ۸ ۹
   const persianToEnglishMap = { '۰': '0', '۱': '1', '۲': '2', '۳': '3', '۴': '4', '۵': '5', '۶': '6', '۷': '7', '۸': '8', '۹': '9' };
-  
+
   let normalizedForTime = title.replace(/[۰-۹]/g, c => persianToEnglishMap[c]);
 
   // Match times like 15:30, 9:00
@@ -73,7 +73,7 @@ function parseVoiceDraft(transcript) {
       const isPm = ampmMatch[2].toLowerCase().startsWith('p');
       if (isPm && hour < 12) hour += 12;
       if (!isPm && hour === 12) hour = 0;
-      
+
       timeStr = `${String(hour).padStart(2, '0')}:00`;
       title = title.replace(ampmMatch[0], ' ').trim();
       title = title.replace(/(?:^|\s)(at)(?:\s|$)/ig, ' ').trim();
@@ -93,7 +93,7 @@ function parseVoiceDraft(transcript) {
 
   // Cleanup extra spaces and prepositions left dangling
   title = title.replace(/(?:^|\s)(at|um|ساعت)(?:\s|$)/ig, ' ').replace(/\s+/g, ' ').trim();
-  
+
   // If title ends up empty but we have time/date, fallback to a default title
   if (!title) {
     title = "Voice Task";
@@ -128,17 +128,16 @@ app.post('/api/voice-task/transcribe', upload.single('audio'), asyncHandler(asyn
 
   // Prepare standard multipart/form-data payload for Mistral
   const formData = new FormData();
-  
+
   // Convert multer buffer to a Blob-like format that FormData accepts in Node 18+
   const audioBlob = new Blob([req.file.buffer], { type: req.file.mimetype || 'audio/webm' });
-  formData.append('file', audioBlob, 'audio.webm');
-  formData.append('model', 'mistral-large-latest'); // The transcribe API uses pixtral or mistral. Wait, the docs for Mistral transcribe is 'mistral-speech-to-text'. If the user specified 'voxtral' prepared by user maybe they meant a specific model name? Let's use 'mistral-small-latest' if it was a text model, but this is audio transcription. Wait, Mistral uses `mistral-speech`. Let me check user prompt: "Mistral AI (Voxtral transcribe API already prepared by user)". Oh maybe "Voxtral" is a different provider or they meant something else? "Mistral Voxtral Transcribe" but Mistral's model is typically just "mistral-speech-to-text". Wait, if I'm not sure, I can use the standard model name they provided, or just send it with an env variable. Let's send the form data and see what Model is expected. Mistral transcribe model: "mistral-tiny" etc. No, I'll pass "mistral-speech-to-text" but allow override via ENV.
-  
-  // ACTUALLY Mistral hasn't officially launched a model named Voxtral but maybe it's `mistral-voxtral` or `voxtral`? Wait! Mistral just announced their new audio model... Wait, no, maybe the user has an endpoint and we just call it? Let's use `process.env.MISTRAL_VOXTRAL_MODEL || "mistral-speech-to-text"`.
+  const modelName = process.env.MISTRAL_MODEL || 'voxtral-mini-latest';
 
-  let modelName = process.env.MISTRAL_MODEL || 'mistral-small-latest';
+  formData.append('file', audioBlob, 'audio.webm');
+  formData.append('model', modelName);
+
   // Let's actually use a mock or standard fetch for Mistral
-  
+
   try {
     const mistralRes = await fetch('https://api.mistral.ai/v1/audio/transcriptions', {
       method: 'POST',
@@ -149,11 +148,11 @@ app.post('/api/voice-task/transcribe', upload.single('audio'), asyncHandler(asyn
     });
 
     if (!mistralRes.ok) {
-        const errText = await mistralRes.text();
-        console.error('Mistral API error:', mistralRes.status, errText);
-        
-        // Wait, did the user mean some OTHER api? If Mistral API fails, we throw.
-        throw new Error(`Mistral API Error ${mistralRes.status}`);
+      const errText = await mistralRes.text();
+      console.error('Mistral API error:', mistralRes.status, errText);
+
+      // Wait, did the user mean some OTHER api? If Mistral API fails, we throw.
+      throw new Error(`Mistral API Error ${mistralRes.status}`);
     }
 
     const result = await mistralRes.json();
@@ -177,6 +176,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-app.listen(port, () => {
-  console.log(`Server listening at http://localhost:${port}`);
+app.listen(port, '0.0.0.0', () => {
+  console.log(`Server listening at http://0.0.0.0:${port}`);
 });
