@@ -141,11 +141,11 @@ const TaskCard = ({
         <button
           onPointerDown={e => e.stopPropagation()}
           onClick={e => { e.stopPropagation(); closeSwipe(); onEdit(task); }}
-          className="flex flex-1 flex-col items-center justify-center gap-1 bg-[#1d4aba] active:brightness-90 transition-all"
+          className="flex flex-1 flex-col items-center justify-center bg-[#1d4aba] active:brightness-90 transition-all"
           style={{ minWidth: 0 }}
+          aria-label="Bearbeiten"
         >
-          <Pencil size={18} className="text-white" />
-          <span className="text-[11px] font-semibold text-white">Bearbeiten</span>
+          <Pencil size={20} className="text-white" />
         </button>
 
         {overdue && onMoveTomorrow ? (
@@ -154,22 +154,22 @@ const TaskCard = ({
             <button
               onPointerDown={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); closeSwipe(); onMoveTomorrow(id); }}
-              className="flex flex-1 flex-col items-center justify-center gap-1 bg-[#475569] active:brightness-90 transition-all"
+              className="flex flex-1 flex-col items-center justify-center bg-[#475569] active:brightness-90 transition-all"
               style={{ minWidth: 0 }}
+              aria-label="Morgen"
             >
-              <ArrowRight size={18} className="text-white" />
-              <span className="text-[11px] font-semibold text-white">Morgen</span>
+              <ArrowRight size={20} className="text-white" />
             </button>
 
             {/* Done */}
             <button
               onPointerDown={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); closeSwipe(); onToggleComplete(id); }}
-              className="flex flex-1 flex-col items-center justify-center gap-1 bg-emerald-600 active:brightness-90 transition-all rounded-r-2xl"
+              className="flex flex-1 flex-col items-center justify-center bg-emerald-600 active:brightness-90 transition-all rounded-r-2xl"
               style={{ minWidth: 0 }}
+              aria-label="Erledigt"
             >
-              <Check size={18} className="text-white" />
-              <span className="text-[11px] font-semibold text-white">Erledigt</span>
+              <Check size={20} className="text-white" />
             </button>
           </>
         ) : (
@@ -178,29 +178,27 @@ const TaskCard = ({
             <button
               onPointerDown={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); closeSwipe(); onToggleComplete(id); }}
-              className={`flex flex-1 flex-col items-center justify-center gap-1 active:brightness-90 transition-all ${
+              className={`flex flex-1 flex-col items-center justify-center active:brightness-90 transition-all ${
                 completed ? 'bg-amber-600' : 'bg-emerald-600'
               }`}
               style={{ minWidth: 0 }}
+              aria-label={completed ? 'Rückgängig' : 'Erledigt'}
             >
               {completed
-                ? <RotateCcw size={18} className="text-white" />
-                : <Check size={18} className="text-white" />
+                ? <RotateCcw size={20} className="text-white" />
+                : <Check size={20} className="text-white" />
               }
-              <span className="text-[11px] font-semibold text-white">
-                {completed ? 'Rückgängig' : 'Erledigt'}
-              </span>
             </button>
 
             {/* Delete */}
             <button
               onPointerDown={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); closeSwipe(); onDelete(id); }}
-              className="flex flex-1 flex-col items-center justify-center gap-1 bg-red-600 active:brightness-90 transition-all rounded-r-2xl"
+              className="flex flex-1 flex-col items-center justify-center bg-red-600 active:brightness-90 transition-all rounded-r-2xl"
               style={{ minWidth: 0 }}
+              aria-label="Löschen"
             >
-              <Trash2 size={18} className="text-white" />
-              <span className="text-[11px] font-semibold text-white">Löschen</span>
+              <Trash2 size={20} className="text-white" />
             </button>
           </>
         )}

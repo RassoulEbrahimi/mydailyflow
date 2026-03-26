@@ -32,31 +32,31 @@ export default function DailyEssentialsSection({
   return (
     <section className="px-5 pt-3 pb-5">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 gap-2">
         <div 
-          className="flex items-center gap-2 cursor-pointer select-none"
+          className="flex items-center gap-2 cursor-pointer select-none min-w-0"
           onClick={() => setIsCollapsed(!isCollapsed)}
         >
-          <div className="flex items-center justify-center w-7 h-7 rounded-full bg-blue-500/15 text-blue-400">
+          <div className="flex items-center justify-center flex-shrink-0 w-7 h-7 rounded-full bg-blue-500/15 text-blue-400">
             <Droplets size={16} strokeWidth={2.5} />
           </div>
-          <h2 className="text-[16px] font-bold text-white tracking-tight">Tägliche Essentials</h2>
-          <span className="text-[13px] font-medium text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full ml-1">
+          <h2 className="text-[16px] font-bold text-white tracking-tight truncate">Tägliche Essentials</h2>
+          <span className="text-[13px] font-medium text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full flex-shrink-0">
             {completedCount}/{totalCount}
           </span>
           {isCollapsed ? (
-            <ChevronDown size={18} className="text-slate-500 ml-1" />
+            <ChevronDown size={18} className="text-slate-500 flex-shrink-0" />
           ) : (
-            <ChevronUp size={18} className="text-slate-500 ml-1" />
+            <ChevronUp size={18} className="text-slate-500 flex-shrink-0" />
           )}
         </div>
         
         <button
           onClick={onManageClick}
-          className="text-[13px] font-medium text-blue-400 hover:text-blue-300 px-2 py-1 rounded-md hover:bg-blue-500/10 transition-colors flex items-center gap-1"
+          className="text-blue-400 hover:text-blue-300 p-1.5 rounded-md hover:bg-blue-500/10 transition-colors flex items-center justify-center flex-shrink-0"
+          aria-label="Verwalten"
         >
-          <Settings size={14} />
-          <span>Verwalten</span>
+          <Settings size={18} />
         </button>
       </div>
 

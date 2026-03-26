@@ -172,7 +172,7 @@ const NewTaskModal = ({
               }`}
             >
               <Plus size={15} />
-              Notiz hinzufügen
+              Notiz
             </button>
             <button
               onClick={() => setShowChecklist(v => !v)}
@@ -183,7 +183,7 @@ const NewTaskModal = ({
               }`}
             >
               <Plus size={15} />
-              Checkliste hinzufügen
+              Checkliste
             </button>
           </div>
 

@@ -73,7 +73,7 @@ const SettingsModal = ({
           >
             <div>
               <span className="text-white font-semibold text-[16px]">Kopfzeile fixieren</span>
-              <p className="text-text-secondary text-[12px] mt-0.5">Hält den Fortschritt beim Scrollen sichtbar</p>
+              <p className="text-text-secondary text-[12px] mt-0.5">Fortschritt beim Scrollen sichtbar</p>
             </div>
             <div className={`w-[52px] h-[30px] rounded-full relative transition-all duration-300 flex-shrink-0 ml-3 ${
               stickyHeroEnabled ? 'bg-primary shadow-[0_0_12px_rgba(19,91,236,0.4)]' : 'bg-[#232f48]'
@@ -93,7 +93,7 @@ const SettingsModal = ({
               <div className="text-orange-500 opacity-90 drop-shadow-[0_0_4px_rgba(249,115,22,0.4)]">
                 <Bell size={22} strokeWidth={2.5} className="fill-current" />
               </div>
-              <span className="text-white font-semibold text-[16px]">Browser-Benachrichtigungen</span>
+              <span className="text-white font-semibold text-[16px]">Benachrichtigungen</span>
             </div>
             <span className={`text-sm font-semibold ${permissionColor[permission]}`}>
               {permissionLabel[permission]}
@@ -114,7 +114,7 @@ const SettingsModal = ({
           <div className="mb-6">
             <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 mb-4">
               <p className="text-emerald-400 text-sm font-semibold">Erinnerungen aktiviert ✓</p>
-              <p className="text-text-secondary text-sm mt-1">Browser-Benachrichtigungen sind für diese Seite erlaubt.</p>
+              <p className="text-text-secondary text-sm mt-1">Benachrichtigungen sind erlaubt.</p>
             </div>
             {/* Reminders on/off toggle */}
             <button
