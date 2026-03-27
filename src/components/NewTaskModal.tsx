@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Check, Trash2, CheckCircle2, ChevronDown, Mic } from 'lucide-react';
 
 import type { Task, ChecklistItem, Recurrence } from '../types/task';
-import { deriveTimeBlock } from '../utils/taskUtils';
+import { deriveTimeBlock, getSmartDefaultTime } from '../utils/taskUtils';
 import VoiceTaskModal from './VoiceTaskModal';
 
 const RECURRENCE_LABELS: Record<Recurrence, string> = {
@@ -64,7 +64,7 @@ const NewTaskModal = ({
         setChecklistItems([]);
         setShowChecklist(false);
         setNewChecklistText('');
-        setSelectedTime(initialDraft.time || '14:00');
+        setSelectedTime(initialDraft.time || getSmartDefaultTime());
         setSelectedDuration(initialDraft.duration || '30m');
         setIsReminderEnabled(initialDraft.reminderEnabled ?? true);
         setSelectedPriority(initialDraft.priority ? initialDraft.priority.charAt(0).toUpperCase() + initialDraft.priority.slice(1) : 'Medium');
@@ -76,7 +76,7 @@ const NewTaskModal = ({
         setChecklistItems([]);
         setShowChecklist(false);
         setNewChecklistText('');
-        setSelectedTime('14:00');
+        setSelectedTime(getSmartDefaultTime());
         setSelectedDuration('30m');
         setIsReminderEnabled(true);
         setSelectedPriority('Medium');

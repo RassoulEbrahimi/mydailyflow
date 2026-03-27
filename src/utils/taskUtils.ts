@@ -129,3 +129,24 @@ export const isTaskOverdue = (task: Task): boolean => {
     
     return task.time < currTime;
 };
+
+// Returns a smart default start time based on the current local time.
+// - Rounds up to the next hour (e.g. 10:01 -> 11:00)
+// - Before 06:00 -> 06:00
+// - 23:01 to 23:59 -> 06:00
+// - 23:00 exactly -> 23:00
+export const getSmartDefaultTime = (): string => {
+    const d = new Date();
+    let h = d.getHours();
+    const m = d.getMinutes();
+
+    if (m > 0) {
+        h += 1;
+    }
+
+    if (h >= 24 || h < 6) {
+        h = 6;
+    }
+
+    return `${String(h).padStart(2, '0')}:00`;
+};
