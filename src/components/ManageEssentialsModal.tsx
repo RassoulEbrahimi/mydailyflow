@@ -214,9 +214,9 @@ export default function ManageEssentialsModal({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-5 bg-black/60 backdrop-blur-sm">
       <div 
-        className="bg-background-dark w-full max-w-md rounded-t-[2rem] sm:rounded-3xl border border-[#232f48]/50 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh]"
+        className="bg-background-dark w-full max-w-md rounded-3xl border border-[#232f48]/50 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
         onClick={e => e.stopPropagation()}
       >
         <div className="p-4 border-b border-[#1e273b] flex items-center justify-between flex-shrink-0">
