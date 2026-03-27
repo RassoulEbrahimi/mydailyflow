@@ -1,7 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Edit2, Check } from 'lucide-react';
 import type { DailyEssential } from '../types/essential';
-
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  TouchSensor,
+  MouseSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 interface ManageEssentialsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -9,21 +25,101 @@ interface ManageEssentialsModalProps {
   onAdd: (title: string, targetCount: number) => void;
   onEdit: (id: string, updates: Partial<Pick<DailyEssential, 'title' | 'targetCount' | 'order'>>) => void;
   onDelete: (id: string) => void;
+  onReorder: (activeId: string, overId: string) => void;
 }
 
+const SortableEssentialItem: React.FC<{ 
+  e: DailyEssential; 
+  onStartEdit: (e: DailyEssential) => void; 
+  onDelete: (id: string) => void;
+}> = ({ e, onStartEdit, onDelete }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: e.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 2 : 1,
+    position: 'relative' as const,
+  };
+
+  return (
+    <div 
+        ref={setNodeRef} 
+        style={style} 
+        {...attributes} 
+        {...listeners} 
+        className={`group flex items-center justify-between bg-[#1e273b] p-3.5 rounded-xl border ${
+          isDragging ? 'border-primary shadow-lg opacity-90 scale-[1.02]' : 'border-[#2a364d]'
+        } transition-all duration-200`}
+    >
+      <div className="flex flex-col flex-1 pointer-events-none">
+        <span className="text-[15px] font-semibold text-slate-200">{e.title}</span>
+        <span className="text-[13px] text-slate-500">
+          {e.targetCount === 1 ? 'Einfaches Element' : `Mehrfach-Häkchen (${e.targetCount})`}
+        </span>
+      </div>
+      <div className="flex items-center gap-2" onPointerDown={(e) => e.stopPropagation()}>
+        <button 
+          onClick={() => onStartEdit(e)}
+          className="w-8 h-8 flex items-center justify-center rounded-md bg-transparent hover:bg-slate-700 text-slate-400 transition-colors"
+        >
+          <Edit2 size={16} />
+        </button>
+        <button 
+          onClick={() => onDelete(e.id)}
+          className="w-8 h-8 flex items-center justify-center rounded-md bg-transparent hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors"
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
 export default function ManageEssentialsModal({
   isOpen,
   onClose,
   essentials,
   onAdd,
   onEdit,
-  onDelete
+  onDelete,
+  onReorder
 }: ManageEssentialsModalProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
   const [formTitle, setFormTitle] = useState('');
   const [formTargetCount, setFormTargetCount] = useState(1);
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      onReorder(active.id as string, over.id as string);
+    }
+  };
 
   // Reset internal states when opened
   useEffect(() => {
@@ -118,12 +214,12 @@ export default function ManageEssentialsModal({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm">
       <div 
-        className="bg-background-dark w-full max-w-md rounded-3xl border border-[#232f48]/50 shadow-2xl overflow-hidden flex flex-col"
+        className="bg-background-dark w-full max-w-md rounded-t-[2rem] sm:rounded-3xl border border-[#232f48]/50 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh]"
         onClick={e => e.stopPropagation()}
       >
-        <div className="p-4 border-b border-[#1e273b] flex items-center justify-between">
+        <div className="p-4 border-b border-[#1e273b] flex items-center justify-between flex-shrink-0">
           <h2 className="text-[18px] font-bold text-white tracking-tight">Essentials verwalten</h2>
           <button 
             onClick={onClose}
@@ -133,7 +229,7 @@ export default function ManageEssentialsModal({
           </button>
         </div>
 
-        <div className="p-5 max-h-[60vh] overflow-y-auto custom-scrollbar">
+        <div className="p-5 overflow-y-auto custom-scrollbar flex-1 relative">
           {(isAdding || editingId) ? (
             renderForm()
           ) : (
@@ -147,30 +243,18 @@ export default function ManageEssentialsModal({
                   <p className="text-[14px]">Füge tägliche Gewohnheiten hinzu, die du verfolgen möchtest.</p>
                 </div>
               ) : (
-                essentials.map(e => (
-                  <div key={e.id} className="group flex items-center justify-between bg-[#1e273b] p-3.5 rounded-xl border border-[#2a364d]">
-                    <div className="flex flex-col">
-                      <span className="text-[15px] font-semibold text-slate-200">{e.title}</span>
-                      <span className="text-[13px] text-slate-500">
-                        {e.targetCount === 1 ? 'Einfaches Element' : `Mehrfach-Häkchen (${e.targetCount})`}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button 
-                        onClick={() => handleStartEdit(e)}
-                        className="w-8 h-8 flex items-center justify-center rounded-md bg-transparent hover:bg-slate-700 text-slate-400 transition-colors"
-                      >
-                        <Edit2 size={16} />
-                      </button>
-                      <button 
-                        onClick={() => onDelete(e.id)}
-                        className="w-8 h-8 flex items-center justify-center rounded-md bg-transparent hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                ))
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={essentials.map(e => e.id)} strategy={verticalListSortingStrategy}>
+                    {essentials.map(e => (
+                      <SortableEssentialItem 
+                        key={e.id} 
+                        e={e} 
+                        onStartEdit={handleStartEdit} 
+                        onDelete={onDelete} 
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
               )}
 
               <button 

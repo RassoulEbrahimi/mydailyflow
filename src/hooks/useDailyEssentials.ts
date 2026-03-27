@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { arrayMove } from '@dnd-kit/sortable';
 import type { DailyEssential, DailyEssentialState, EssentialsDataWrapper, EssentialsStateWrapper } from '../types/essential';
 import { isEssentialsDataWrapper, isEssentialsStateWrapper, isValidEssentialArray } from '../types/essential';
 import { getTodayString } from '../utils/taskUtils';
@@ -133,6 +134,19 @@ export function useDailyEssentials() {
         }));
     };
 
+    const reorderEssentials = (activeId: string, overId: string) => {
+        setEssentials(prev => {
+            const sorted = [...prev].sort((a, b) => a.order - b.order);
+            const oldIndex = sorted.findIndex(e => e.id === activeId);
+            const newIndex = sorted.findIndex(e => e.id === overId);
+            if (oldIndex !== -1 && newIndex !== -1) {
+                const reordered = arrayMove(sorted, oldIndex, newIndex);
+                return reordered.map((e, index) => ({ ...e, order: index }));
+            }
+            return prev;
+        });
+    };
+
     // Helper for easy consumption
     const sortedEssentials = [...essentials].sort((a, b) => a.order - b.order);
 
@@ -142,6 +156,7 @@ export function useDailyEssentials() {
         addEssential,
         editEssential,
         deleteEssential,
-        updateProgress
+        updateProgress,
+        reorderEssentials
     };
 }

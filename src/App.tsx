@@ -144,7 +144,8 @@ function AppInner({ logout }: { logout: () => void }) {
     addEssential, 
     editEssential, 
     deleteEssential, 
-    updateProgress 
+    updateProgress,
+    reorderEssentials
   } = useDailyEssentials();
 
   const [activeTab, setActiveTab] = useState<'today' | 'all' | 'done'>('today');
@@ -483,6 +484,7 @@ function AppInner({ logout }: { logout: () => void }) {
         onAdd={addEssential}
         onEdit={editEssential}
         onDelete={deleteEssential}
+        onReorder={reorderEssentials}
       />
       <SettingsModal
         isOpen={isSettingsOpen}
