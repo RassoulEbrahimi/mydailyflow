@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Check, Trash2, CheckCircle2, ChevronDown } from 'lucide-react';
+import { Plus, Check, Trash2, CheckCircle2, ChevronDown, Mic } from 'lucide-react';
 
 import type { Task, ChecklistItem, Recurrence } from '../types/task';
 import { deriveTimeBlock } from '../utils/taskUtils';
+import VoiceTaskModal from './VoiceTaskModal';
 
 const RECURRENCE_LABELS: Record<Recurrence, string> = {
   none: 'Nie',
@@ -37,6 +38,7 @@ const NewTaskModal = ({
   const [selectedPriority, setSelectedPriority] = useState('Medium');
   const [selectedRecurrence, setSelectedRecurrence] = useState<Recurrence>('none');
   const [isAdvancedExpanded, setIsAdvancedExpanded] = useState(false);
+  const [showVoiceNoteModal, setShowVoiceNoteModal] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -189,15 +191,23 @@ const NewTaskModal = ({
 
           {/* Notes inline section */}
           {showNotes && (
-            <div className="mb-5 bg-[#1a2336] rounded-2xl px-4 py-3 border border-[#232f48]/50">
+            <div className="mb-5 bg-[#1a2336] rounded-2xl px-4 py-3 border border-[#232f48]/50 relative group">
               <textarea
                 rows={3}
                 placeholder="Notiz hinzufügen..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 autoFocus
-                className="w-full bg-transparent text-slate-300 placeholder:text-text-secondary/50 focus:outline-none text-[15px] resize-none leading-relaxed"
+                className="w-full bg-transparent text-slate-300 placeholder:text-text-secondary/50 focus:outline-none text-[15px] resize-none leading-relaxed pb-6"
               />
+              <button
+                onClick={() => setShowVoiceNoteModal(true)}
+                className="absolute bottom-3 right-4 p-1.5 text-text-secondary hover:text-primary bg-[#141e30] hover:bg-[#1e2b4d] rounded-full transition-colors border border-transparent hover:border-primary/30"
+                title="Sprachnotiz aufnehmen"
+                type="button"
+              >
+                <Mic size={16} />
+              </button>
             </div>
           )}
 
@@ -377,6 +387,16 @@ const NewTaskModal = ({
           </button>
         </div>
       </div>
+
+      <VoiceTaskModal
+        isOpen={showVoiceNoteModal}
+        onClose={() => setShowVoiceNoteModal(false)}
+        mode="note"
+        onSuccess={(transcript: string) => {
+          setNotes(prev => prev ? `${prev}\n${transcript}` : transcript);
+          setShowVoiceNoteModal(false);
+        }}
+      />
     </>
   );
 };

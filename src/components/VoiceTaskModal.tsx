@@ -6,10 +6,11 @@ import { transcribeAudio, isVoiceBackendConfigured } from '../services/voiceApi'
 interface VoiceTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (draft: Partial<Task>) => void;
+  onSuccess: (result: any) => void;
+  mode?: 'task' | 'note';
 }
 
-export default function VoiceTaskModal({ isOpen, onClose, onSuccess }: VoiceTaskModalProps) {
+export default function VoiceTaskModal({ isOpen, onClose, onSuccess, mode = 'task' }: VoiceTaskModalProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,9 +97,12 @@ export default function VoiceTaskModal({ isOpen, onClose, onSuccess }: VoiceTask
     try {
       const data = await transcribeAudio(audioBlob);
 
-      // Success, pass draft to parent
-      const { draft } = data;
-      onSuccess(draft);
+      // Success, pass result to parent based on mode
+      if (mode === 'note') {
+        onSuccess(data.transcript);
+      } else {
+        onSuccess(data.draft);
+      }
       onClose(); // Close voice modal
     } catch (err: any) {
       console.error('Transcription error:', err);
@@ -126,7 +130,9 @@ export default function VoiceTaskModal({ isOpen, onClose, onSuccess }: VoiceTask
         <div className="w-10 h-1 bg-[#2a364f] rounded-full mx-auto mb-6" />
 
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-white font-bold text-[18px]">Sprachaufgabe</h2>
+          <h2 className="text-white font-bold text-[18px]">
+            {mode === 'note' ? 'Sprachnotiz' : 'Sprachaufgabe'}
+          </h2>
           <button onClick={handleCancel} className="text-[#6f89b0] hover:text-white p-1" disabled={isProcessing}>
             <X size={22} />
           </button>
@@ -154,7 +160,9 @@ export default function VoiceTaskModal({ isOpen, onClose, onSuccess }: VoiceTask
           ) : isProcessing ? (
             <div className="flex flex-col items-center gap-4 animate-pulse">
               <Loader2 size={40} className="text-primary animate-spin" />
-              <p className="text-[#6f89b0] text-[15px] font-medium">Aufgabe wird vorbereitet...</p>
+              <p className="text-[#6f89b0] text-[15px] font-medium">
+                {mode === 'note' ? 'Notiz wird verarbeitet...' : 'Aufgabe wird vorbereitet...'}
+              </p>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-6">
@@ -177,7 +185,7 @@ export default function VoiceTaskModal({ isOpen, onClose, onSuccess }: VoiceTask
                   {isRecording ? `Aufnahme... 0:${recordingTime.toString().padStart(2, '0')}` : 'Zum Sprechen tippen'}
                 </p>
                 <p className="text-[#6f89b0] text-[13px] mb-2">
-                  z.B. "Morgen Proteinshake kaufen"
+                  {mode === 'note' ? 'z.B. "Details zur Aufgabe..."' : 'z.B. "Morgen Proteinshake kaufen"'}
                 </p>
                 <span className="text-[11px] text-[#6f89b0]/80 bg-[#2a364f]/50 px-2 py-0.5 rounded-md font-medium">
                   Optimiert für Deutsch
