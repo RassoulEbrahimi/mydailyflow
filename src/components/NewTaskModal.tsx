@@ -257,16 +257,14 @@ const NewTaskModal = ({
 
           {/* ── Schedule card ── */}
           <div className="bg-[#1a2a47] rounded-2xl p-4 mb-5 border border-[#243356]">
-            <h3 className="text-white font-bold text-[17px] mb-4">Zeitplan</h3>
-
-            {/* Start Time */}
-            <p className="text-[#6f89b0] text-[11px] font-semibold tracking-widest mb-2">STARTZEIT</p>
-            <div>
+            {/* Header + Start Time Row */}
+            <div className="flex items-center justify-between">
+              <h3 className="text-white font-bold text-[17px]">Zeitplan</h3>
               <input
                 type="time"
                 value={selectedTime}
                 onChange={(e) => setSelectedTime(e.target.value)}
-                className="bg-[#141e30] text-white text-[26px] font-bold tabular-nums tracking-tight px-3 py-3 rounded-xl outline-none w-36 [&::-webkit-calendar-picker-indicator]:opacity-0 cursor-pointer"
+                className="bg-[#141e30] text-white text-[24px] font-bold tabular-nums tracking-tight px-3 py-2 rounded-xl outline-none w-32 [&::-webkit-calendar-picker-indicator]:opacity-0 cursor-pointer text-center"
               />
             </div>
 
