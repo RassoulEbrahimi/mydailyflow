@@ -256,7 +256,7 @@ const NewTaskModal = ({
           )}
 
           {/* ── Schedule card ── */}
-          <div className="bg-[#1a2a47] rounded-2xl p-4 mb-5 border border-[#243356]">
+          <div className="bg-[#1a2a47] rounded-2xl p-4 mb-3 border border-[#243356]">
             {/* Header + Start Time Row */}
             <div className="flex items-center justify-between">
               <h3 className="text-white font-bold text-[17px]">Zeitplan</h3>
@@ -269,7 +269,7 @@ const NewTaskModal = ({
             </div>
 
             {/* Collapsible Advanced Options */}
-            <div className="mt-5 pt-4 border-t border-[#243356]">
+            <div className="mt-3 pt-4 border-t border-[#243356]">
               <button
                 onClick={() => setIsAdvancedExpanded(!isAdvancedExpanded)}
                 className="w-full flex items-center justify-between text-left focus:outline-none group"
