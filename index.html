@@ -2,6 +2,10 @@
 <html lang="en">
 
 <head>
+  <script>
+    // FOUC prevention — apply theme before first paint
+    (function(){var t=localStorage.getItem('myDailyFlow_theme');if(t!=='light'&&t!=='dark'&&t!=='system')t='dark';document.documentElement.setAttribute('data-theme',t)})();
+  </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>My Daily Flow</title>
@@ -9,8 +13,8 @@
   <link rel="manifest" href="/mydailyflow/manifest.json">
   <meta name="theme-color" content="#135bec">
   <link rel="apple-touch-icon" href="https://placehold.co/192x192/135bec/ffffff.png?text=DF">
-  <script type="module" crossorigin src="/mydailyflow/assets/index-CqvEQ6zw.js"></script>
-  <link rel="stylesheet" crossorigin href="/mydailyflow/assets/index-CbDQJyDk.css">
+  <script type="module" crossorigin src="/mydailyflow/assets/index-B9RUbgOn.js"></script>
+  <link rel="stylesheet" crossorigin href="/mydailyflow/assets/index-DihSss-T.css">
 </head>
 
 <body>
