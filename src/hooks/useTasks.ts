@@ -28,7 +28,7 @@ export function useTasks() {
       }
     }
 
-    if ((import.meta as any).env?.DEV) {
+    if (import.meta.env.DEV) {
       return [
         { id: '1', title: 'Drink water', time: '07:00', duration: '5m', completed: true, timeBlock: 'morning', priority: 'medium', createdAt: new Date().toISOString(), date: today },
         { id: '2', title: 'Going to work', time: '07:30', duration: '45m', completed: true, timeBlock: 'morning', priority: 'high', createdAt: new Date().toISOString(), date: today },
