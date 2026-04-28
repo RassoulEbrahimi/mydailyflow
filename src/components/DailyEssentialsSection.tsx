@@ -40,7 +40,7 @@ export default function DailyEssentialsSection({
           <div className="flex items-center justify-center flex-shrink-0 w-7 h-7 rounded-full bg-blue-500/15 text-blue-400">
             <Droplets size={16} strokeWidth={2.5} />
           </div>
-          <h2 className="text-[16px] font-bold text-white tracking-tight truncate">Tägliche Essentials</h2>
+          <h2 className="text-[16px] font-bold text-fg tracking-tight truncate">Tägliche Essentials</h2>
           <span className="text-[13px] font-medium text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full flex-shrink-0">
             {completedCount}/{totalCount}
           </span>
@@ -62,7 +62,7 @@ export default function DailyEssentialsSection({
 
       {/* List */}
       {!isCollapsed && (
-        <div className="flex flex-col gap-2.5 bg-[#162032] p-3 rounded-[16px] border border-[#232f48]/50 shadow-sm">
+        <div className="flex flex-col gap-2.5 bg-surface-dim p-3 rounded-[16px] border border-edge/50 shadow-sm">
           {essentials.length === 0 ? (
             <div className="text-center py-4 text-slate-400 text-[14px]">
               Noch keine Essentials. <span className="text-blue-400 cursor-pointer" onClick={onManageClick}>Hinzufügen</span>
@@ -81,7 +81,7 @@ export default function DailyEssentialsSection({
                   className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all active:scale-[0.98] ${
                     isDone 
                       ? 'bg-blue-500/10 border border-blue-500/20' 
-                      : 'bg-[#1e273b] border border-transparent hover:border-[#2a364d]'
+                      : 'bg-surface-raised border border-transparent hover:border-edge-subtle'
                   }`}
                 >
                   <span className={`text-[15px] font-medium transition-colors ${
@@ -102,9 +102,9 @@ export default function DailyEssentialsSection({
               <div 
                 key={essential.id}
                 className={`flex items-center justify-between p-3 rounded-xl transition-all ${
-                  isDone 
-                    ? 'bg-blue-500/10 border border-blue-500/20' 
-                    : 'bg-[#1e273b] border border-transparent'
+                    isDone 
+                      ? 'bg-blue-500/10 border border-blue-500/20' 
+                      : 'bg-surface-raised border border-transparent'
                 }`}
               >
                 <div className="flex flex-col gap-1">
@@ -118,7 +118,7 @@ export default function DailyEssentialsSection({
                   </span>
                 </div>
                 
-                <div className="flex items-center gap-1.5 bg-[#162032] p-1 rounded-lg border border-[#2a364d]">
+                <div className="flex items-center gap-1.5 bg-surface-dim p-1 rounded-lg border border-edge-subtle">
                   {Array.from({ length: essential.targetCount }).map((_, i) => {
                     const chipValue = i + 1;
                     const isActive = progress >= chipValue;

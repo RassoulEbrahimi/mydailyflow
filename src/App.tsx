@@ -22,6 +22,7 @@ import { useDailyEssentials } from './hooks/useDailyEssentials';
 import DailyEssentialsSection from './components/DailyEssentialsSection';
 import ManageEssentialsModal from './components/ManageEssentialsModal';
 import VoiceTaskModal from './components/VoiceTaskModal';
+import { useTheme } from './hooks/useTheme';
 
 const TaskSection = ({ title, timeRange, colorClass, shadowClass, children }: { title: string, timeRange?: string, colorClass: string, shadowClass: string, children: React.ReactNode }) => {
   return (
@@ -29,7 +30,7 @@ const TaskSection = ({ title, timeRange, colorClass, shadowClass, children }: { 
       <div className="flex items-center gap-2.5 mb-3">
         <div className={`h-7 w-[3px] rounded-full ${colorClass} ${shadowClass}`}></div>
         <div className="flex items-baseline gap-2.5">
-          <h2 className="text-[16px] font-bold text-white tracking-tight">{title}</h2>
+          <h2 className="text-[16px] font-bold text-fg tracking-tight">{title}</h2>
           {timeRange && <span className="text-[12px] font-medium text-slate-400">{timeRange}</span>}
         </div>
       </div>
@@ -41,6 +42,7 @@ const TaskSection = ({ title, timeRange, colorClass, shadowClass, children }: { 
 };
 
 function AppInner({ logout }: { logout: () => void }) {
+  const { theme, setTheme } = useTheme();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [showPlusMenu, setShowPlusMenu] = useState(false);
@@ -215,11 +217,11 @@ function AppInner({ logout }: { logout: () => void }) {
   const allTaskGroups = groupTasksByDate(allFilteredTasks, today);
 
   return (
-    <div className="bg-background-dark font-display text-slate-100 h-screen flex flex-col overflow-hidden relative selection:bg-primary selection:text-white">
+    <div className="bg-page font-display text-slate-100 h-screen flex flex-col overflow-hidden relative selection:bg-primary selection:text-white">
       {/* SW Update Banner */}
       {updateAvailable && (
-        <div className="fixed top-0 left-0 right-0 z-[60] flex items-center justify-between gap-3 px-4 py-3 bg-[#1e273b] border-b border-primary/40 shadow-lg">
-          <span className="text-sm font-medium text-white">🚀 Neue Version verfügbar</span>
+        <div className="fixed top-0 left-0 right-0 z-[60] flex items-center justify-between gap-3 px-4 py-3 bg-surface-raised border-b border-primary/40 shadow-lg">
+          <span className="text-sm font-medium text-fg">🚀 Neue Version verfügbar</span>
           <button
             onClick={handleRefresh}
             className="text-sm font-semibold text-primary hover:text-blue-300 transition-colors flex-shrink-0 px-3 py-1 rounded-lg hover:bg-primary/10 active:scale-95"
@@ -234,19 +236,19 @@ function AppInner({ logout }: { logout: () => void }) {
         <header className="px-5 pt-5 pb-2 flex items-center justify-between gap-3">
           {/* Left: logo or search */}
           {isSearchActive ? (
-            <div className="flex-1 flex items-center bg-[#1e273b] rounded-full px-4 py-2 border border-[#232f48]/50 overflow-hidden">
-              <Search size={18} className="text-text-secondary mr-2 flex-shrink-0" />
+            <div className="flex-1 flex items-center bg-surface-raised rounded-full px-4 py-2 border border-edge/50 overflow-hidden">
+              <Search size={18} className="text-fg-secondary mr-2 flex-shrink-0" />
               <input
                 autoFocus
                 type="text"
                 placeholder="Suche..."
-                className="bg-transparent border-none outline-none text-white text-[15px] w-full placeholder:text-text-secondary"
+                className="bg-transparent border-none outline-none text-fg text-[15px] w-full placeholder:text-fg-secondary"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
               <button
                 onClick={() => { setIsSearchActive(false); setSearchQuery(''); }}
-                className="text-text-secondary hover:text-white ml-2 flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/10"
+                className="text-fg-secondary hover:text-fg ml-2 flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-fg/10"
               >
                 ✕
               </button>
@@ -254,7 +256,7 @@ function AppInner({ logout }: { logout: () => void }) {
           ) : (
             <div className="flex items-center gap-2">
               <Waves size={24} strokeWidth={2.5} className="text-primary" />
-              <span className="font-bold text-[17px] tracking-tight text-white">My Daily Flow</span>
+              <span className="font-bold text-[17px] tracking-tight text-fg">My Daily Flow</span>
             </div>
           )}
 
@@ -263,7 +265,7 @@ function AppInner({ logout }: { logout: () => void }) {
             {!isSearchActive && (
               <button
                 onClick={() => setIsSearchActive(true)}
-                className="text-[#4e6285] hover:text-white transition-colors"
+                className="text-fg-faint hover:text-fg transition-colors"
                 aria-label="Search"
               >
                 <Search size={22} />
@@ -274,7 +276,7 @@ function AppInner({ logout }: { logout: () => void }) {
                 setNotifPermission('Notification' in window ? Notification.permission : 'denied');
                 setIsSettingsOpen(true);
               }}
-              className="text-[#4e6285] hover:text-white transition-colors"
+              className="text-fg-faint hover:text-fg transition-colors"
               aria-label="Settings"
             >
               <Settings size={22} />
@@ -314,7 +316,7 @@ function AppInner({ logout }: { logout: () => void }) {
             {pendingTasks.length === 0 && (
               <div className="text-center py-12 text-text-secondary mt-10">
                 <CheckCircle2 size={48} className="mx-auto mb-4 opacity-30" />
-                <p>Alle Aufgaben für heute erledigt!</p>
+              <p className="text-fg-secondary mt-10">Alle Aufgaben für heute erledigt!</p>
               </div>
             )}
             </div>
@@ -335,7 +337,7 @@ function AppInner({ logout }: { logout: () => void }) {
                   <div
                     key={group.date}
                     className={`flex flex-col gap-3 py-5 ${idx < allTaskGroups.length - 1
-                      ? 'border-b border-[#1e273b]'
+                      ? 'border-b border-surface-raised'
                       : ''
                       }`}
                   >
@@ -354,13 +356,13 @@ function AppInner({ logout }: { logout: () => void }) {
                 <List size={44} className="text-text-secondary opacity-40" />
                 {allDateFilter !== 'all' ? (
                   <>
-                    <p className="text-white font-semibold">Keine Aufgaben an diesem Datum</p>
-                    <p className="text-text-secondary text-sm">Versuche ein anderes Datum oder lösche den Filter.</p>
+                    <p className="text-fg font-semibold">Keine Aufgaben an diesem Datum</p>
+                    <p className="text-fg-secondary text-sm">Versuche ein anderes Datum oder lösche den Filter.</p>
                   </>
                 ) : (
                   <>
-                    <p className="text-white font-semibold">Noch keine Aufgaben</p>
-                    <p className="text-text-secondary text-sm">Füge deine erste Aufgabe mit dem + Button hinzu.</p>
+                    <p className="text-fg font-semibold">Noch keine Aufgaben</p>
+                    <p className="text-fg-secondary text-sm">Füge deine erste Aufgabe mit dem + Button hinzu.</p>
                   </>
                 )}
               </div>
@@ -385,16 +387,16 @@ function AppInner({ logout }: { logout: () => void }) {
       {/* Floating Action Button */}
       <div className="fixed bottom-[5.5rem] right-5 z-20 flex flex-col items-end">
         {showPlusMenu && (
-          <div className="mb-3 bg-[#1e273b] border border-[#2e3d58] rounded-2xl shadow-xl flex flex-col overflow-hidden animate-fade-in origin-bottom-right">
+          <div className="mb-3 bg-surface-raised border border-edge-muted rounded-2xl shadow-xl flex flex-col overflow-hidden animate-fade-in origin-bottom-right">
             <button
               onClick={openNewTaskModal}
-              className="px-5 py-3.5 text-white font-semibold text-[15px] hover:bg-white/5 transition-colors border-b border-[#2e3d58]/50 text-left whitespace-nowrap"
+              className="px-5 py-3.5 text-fg font-semibold text-[15px] hover:bg-fg/5 transition-colors border-b border-edge-muted/50 text-left whitespace-nowrap"
             >
               Manuelle Aufgabe
             </button>
             <button
               onClick={openVoiceTaskModal}
-              className="px-5 py-3.5 text-primary font-semibold text-[15px] hover:bg-white/5 transition-colors text-left flex items-center gap-2 whitespace-nowrap"
+              className="px-5 py-3.5 text-primary font-semibold text-[15px] hover:bg-fg/5 transition-colors text-left flex items-center gap-2 whitespace-nowrap"
             >
               <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
               Sprachaufgabe
@@ -403,7 +405,7 @@ function AppInner({ logout }: { logout: () => void }) {
         )}
         <button
           onClick={() => setShowPlusMenu(v => !v)}
-          className={`h-14 w-14 bg-primary text-white rounded-full shadow-[0_4px_20px_rgba(19,91,236,0.55)] flex items-center justify-center active:scale-95 hover:scale-105 transition-transform ${showPlusMenu ? 'rotate-45 bg-[#2a3650] shadow-none border border-[#384666]' : ''}`}
+          className={`h-14 w-14 bg-primary text-white rounded-full shadow-[0_4px_20px_rgba(19,91,236,0.55)] flex items-center justify-center active:scale-95 hover:scale-105 transition-transform ${showPlusMenu ? 'rotate-45 bg-surface-control shadow-none border border-edge-strong' : ''}`}
           aria-label={showPlusMenu ? "Close menu" : "Add task menu"}
         >
           <div className="pointer-events-none p-1 rounded-full"><Plus size={28} strokeWidth={2.5} /></div>
@@ -411,7 +413,7 @@ function AppInner({ logout }: { logout: () => void }) {
       </div>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 w-full bg-[#0d1520]/95 backdrop-blur-md border-t border-[#1a2438] px-2 pb-safe pt-2 z-10" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}>
+      <nav className="fixed bottom-0 left-0 w-full bg-surface-inset/95 backdrop-blur-md border-t border-edge px-2 pb-safe pt-2 z-10" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}>
         <div className="flex justify-around items-center">
 
           {/* Today */}
@@ -422,10 +424,10 @@ function AppInner({ logout }: { logout: () => void }) {
             <div className={`flex items-center justify-center w-11 h-7 rounded-full transition-all ${
               activeTab === 'today' ? 'bg-primary/15' : ''
             }`}>
-              <Sun size={22} className={activeTab === 'today' ? 'text-primary' : 'text-[#4e6285]'} strokeWidth={activeTab === 'today' ? 2.5 : 2} />
+              <Sun size={22} className={activeTab === 'today' ? 'text-primary' : 'text-fg-faint'} strokeWidth={activeTab === 'today' ? 2.5 : 2} />
             </div>
             <span className={`text-[11px] font-semibold tracking-tight ${
-              activeTab === 'today' ? 'text-primary' : 'text-[#4e6285]'
+              activeTab === 'today' ? 'text-primary' : 'text-fg-faint'
             }`}>Heute</span>
           </button>
 
@@ -437,19 +439,19 @@ function AppInner({ logout }: { logout: () => void }) {
             <div className={`flex items-center justify-center w-11 h-7 rounded-full transition-all ${
               activeTab === 'all' ? 'bg-primary/15' : ''
             }`}>
-              <List size={22} className={activeTab === 'all' ? 'text-primary' : 'text-[#4e6285]'} strokeWidth={activeTab === 'all' ? 2.5 : 2} />
+              <List size={22} className={activeTab === 'all' ? 'text-primary' : 'text-fg-faint'} strokeWidth={activeTab === 'all' ? 2.5 : 2} />
             </div>
             <span className={`text-[11px] font-semibold tracking-tight ${
-              activeTab === 'all' ? 'text-primary' : 'text-[#4e6285]'
+              activeTab === 'all' ? 'text-primary' : 'text-fg-faint'
             }`}>Alle Aufgaben</span>
           </button>
 
           {/* Reminders (non-functional tab, keep stable) */}
           <button className="flex flex-col items-center gap-1 flex-1 py-1 transition-colors">
             <div className="flex items-center justify-center w-11 h-7">
-              <Bell size={22} className="text-[#4e6285]" strokeWidth={2} />
+              <Bell size={22} className="text-fg-faint" strokeWidth={2} />
             </div>
-            <span className="text-[11px] font-semibold tracking-tight text-[#4e6285]">Erinnerungen</span>
+            <span className="text-[11px] font-semibold tracking-tight text-fg-faint">Erinnerungen</span>
           </button>
 
           {/* Done */}
@@ -460,10 +462,10 @@ function AppInner({ logout }: { logout: () => void }) {
             <div className={`flex items-center justify-center w-11 h-7 rounded-full transition-all ${
               activeTab === 'done' ? 'bg-primary/15' : ''
             }`}>
-              <CheckCircle2 size={22} className={activeTab === 'done' ? 'text-primary' : 'text-[#4e6285]'} strokeWidth={activeTab === 'done' ? 2.5 : 2} />
+              <CheckCircle2 size={22} className={activeTab === 'done' ? 'text-primary' : 'text-fg-faint'} strokeWidth={activeTab === 'done' ? 2.5 : 2} />
             </div>
             <span className={`text-[11px] font-semibold tracking-tight ${
-              activeTab === 'done' ? 'text-primary' : 'text-[#4e6285]'
+              activeTab === 'done' ? 'text-primary' : 'text-fg-faint'
             }`}>Erledigt</span>
           </button>
 
@@ -499,6 +501,8 @@ function AppInner({ logout }: { logout: () => void }) {
         onLogout={logout}
         stickyHeroEnabled={stickyHeroEnabled}
         onStickyHeroChange={setStickyHeroEnabled}
+        theme={theme}
+        onThemeChange={setTheme}
       />
     </div>
   );

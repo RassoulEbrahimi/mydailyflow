@@ -122,18 +122,18 @@ export default function VoiceTaskModal({ isOpen, onClose, onSuccess, mode = 'tas
       />
 
       <div
-        className={`fixed bottom-0 left-0 w-full bg-[#141923] rounded-t-[2rem] z-50 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] flex flex-col p-6 pb-safe border-t border-[#232f48]/50 shadow-2xl ${
+        className={`fixed bottom-0 left-0 w-full bg-surface-overlay rounded-t-[2rem] z-50 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] flex flex-col p-6 pb-safe border-t border-edge/50 shadow-2xl ${
           isOpen ? 'translate-y-0' : 'translate-y-full'
         }`}
         style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
       >
-        <div className="w-10 h-1 bg-[#2a364f] rounded-full mx-auto mb-6" />
+        <div className="w-10 h-1 bg-handle rounded-full mx-auto mb-6" />
 
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-white font-bold text-[18px]">
+          <h2 className="text-fg font-bold text-[18px]">
             {mode === 'note' ? 'Sprachnotiz' : 'Sprachaufgabe'}
           </h2>
-          <button onClick={handleCancel} className="text-[#6f89b0] hover:text-white p-1" disabled={isProcessing}>
+          <button onClick={handleCancel} className="text-fg-muted hover:text-fg p-1" disabled={isProcessing}>
             <X size={22} />
           </button>
         </div>
@@ -151,8 +151,8 @@ export default function VoiceTaskModal({ isOpen, onClose, onSuccess, mode = 'tas
                 <Mic size={24} className="text-red-400 opacity-50" />
               </div>
               <div>
-                <p className="text-white font-semibold text-[15px] mb-1">Spracheinrichtung unvollständig</p>
-                <p className="text-[#6f89b0] text-[13px] px-4">
+                <p className="text-fg font-semibold text-[15px] mb-1">Spracheinrichtung unvollständig</p>
+                <p className="text-fg-muted text-[13px] px-4">
                   Der Backend-Dienst ist für diese Umgebung nicht konfiguriert.
                 </p>
               </div>
@@ -160,7 +160,7 @@ export default function VoiceTaskModal({ isOpen, onClose, onSuccess, mode = 'tas
           ) : isProcessing ? (
             <div className="flex flex-col items-center gap-4 animate-pulse">
               <Loader2 size={40} className="text-primary animate-spin" />
-              <p className="text-[#6f89b0] text-[15px] font-medium">
+              <p className="text-fg-muted text-[15px] font-medium">
                 {mode === 'note' ? 'Notiz wird verarbeitet...' : 'Aufgabe wird vorbereitet...'}
               </p>
             </div>
@@ -181,13 +181,13 @@ export default function VoiceTaskModal({ isOpen, onClose, onSuccess, mode = 'tas
               </button>
               
               <div className="text-center flex flex-col items-center">
-                <p className="text-white font-semibold text-[16px] mb-1">
+                <p className="text-fg font-semibold text-[16px] mb-1">
                   {isRecording ? `Aufnahme... 0:${recordingTime.toString().padStart(2, '0')}` : 'Zum Sprechen tippen'}
                 </p>
-                <p className="text-[#6f89b0] text-[13px] mb-2">
+                <p className="text-fg-muted text-[13px] mb-2">
                   {mode === 'note' ? 'z.B. "Details zur Aufgabe..."' : 'z.B. "Morgen Proteinshake kaufen"'}
                 </p>
-                <span className="text-[11px] text-[#6f89b0]/80 bg-[#2a364f]/50 px-2 py-0.5 rounded-md font-medium">
+                <span className="text-[11px] text-fg-muted/80 bg-handle/50 px-2 py-0.5 rounded-md font-medium">
                   Optimiert für Deutsch
                 </span>
               </div>

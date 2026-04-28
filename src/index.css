@@ -1,15 +1,195 @@
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   Theme Token System — all semantic colors are defined here.
+   Components use Tailwind token classes (e.g. bg-surface, text-fg)
+   instead of hardcoded hex values.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 @theme {
+  /* ── Backgrounds ─────────────────────────────────────────────────────── */
+  --color-page:             var(--_page);
+  --color-surface:          var(--_surface);
+  --color-surface-raised:   var(--_surface-raised);
+  --color-surface-overlay:  var(--_surface-overlay);
+  --color-surface-inset:    var(--_surface-inset);
+  --color-surface-alt:      var(--_surface-alt);
+  --color-surface-accent:   var(--_surface-accent);
+  --color-surface-dim:      var(--_surface-dim);
+  --color-surface-control:  var(--_surface-control);
+
+  /* ── Borders ─────────────────────────────────────────────────────────── */
+  --color-edge:             var(--_edge);
+  --color-edge-subtle:      var(--_edge-subtle);
+  --color-edge-muted:       var(--_edge-muted);
+  --color-edge-strong:      var(--_edge-strong);
+  --color-edge-accent:      var(--_edge-accent);
+
+  /* ── Foreground / text ───────────────────────────────────────────────── */
+  --color-fg:               var(--_fg);
+  --color-fg-secondary:     var(--_fg-secondary);
+  --color-fg-muted:         var(--_fg-muted);
+  --color-fg-meta:          var(--_fg-meta);
+  --color-fg-faint:         var(--_fg-faint);
+  --color-fg-disabled:      var(--_fg-disabled);
+  --color-fg-placeholder:   var(--_fg-placeholder);
+
+  /* ── Accent (unchanged across themes) ────────────────────────────────── */
   --color-primary: #135bec;
-  --color-background-light: #f6f6f8;
-  --color-background-dark: #101622;
-  --color-card-dark: #192233;
-  --color-text-secondary: #92a4c9;
+
+  /* ── Special surfaces ────────────────────────────────────────────────── */
+  --color-handle:           var(--_handle);
+  --color-ring-track:       var(--_ring-track);
+
+  /* ── Hero gradient ───────────────────────────────────────────────────── */
+  --color-hero-1:           var(--_hero-1);
+  --color-hero-2:           var(--_hero-2);
+  --color-hero-3:           var(--_hero-3);
+  --color-hero-glow:        var(--_hero-glow);
+
+  /* ── Typography ──────────────────────────────────────────────────────── */
   --font-display: "Inter", sans-serif;
+
+  /* keep legacy aliases so nothing breaks during migration */
+  --color-background-dark:  var(--_page);
+  --color-background-light: #f6f6f8;
+  --color-card-dark:        var(--_surface);
+  --color-text-secondary:   var(--_fg-secondary);
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   DARK palette  (current look — pixel-identical to the old hardcoded values)
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --_page:             #101622;
+  --_surface:          #192233;
+  --_surface-raised:   #1e273b;
+  --_surface-overlay:  #141923;
+  --_surface-inset:    #0d1520;
+  --_surface-alt:      #1a2336;
+  --_surface-accent:   #1a2a47;
+  --_surface-dim:      #162032;
+  --_surface-control:  #2a3650;
+
+  --_edge:             #232f48;
+  --_edge-subtle:      #2a364d;
+  --_edge-muted:       #2e3d58;
+  --_edge-strong:      #384666;
+  --_edge-accent:      #243356;
+
+  --_fg:               #ffffff;
+  --_fg-secondary:     #92a4c9;
+  --_fg-muted:         #6f89b0;
+  --_fg-meta:          #7a8ba8;
+  --_fg-faint:         #4e6285;
+  --_fg-disabled:      #4a5a78;
+  --_fg-placeholder:   #384666;
+
+  --_handle:           #2a364f;
+  --_ring-track:       rgba(255,255,255,0.08);
+
+  --_hero-1:           #1a2644;
+  --_hero-2:           #111827;
+  --_hero-3:           #0f1622;
+  --_hero-glow:        #4f46e5;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIGHT palette
+   ═══════════════════════════════════════════════════════════════════════════ */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --_page:             #f0f2f7;
+  --_surface:          #ffffff;
+  --_surface-raised:   #e9ecf3;
+  --_surface-overlay:  #ffffff;
+  --_surface-inset:    #e2e6ef;
+  --_surface-alt:      #f5f6fa;
+  --_surface-accent:   #e4eaf6;
+  --_surface-dim:      #eef0f6;
+  --_surface-control:  #d5dbe8;
+
+  --_edge:             #c8d0e0;
+  --_edge-subtle:      #d5dbe8;
+  --_edge-muted:       #bec8da;
+  --_edge-strong:      #9babc4;
+  --_edge-accent:      #b0bdd6;
+
+  --_fg:               #1a1f36;
+  --_fg-secondary:     #5a6b8a;
+  --_fg-muted:         #6b7d9c;
+  --_fg-meta:          #7a8ba8;
+  --_fg-faint:         #8797b0;
+  --_fg-disabled:      #a0aec0;
+  --_fg-placeholder:   #b0bdcf;
+
+  --_handle:           #c8d0e0;
+  --_ring-track:       rgba(0,0,0,0.08);
+
+  --_hero-1:           #dde4f2;
+  --_hero-2:           #e8ecf5;
+  --_hero-3:           #f0f2f7;
+  --_hero-glow:        #818cf8;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SYSTEM preference (used when data-theme is absent or "system")
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] {
+    color-scheme: light;
+
+    --_page:             #f0f2f7;
+    --_surface:          #ffffff;
+    --_surface-raised:   #e9ecf3;
+    --_surface-overlay:  #ffffff;
+    --_surface-inset:    #e2e6ef;
+    --_surface-alt:      #f5f6fa;
+    --_surface-accent:   #e4eaf6;
+    --_surface-dim:      #eef0f6;
+    --_surface-control:  #d5dbe8;
+
+    --_edge:             #c8d0e0;
+    --_edge-subtle:      #d5dbe8;
+    --_edge-muted:       #bec8da;
+    --_edge-strong:      #9babc4;
+    --_edge-accent:      #b0bdd6;
+
+    --_fg:               #1a1f36;
+    --_fg-secondary:     #5a6b8a;
+    --_fg-muted:         #6b7d9c;
+    --_fg-meta:          #7a8ba8;
+    --_fg-faint:         #8797b0;
+    --_fg-disabled:      #a0aec0;
+    --_fg-placeholder:   #b0bdcf;
+
+    --_handle:           #c8d0e0;
+    --_ring-track:       rgba(0,0,0,0.08);
+
+    --_hero-1:           #dde4f2;
+    --_hero-2:           #e8ecf5;
+    --_hero-3:           #f0f2f7;
+    --_hero-glow:        #818cf8;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Hero gradient utility (replaces inline styles in HomeHero)
+   ═══════════════════════════════════════════════════════════════════════════ */
 @layer utilities {
+  .hero-gradient {
+    background: linear-gradient(155deg, var(--_hero-1) 0%, var(--_hero-2) 60%, var(--_hero-3) 100%);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.45);
+  }
+
+  .hero-glow {
+    background: radial-gradient(circle, var(--_hero-glow) 0%, transparent 70%);
+  }
+
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
   }
@@ -17,7 +197,7 @@
     background: transparent;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #232f48;
+    background: var(--_edge);
     border-radius: 3px;
   }
 }

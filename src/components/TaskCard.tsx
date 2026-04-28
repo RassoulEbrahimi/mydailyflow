@@ -217,8 +217,8 @@ const TaskCard = ({
         }}
         className={`relative flex flex-col p-4 rounded-2xl border transition-colors ${
           completed
-            ? 'bg-[#141c2e] border-[#1e2b40]'
-            : 'bg-[#192233] border-[#232f48] active:border-primary/30'
+            ? 'bg-surface-overlay border-edge'
+            : 'bg-surface border-edge active:border-primary/30'
         }`}
       >
         {/* ── Top row: checkbox · title · priority dot ──────────────────── */}
@@ -230,7 +230,7 @@ const TaskCard = ({
             className={`flex-shrink-0 mt-[2px] w-[22px] h-[22px] rounded-full flex items-center justify-center transition-all ${
               completed
                 ? 'bg-primary border-primary'
-                : 'border-2 border-[#3a4e72] hover:border-primary/70'
+                : 'border-2 border-edge-strong hover:border-primary/70'
             }`}
             style={{ border: completed ? 'none' : undefined }}
           >
@@ -244,7 +244,7 @@ const TaskCard = ({
               <h3
                 dir="auto"
                 className={`flex-1 min-w-0 font-semibold text-[15px] leading-relaxed break-words py-0.5 ${
-                  completed ? 'line-through text-slate-400 decoration-slate-500' : 'text-white'
+                  completed ? 'line-through text-slate-400 decoration-slate-500' : 'text-fg'
                 }`}
               >
                 {title}
@@ -255,7 +255,7 @@ const TaskCard = ({
 
             {/* Meta row */}
             <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <span className="flex items-center gap-1.5 text-[11.5px] text-[#7a8ba8] font-medium">
+              <span className="flex items-center gap-1.5 text-[11.5px] text-fg-meta font-medium">
                 <Clock size={12} className="flex-shrink-0 opacity-70" />
                 {time} • {duration}
               </span>
@@ -304,14 +304,14 @@ const TaskCard = ({
                 <div className={`flex-shrink-0 w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${
                   item.completed
                     ? 'bg-primary/80 border-primary'
-                    : 'border-[#384666] group-hover/ci:border-primary/60'
+                    : 'border-edge-strong group-hover/ci:border-primary/60'
                 }`}>
                   {item.completed && <Check size={8} strokeWidth={3} className="text-white" />}
                 </div>
                 <span
                   dir="auto"
                   className={`text-[11.5px] leading-relaxed ${
-                    item.completed ? 'line-through text-[#4a5a78]' : 'text-[#7a8da8]'
+                    item.completed ? 'line-through text-fg-disabled' : 'text-fg-meta'
                   }`}
                 >
                   {item.text}
@@ -319,7 +319,7 @@ const TaskCard = ({
               </button>
             ))}
             {task.checklistItems!.length > 4 && (
-              <span className="text-[11px] text-[#4a5a78] ml-[18px]">
+              <span className="text-[11px] text-fg-disabled ml-[18px]">
                 +{task.checklistItems!.length - 4} weitere
               </span>
             )}
@@ -330,7 +330,7 @@ const TaskCard = ({
         {hasNotes && (
           <p
             dir="auto"
-            className={`mt-2 ml-[34px] text-[11.5px] leading-relaxed text-[#6a7f9e] line-clamp-2 ${completed ? 'opacity-40' : ''}`}
+            className={`mt-2 ml-[34px] text-[11.5px] leading-relaxed text-fg-meta line-clamp-2 ${completed ? 'opacity-40' : ''}`}
           >
             {task.notes}
           </p>

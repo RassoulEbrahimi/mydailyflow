@@ -55,8 +55,8 @@ const SortableEssentialItem: React.FC<{
         style={style} 
         {...attributes} 
         {...listeners} 
-        className={`group flex items-center justify-between bg-[#1e273b] p-3.5 rounded-xl border ${
-          isDragging ? 'border-primary shadow-lg opacity-90 scale-[1.02]' : 'border-[#2a364d]'
+        className={`group flex items-center justify-between bg-surface-raised p-3.5 rounded-xl border ${
+          isDragging ? 'border-primary shadow-lg opacity-90 scale-[1.02]' : 'border-edge-subtle'
         } transition-all duration-200`}
     >
       <div className="flex flex-col flex-1 pointer-events-none">
@@ -163,7 +163,7 @@ export default function ManageEssentialsModal({
   };
 
   const renderForm = () => (
-    <div className="bg-[#1e273b] p-4 rounded-xl border border-[#2a364d] flex flex-col gap-4 mb-4">
+    <div className="bg-surface-raised p-4 rounded-xl border border-edge-subtle flex flex-col gap-4 mb-4">
       <div>
         <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Elementname</label>
         <input 
@@ -172,7 +172,7 @@ export default function ManageEssentialsModal({
           value={formTitle}
           onChange={e => setFormTitle(e.target.value)}
           placeholder="z.B. Vitamine, Sport, Wasser"
-          className="w-full bg-[#0d1520] border border-[#2a364d] rounded-lg px-3 py-2.5 text-white text-[15px] outline-none focus:border-blue-500 transition-colors"
+          className="w-full bg-surface-inset border border-edge-subtle rounded-lg px-3 py-2.5 text-fg text-[15px] outline-none focus:border-blue-500 transition-colors"
         />
       </div>
       <div>
@@ -186,7 +186,7 @@ export default function ManageEssentialsModal({
             onChange={e => setFormTargetCount(parseInt(e.target.value))}
             className="flex-1 accent-blue-500"
           />
-          <div className="w-12 h-10 bg-[#0d1520] border border-[#2a364d] rounded-lg flex items-center justify-center text-white font-bold select-none">
+          <div className="w-12 h-10 bg-surface-inset border border-edge-subtle rounded-lg flex items-center justify-center text-fg font-bold select-none">
             {formTargetCount}
           </div>
         </div>
@@ -197,7 +197,7 @@ export default function ManageEssentialsModal({
       <div className="flex gap-2 mt-2">
         <button 
           onClick={cancelForm}
-          className="flex-1 py-2.5 rounded-lg font-semibold text-[14px] text-slate-300 bg-[#2a364d] hover:bg-[#334155] transition-colors"
+          className="flex-1 py-2.5 rounded-lg font-semibold text-[14px] text-slate-300 bg-surface-control hover:bg-edge-subtle transition-colors"
         >
           Abbrechen
         </button>
@@ -216,11 +216,11 @@ export default function ManageEssentialsModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-5 bg-black/60 backdrop-blur-sm">
       <div 
-        className="bg-background-dark w-full max-w-md rounded-3xl border border-[#232f48]/50 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+        className="bg-page w-full max-w-md rounded-3xl border border-edge/50 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
         onClick={e => e.stopPropagation()}
       >
-        <div className="p-4 border-b border-[#1e273b] flex items-center justify-between flex-shrink-0">
-          <h2 className="text-[18px] font-bold text-white tracking-tight">Essentials verwalten</h2>
+        <div className="p-4 border-b border-surface-raised flex items-center justify-between flex-shrink-0">
+          <h2 className="text-[18px] font-bold text-fg tracking-tight">Essentials verwalten</h2>
           <button 
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-slate-400 transition-colors"
@@ -259,7 +259,7 @@ export default function ManageEssentialsModal({
 
               <button 
                 onClick={handleStartAdd}
-                className="mt-2 w-full py-3.5 rounded-xl border-2 border-dashed border-[#2a364d] text-slate-400 hover:text-blue-400 hover:border-blue-500/50 hover:bg-blue-500/5 transition-all flex items-center justify-center gap-2 font-semibold text-[15px]"
+                className="mt-2 w-full py-3.5 rounded-xl border-2 border-dashed border-edge-subtle text-slate-400 hover:text-blue-400 hover:border-blue-500/50 hover:bg-blue-500/5 transition-all flex items-center justify-center gap-2 font-semibold text-[15px]"
               >
                 <Plus size={18} strokeWidth={2.5} />
                 Neues Essential hinzufügen

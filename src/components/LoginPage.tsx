@@ -38,22 +38,22 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
     };
 
     return (
-        <div className="bg-background-dark font-display min-h-screen flex flex-col items-center justify-center px-5 selection:bg-primary selection:text-white">
+        <div className="bg-page font-display min-h-screen flex flex-col items-center justify-center px-5 selection:bg-primary selection:text-white">
             {/* Logo */}
             <div className="flex items-center gap-2 text-primary mb-10">
                 <Waves size={32} strokeWidth={2.5} />
-                <span className="font-bold text-2xl tracking-tight text-white">My Daily Flow</span>
+                <span className="font-bold text-2xl tracking-tight text-fg">My Daily Flow</span>
             </div>
 
             {/* Card */}
-            <div className="w-full max-w-sm bg-[#151c2c] rounded-[2rem] p-7 border border-[#232f48] shadow-2xl">
-                <h2 className="text-white font-bold text-xl mb-1">Willkommen zurück</h2>
-                <p className="text-text-secondary text-sm mb-8">Melde dich an, um fortzufahren</p>
+            <div className="w-full max-w-sm bg-surface-overlay rounded-[2rem] p-7 border border-edge shadow-2xl">
+                <h2 className="text-fg font-bold text-xl mb-1">Willkommen zurück</h2>
+                <p className="text-fg-secondary text-sm mb-8">Melde dich an, um fortzufahren</p>
 
                 <form onSubmit={handleSubmit} noValidate>
                     {/* Username */}
                     <div className="mb-4">
-                        <label htmlFor="login-username" className="block text-text-secondary text-xs font-semibold tracking-wider mb-2">
+                        <label htmlFor="login-username" className="block text-fg-secondary text-xs font-semibold tracking-wider mb-2">
                             BENUTZERNAME
                         </label>
                         <input
@@ -65,13 +65,13 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                             value={username}
                             onChange={(e) => { setUsername(e.target.value); setError(''); }}
                             placeholder="Benutzername eingeben"
-                            className="w-full bg-[#1e273b] text-white placeholder:text-[#384666] rounded-2xl px-4 py-3.5 text-[15px] outline-none border border-[#232f48]/50 focus:border-primary/60 transition-colors"
+                            className="w-full bg-surface-raised text-fg placeholder:text-fg-placeholder rounded-2xl px-4 py-3.5 text-[15px] outline-none border border-edge/50 focus:border-primary/60 transition-colors"
                         />
                     </div>
 
                     {/* Password */}
                     <div className="mb-6">
-                        <label htmlFor="login-password" className="block text-text-secondary text-xs font-semibold tracking-wider mb-2">
+                        <label htmlFor="login-password" className="block text-fg-secondary text-xs font-semibold tracking-wider mb-2">
                             PASSWORT
                         </label>
                         <input
@@ -81,7 +81,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                             value={password}
                             onChange={(e) => { setPassword(e.target.value); setError(''); }}
                             placeholder="Passwort eingeben"
-                            className="w-full bg-[#1e273b] text-white placeholder:text-[#384666] rounded-2xl px-4 py-3.5 text-[15px] outline-none border border-[#232f48]/50 focus:border-primary/60 transition-colors"
+                            className="w-full bg-surface-raised text-fg placeholder:text-fg-placeholder rounded-2xl px-4 py-3.5 text-[15px] outline-none border border-edge/50 focus:border-primary/60 transition-colors"
                         />
                     </div>
 
@@ -95,7 +95,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                             onClick={() => setRemember((r) => !r)}
                             className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${remember
                                     ? 'bg-primary border-primary shadow-[0_0_8px_rgba(19,91,236,0.4)]'
-                                    : 'border-[#384666] bg-transparent hover:border-primary/60'
+                                    : 'border-edge-strong bg-transparent hover:border-primary/60'
                                 }`}
                         >
                             {remember && (
@@ -107,9 +107,9 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                         <label
                             htmlFor="login-remember"
                             onClick={() => setRemember((r) => !r)}
-                            className="text-text-secondary text-sm cursor-pointer select-none"
+                            className="text-fg-secondary text-sm cursor-pointer select-none"
                         >
-                            Angemeldet bleiben <span className="text-[#384666] text-xs">(bleibt 5 Tage angemeldet)</span>
+                            Angemeldet bleiben <span className="text-fg-placeholder text-xs">(bleibt 5 Tage angemeldet)</span>
                         </label>
                     </div>
 
@@ -133,7 +133,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
             </div>
 
             {/* Demo notice */}
-            <p className="mt-8 text-[11px] text-[#384666] text-center max-w-xs leading-relaxed">
+            <p className="mt-8 text-[11px] text-fg-placeholder text-center max-w-xs leading-relaxed">
                 Demo-Umgebung · Nicht sicher · Verwende keine echten Passwörter
             </p>
         </div>

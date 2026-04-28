@@ -25,7 +25,7 @@ const MiniRing = ({ percentage, completed, total }: { percentage: number; comple
           className="transform -rotate-90"
           viewBox={`0 0 ${size} ${size}`}
         >
-          <circle cx={size / 2} cy={size / 2} r={r} fill="transparent" stroke="rgba(255,255,255,0.08)" strokeWidth={stroke} />
+          <circle cx={size / 2} cy={size / 2} r={r} fill="transparent" stroke="var(--ring-track)" strokeWidth={stroke} />
           <circle
             cx={size / 2} cy={size / 2} r={r}
             fill="transparent"
@@ -44,10 +44,10 @@ const MiniRing = ({ percentage, completed, total }: { percentage: number; comple
           </defs>
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-[13px] font-bold text-white leading-none">{percentage}%</span>
+          <span className="text-[13px] font-bold text-fg leading-none">{percentage}%</span>
         </div>
       </div>
-      <span className="text-[10px] text-white/50 font-medium leading-none mt-0.5">
+      <span className="text-[10px] text-fg/50 font-medium leading-none mt-0.5">
         {completed}/{total}
       </span>
     </div>
@@ -80,22 +80,17 @@ const HomeHero = ({
 
   const panel = (
     <div
-      className="relative overflow-hidden rounded-b-[2rem] px-5 pt-4 pb-4"
-      style={{
-        background: 'linear-gradient(155deg, #1a2644 0%, #111827 60%, #0f1622 100%)',
-        boxShadow: '0 4px 24px rgba(0,0,0,0.45)',
-      }}
+      className="relative overflow-hidden rounded-b-[2rem] px-5 pt-4 pb-4 hero-gradient"
     >
       {/* Decorative glow blob */}
       <div
-        className="pointer-events-none absolute -top-8 -left-8 w-44 h-44 rounded-full opacity-20"
-        style={{ background: 'radial-gradient(circle, #4f46e5 0%, transparent 70%)' }}
+        className="pointer-events-none absolute -top-8 -left-8 w-44 h-44 rounded-full opacity-20 hero-glow"
       />
       {/* Content row */}
       <div className="relative flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-semibold text-white/40 uppercase tracking-widest mb-1">{dateLabel}</p>
-          <h1 className="text-[20px] font-bold text-white leading-tight tracking-tight">
+          <p className="text-[10px] font-semibold text-fg/40 uppercase tracking-widest mb-1">{dateLabel}</p>
+          <h1 className="text-[20px] font-bold text-fg leading-tight tracking-tight">
             {greeting},<br />
             <span className="text-primary/90">{userName}!</span>
           </h1>
