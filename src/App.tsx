@@ -80,15 +80,18 @@ function AppInner({ logout }: { logout: () => void }) {
 
     let reg: ServiceWorkerRegistration | undefined;
 
+    let boundHandleUpdateFound: (() => void) | undefined;
+
     navigator.serviceWorker.getRegistration().then((registration) => {
       if (!registration) return;
       reg = registration;
-      reg.addEventListener('updatefound', () => handleUpdateFound(reg!));
+      boundHandleUpdateFound = () => handleUpdateFound(reg!);
+      reg.addEventListener('updatefound', boundHandleUpdateFound);
     });
 
     return () => {
-      if (reg) {
-        reg.removeEventListener('updatefound', () => handleUpdateFound(reg!));
+      if (reg && boundHandleUpdateFound) {
+        reg.removeEventListener('updatefound', boundHandleUpdateFound);
       }
       if (newWorker) {
         newWorker.removeEventListener('statechange', handleStateChange);
