@@ -81,6 +81,7 @@ const NewTaskModal = ({
         setIsReminderEnabled(true);
         setSelectedPriority('Medium');
         setSelectedRecurrence('none');
+        setIsAdvancedExpanded(false);
       }
     }
   }, [isOpen, taskToEdit, initialDraft]);
