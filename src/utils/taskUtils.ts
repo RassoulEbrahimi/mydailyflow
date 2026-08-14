@@ -39,6 +39,20 @@ export const getRolloverLabel = (rolledOverFrom: string): string => {
     return `Von ${formatDateLabel(rolledOverFrom)}`;
 };
 
+// Moves incomplete tasks from earlier dates to the supplied local date.
+// The original scheduled date is retained across repeated rollovers.
+export const rolloverTasksForDate = (tasks: Task[], today: string): Task[] =>
+    tasks.map(task => {
+        if (!task.completed && task.date < today) {
+            return {
+                ...task,
+                date: today,
+                rolledOverFrom: task.rolledOverFrom ?? task.date,
+            };
+        }
+        return task;
+    });
+
 // Returns the default start time for a given time block.
 export const defaultTimeForBlock = (block: Task['timeBlock']): string => {
     if (block === 'morning') return '09:00';

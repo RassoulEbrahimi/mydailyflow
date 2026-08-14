@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Task } from '../types/task';
 import { isStorageWrapper, isValidTaskArray, type StorageWrapper } from '../types/task';
-import { getTodayString, nextRecurrenceDate } from '../utils/taskUtils';
+import { getTodayString, nextRecurrenceDate, rolloverTasksForDate } from '../utils/taskUtils';
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>(() => {
@@ -56,17 +56,31 @@ export function useTasks() {
   }, [tasks]);
 
   useEffect(() => {
-    const today = getTodayString();
-    if (localStorage.getItem('lastRolloverDate') === today) return;
+    let lastProcessedDate: string | null = null;
 
-    setTasks(prev => prev.map(t => {
-      if (!t.completed && t.date < today) {
-        return { ...t, date: today, rolledOverFrom: t.rolledOverFrom ?? t.date };
-      }
-      return t;
-    }));
+    const checkRollover = () => {
+      const today = getTodayString();
+      if (lastProcessedDate === today) return;
 
-    localStorage.setItem('lastRolloverDate', today);
+      lastProcessedDate = today;
+      setTasks(prev => rolloverTasksForDate(prev, today));
+      localStorage.setItem('lastRolloverDate', today);
+    };
+
+    checkRollover();
+
+    // Keep the Today view and task dates correct if the app stays open overnight.
+    const intervalId = window.setInterval(checkRollover, 60000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') checkRollover();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const saveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed' | 'date' | 'rolledOverFrom'>, taskToEdit?: Task | null): Task => {
