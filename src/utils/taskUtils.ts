@@ -39,6 +39,20 @@ export const getRolloverLabel = (rolledOverFrom: string): string => {
     return `Von ${formatDateLabel(rolledOverFrom)}`;
 };
 
+// Moves incomplete tasks from earlier dates to the supplied local date.
+// The original scheduled date is retained across repeated rollovers.
+export const rolloverTasksForDate = (tasks: Task[], today: string): Task[] =>
+    tasks.map(task => {
+        if (!task.completed && task.date < today) {
+            return {
+                ...task,
+                date: today,
+                rolledOverFrom: task.rolledOverFrom ?? task.date,
+            };
+        }
+        return task;
+    });
+
 // Returns the default start time for a given time block.
 export const defaultTimeForBlock = (block: Task['timeBlock']): string => {
     if (block === 'morning') return '09:00';
@@ -85,34 +99,182 @@ export const groupTasksByDate = (
 
 // ─── Recurrence helper ────────────────────────────────────────────────────────
 
+// Formats a local Date as YYYY-MM-DD.
+const formatLocalDate = (date: Date): string => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+};
+
+// Returns the day-of-month portion of a YYYY-MM-DD string.
+export const dayOfMonth = (dateStr: string): number => Number(dateStr.slice(8, 10));
+
+// Whole days since the epoch for a YYYY-MM-DD string. UTC keeps the arithmetic
+// free of DST, and the value is only ever used as a difference.
+const toEpochDays = (dateStr: string): number => {
+    const [y, mo, d] = dateStr.split('-').map(Number);
+    return Date.UTC(y, mo - 1, d) / 86_400_000;
+};
+
+// Adds a whole number of days to a YYYY-MM-DD string (local noon avoids DST).
+const addDays = (baseDate: string, days: number): string => {
+    const [y, mo, d] = baseDate.split('-').map(Number);
+    const date = new Date(y, mo - 1, d, 12, 0, 0);
+    date.setDate(date.getDate() + days);
+    return formatLocalDate(date);
+};
+
+// Adds a whole number of months, resolving the target month first and then
+// clamping the day, so the native Date overflow (Jan 31 + 1 month -> Mar 3) can
+// never happen. anchorDay is the day the series is pinned to; because the anchor
+// is carried rather than the clamped result, the series returns to day 31 in the
+// next month that has one instead of drifting earlier every month.
+const addMonthsClamped = (baseDate: string, months: number, anchorDay?: number): string => {
+    const [y, mo, d] = baseDate.split('-').map(Number);
+    const targetMonthIndex = mo - 1 + months;
+    const ty = y + Math.floor(targetMonthIndex / 12);
+    const tm = ((targetMonthIndex % 12) + 12) % 12;
+    const lastDayOfTargetMonth = new Date(ty, tm + 1, 0).getDate();
+    const desiredDay = anchorDay ?? d;
+    return formatLocalDate(
+        new Date(ty, tm, Math.min(desiredDay, lastDayOfTargetMonth), 12, 0, 0),
+    );
+};
+
+// Fixed day step for the day-based recurrence rules.
+const STEP_DAYS: Record<'daily' | 'every2days' | 'weekly', number> = {
+    daily: 1,
+    every2days: 2,
+    weekly: 7,
+};
+
 // Given a base date string (YYYY-MM-DD) and a recurrence rule, returns the
 // next occurrence date as a YYYY-MM-DD string.
-export const nextRecurrenceDate = (baseDate: string, recurrence: Recurrence): string => {
-    const [y, mo, d] = baseDate.split('-').map(Number);
-    // Use local noon to avoid DST edge cases
-    const date = new Date(y, mo - 1, d, 12, 0, 0);
+export const nextRecurrenceDate = (
+    baseDate: string,
+    recurrence: Recurrence,
+    anchorDay?: number,
+): string => {
+    if (recurrence === 'none') return baseDate;
+    if (recurrence === 'monthly') return addMonthsClamped(baseDate, 1, anchorDay);
+    return addDays(baseDate, STEP_DAYS[recurrence]);
+};
 
-    switch (recurrence) {
-        case 'daily':
-            date.setDate(date.getDate() + 1);
-            break;
-        case 'every2days':
-            date.setDate(date.getDate() + 2);
-            break;
-        case 'weekly':
-            date.setDate(date.getDate() + 7);
-            break;
-        case 'monthly':
-            date.setMonth(date.getMonth() + 1);
-            break;
-        default:
-            break; // 'none' — no change
+// Advances a recurring series from its anchor date to the first occurrence
+// strictly after afterDate.
+//
+// The anchor is the task's originally scheduled date (rolledOverFrom when the
+// task was auto-rolled), so cadence stays pinned to the schedule rather than to
+// the day the task happened to be completed: a Monday weekly task completed late
+// on a Wednesday still lands on the following Monday.
+//
+// The result is computed rather than iterated, so an arbitrarily stale anchor
+// costs the same as a fresh one and the return value is guaranteed > afterDate.
+export const nextRecurrenceDateAfter = (
+    anchorDate: string,
+    recurrence: Recurrence,
+    afterDate: string,
+    anchorDay?: number,
+): string => {
+    if (recurrence === 'none') return anchorDate;
+
+    if (recurrence === 'monthly') {
+        // Calendar months are irregular, so jump to the month implied by the gap
+        // and then step forward. Clamping can only pull a day backwards within a
+        // month, so this settles in at most a couple of iterations, and each one
+        // strictly increases the date — the loop cannot fail to terminate.
+        const [ay, am] = anchorDate.split('-').map(Number);
+        const [fy, fm] = afterDate.split('-').map(Number);
+        let months = Math.max(1, (fy - ay) * 12 + (fm - am));
+        let next = addMonthsClamped(anchorDate, months, anchorDay);
+        while (next <= afterDate) {
+            months += 1;
+            next = addMonthsClamped(anchorDate, months, anchorDay);
+        }
+        return next;
     }
 
-    const ny = date.getFullYear();
-    const nm = String(date.getMonth() + 1).padStart(2, '0');
-    const nd = String(date.getDate()).padStart(2, '0');
-    return `${ny}-${nm}-${nd}`;
+    // Smallest k >= 1 with anchor + k*step > afterDate.
+    const step = STEP_DAYS[recurrence];
+    const dayGap = toEpochDays(afterDate) - toEpochDays(anchorDate);
+    const steps = Math.max(1, Math.floor(dayGap / step) + 1);
+    return addDays(anchorDate, steps * step);
+};
+
+// Resolves the monthly anchor day for a task, given its recurrence rule, its
+// scheduled date, and any anchor it already carries:
+//   - not monthly            -> undefined (any stale anchor is dropped)
+//   - monthly, no anchor yet -> derived from the scheduled date
+//   - monthly, has an anchor -> preserved, so unrelated edits do not move it
+export const resolveRecurrenceAnchorDay = (
+    recurrence: Recurrence | undefined,
+    scheduledDate: string,
+    existingAnchorDay?: number,
+): number | undefined => {
+    if (recurrence !== 'monthly') return undefined;
+    return existingAnchorDay ?? dayOfMonth(scheduledDate);
+};
+
+// Applies the anchor lifecycle to a task, deleting the key outright when the
+// task is no longer monthly so no stale anchor is persisted to localStorage.
+export const withRecurrenceAnchor = (task: Task): Task => {
+    const anchorDay = resolveRecurrenceAnchorDay(
+        task.recurrence,
+        task.date,
+        task.recurrenceAnchorDay,
+    );
+
+    if (anchorDay === undefined) {
+        if (task.recurrenceAnchorDay === undefined) return task;
+        const { recurrenceAnchorDay: _dropped, ...rest } = task;
+        return rest;
+    }
+
+    return { ...task, recurrenceAnchorDay: anchorDay };
+};
+
+// Builds the follow-up occurrence for a task that was just completed.
+// Returns null when the task does not recur, or when an occurrence has already
+// been spawned from it (guards against double-toggling a completed task).
+export const buildNextOccurrence = (
+    target: Task,
+    tasks: Task[],
+    newId: () => string,
+    timestamp: () => string,
+): Task | null => {
+    const { recurrence } = target;
+    if (!recurrence || recurrence === 'none') return null;
+    if (tasks.some(t => t.recurrenceSourceId === target.id)) return null;
+
+    // A rolled-over task keeps its original scheduled date as the cadence anchor.
+    // This is read-only input: rolledOverFrom is deliberately NOT copied onto the
+    // new occurrence below, which is freshly scheduled and has not been rolled.
+    const anchorDate = target.rolledOverFrom ?? target.date;
+    const anchorDay =
+        recurrence === 'monthly'
+            ? target.recurrenceAnchorDay ?? dayOfMonth(anchorDate)
+            : undefined;
+
+    return {
+        id: newId(),
+        createdAt: timestamp(),
+        completed: false,
+        date: nextRecurrenceDateAfter(anchorDate, recurrence, target.date, anchorDay),
+        title: target.title,
+        description: target.description,
+        notes: target.notes,
+        time: target.time,
+        duration: target.duration,
+        timeBlock: target.timeBlock,
+        priority: target.priority,
+        recurrence,
+        recurrenceSourceId: target.id,
+        recurrenceAnchorDay: anchorDay,
+        checklistItems: target.checklistItems
+            ? target.checklistItems.map(ci => ({ ...ci, completed: false }))
+            : undefined,
+    };
 };
 
 // Returns true if a task is scheduled for today, incomplete, and its scheduled time has passed.

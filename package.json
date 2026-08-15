@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "deploy": "npm run build && gh-pages -d dist",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "node --import tsx --test \"tests/*.test.ts\""
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
