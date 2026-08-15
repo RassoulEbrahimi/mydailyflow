@@ -1,46 +1,70 @@
 import { useState, useEffect } from 'react';
 import { arrayMove } from '@dnd-kit/sortable';
-import type { DailyEssential, DailyEssentialState, EssentialsDataWrapper, EssentialsStateWrapper } from '../types/essential';
-import { isEssentialsDataWrapper, isEssentialsStateWrapper, isValidEssentialArray } from '../types/essential';
+import type { DailyEssential, DailyEssentialState } from '../types/essential';
+import { isValidEssentialArray, isValidEssentialState } from '../types/essential';
+import {
+    STORAGE_KEYS,
+    loadEssentialsSlice,
+    loadEssentialsStateSlice,
+    serializeEssentials,
+    serializeEssentialsState,
+} from '../utils/appStorage';
+import type { SliceLoadResult } from '../utils/appStorage';
+import { isSliceBlocked, registerBlockedSlice, subscribeStorageHealth } from '../utils/storageHealth';
+import type { StorageSlice } from '../utils/storageHealth';
 import { getTodayString } from '../utils/taskUtils';
 
-const ESSENTIALS_DATA_KEY = 'myDailyFlowEssentialsData';
-const ESSENTIALS_STATE_KEY = 'myDailyFlowEssentialsState';
+/**
+ * Registers a failed slice load and keeps its writes suppressed until an
+ * explicit user action (or a successful import) resolves it. Each slice is
+ * tracked on its own, so an unreadable definitions blob never stops today's
+ * progress from being saved, and vice versa.
+ */
+function useSliceGuard(slice: StorageSlice, load: SliceLoadResult<unknown>): boolean {
+    const [blocked, setBlocked] = useState(load.blocked);
+
+    useEffect(() => {
+        if (!load.blocked) return;
+
+        registerBlockedSlice({
+            slice,
+            reason: load.status === 'quarantined' ? 'quarantined' : 'quarantine-failed',
+            recoveryKey: load.recoveryKey,
+            detail: load.detail,
+        });
+
+        return subscribeStorageHealth(() => {
+            if (!isSliceBlocked(slice)) setBlocked(false);
+        });
+    }, [slice, load]);
+
+    return blocked;
+}
 
 export function useDailyEssentials() {
+    // Both slices are loaded once, synchronously, before any effect can write.
+    const [dataLoad] = useState(() => loadEssentialsSlice(localStorage, new Date().toISOString()));
+    const [stateLoad] = useState(() => loadEssentialsStateSlice(localStorage, new Date().toISOString()));
+
+    const dataBlocked = useSliceGuard('essentials', dataLoad);
+    const stateBlocked = useSliceGuard('essentialsState', stateLoad);
+
     const [essentials, setEssentials] = useState<DailyEssential[]>(() => {
-        const saved = localStorage.getItem(ESSENTIALS_DATA_KEY);
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                if (isEssentialsDataWrapper(parsed)) return parsed.data;
-                if (isValidEssentialArray(parsed)) return parsed; // Migration fallback
-            } catch (e) {
-                console.error('Failed to parse essentials data', e);
-            }
+        if (dataLoad.value) return dataLoad.value;
+        if (dataLoad.blocked) {
+            console.warn('Essentials data unreadable — persistence suspended', dataLoad.detail);
         }
         return []; // Empty state by default
     });
 
     const [dailyState, setDailyState] = useState<DailyEssentialState>(() => {
         const today = getTodayString();
-        const defaultState: DailyEssentialState = { date: today, progressById: {} };
-        const saved = localStorage.getItem(ESSENTIALS_STATE_KEY);
-        
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                if (isEssentialsStateWrapper(parsed)) {
-                    // Check if date matches today, otherwise reset
-                    if (parsed.data.date === today) {
-                        return parsed.data;
-                    }
-                }
-            } catch (e) {
-                console.error('Failed to parse essentials state', e);
-            }
+        // Yesterday's progress is intentionally not carried over.
+        if (stateLoad.value && stateLoad.value.date === today) return stateLoad.value;
+        if (stateLoad.blocked) {
+            console.warn('Essentials state unreadable — persistence suspended', stateLoad.detail);
         }
-        return defaultState;
+        return { date: today, progressById: {} };
     });
 
     // Handle day rollover while app is open
@@ -71,15 +95,31 @@ export function useDailyEssentials() {
 
     // Persist essentials definitions
     useEffect(() => {
-        const wrapper: EssentialsDataWrapper = { version: 1, data: essentials };
-        localStorage.setItem(ESSENTIALS_DATA_KEY, JSON.stringify(wrapper));
-    }, [essentials]);
+        if (dataBlocked) return;
+        try {
+            if (isValidEssentialArray(essentials)) {
+                localStorage.setItem(STORAGE_KEYS.essentialsData, serializeEssentials(essentials));
+            } else {
+                console.error('Invalid essentials state detected, skipping save to protect localStorage');
+            }
+        } catch (e) {
+            console.error('Failed to save essentials data', e);
+        }
+    }, [essentials, dataBlocked]);
 
     // Persist daily state
     useEffect(() => {
-        const wrapper: EssentialsStateWrapper = { version: 1, data: dailyState };
-        localStorage.setItem(ESSENTIALS_STATE_KEY, JSON.stringify(wrapper));
-    }, [dailyState]);
+        if (stateBlocked) return;
+        try {
+            if (isValidEssentialState(dailyState)) {
+                localStorage.setItem(STORAGE_KEYS.essentialsState, serializeEssentialsState(dailyState));
+            } else {
+                console.error('Invalid essentials daily state detected, skipping save to protect localStorage');
+            }
+        } catch (e) {
+            console.error('Failed to save essentials daily state', e);
+        }
+    }, [dailyState, stateBlocked]);
 
     const addEssential = (title: string, targetCount: number) => {
         const newEssential: DailyEssential = {

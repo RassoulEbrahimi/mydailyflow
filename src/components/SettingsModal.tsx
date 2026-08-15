@@ -1,10 +1,12 @@
 import React from 'react';
 import { Bell, LogOut, Monitor, Moon, Sun as SunIcon } from 'lucide-react';
 import type { Theme } from '../hooks/useTheme';
+import BackupRestoreSection from './BackupRestoreSection';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onDataImported: () => void;
   remindersEnabled: boolean;
   onRemindersEnabledChange: (val: boolean) => void;
   permission: NotificationPermission;
@@ -19,6 +21,7 @@ interface SettingsModalProps {
 const SettingsModal = ({
   isOpen,
   onClose,
+  onDataImported,
   remindersEnabled,
   onRemindersEnabledChange,
   permission,
@@ -61,7 +64,8 @@ const SettingsModal = ({
         onClick={onClose}
       />
 
-      <div className={`fixed bottom-0 left-0 w-full bg-surface-overlay rounded-t-[2.5rem] z-50 p-6 pb-10 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${isOpen ? 'translate-y-0' : 'translate-y-full'}`}>
+      {/* Scrollable: the sheet now holds enough sections to exceed short viewports. */}
+      <div className={`fixed bottom-0 left-0 w-full max-h-[92vh] overflow-y-auto overscroll-contain bg-surface-overlay rounded-t-[2.5rem] z-50 p-6 pb-10 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${isOpen ? 'translate-y-0' : 'translate-y-full'}`}>
         <div className="w-12 h-1.5 bg-handle rounded-full mx-auto mb-6" />
 
         <div className="flex justify-between items-center mb-8 relative">
@@ -170,6 +174,9 @@ const SettingsModal = ({
             {requesting ? 'Wird angefragt…' : 'Erinnerungen aktivieren'}
           </button>
         )}
+
+        {/* ── Backup & Restore ─────────────────────────────────────────── */}
+        <BackupRestoreSection onImported={onDataImported} />
 
         {/* ── Logout ── */}
         <div className="mt-8 pt-6 border-t border-surface-raised">

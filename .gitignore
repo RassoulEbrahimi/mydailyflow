@@ -6,3 +6,8 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Personal data exports — backups and recovery snapshots stay on the device
+mydailyflow-backup-*.json
+myDailyFlow_recovery__*.json
+*.backup.json

@@ -1,8 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
+import type { Theme } from '../types/backup';
+import { STORAGE_KEYS } from '../utils/appStorage';
 
-export type Theme = 'light' | 'dark' | 'system';
+// Defined alongside the backup format so the exported preference and the
+// runtime preference can never drift apart. Re-exported for existing consumers.
+export type { Theme };
 
-const STORAGE_KEY = 'myDailyFlow_theme';
+const STORAGE_KEY = STORAGE_KEYS.theme;
 
 /** Read persisted preference or default to 'dark' (preserves current look). */
 function getStoredTheme(): Theme {

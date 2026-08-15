@@ -1,31 +1,34 @@
 import { useState, useEffect } from 'react';
 import type { Task } from '../types/task';
-import { isStorageWrapper, isValidTaskArray, type StorageWrapper } from '../types/task';
+import { isValidTaskArray } from '../types/task';
+import { STORAGE_KEYS, loadTasksSlice, serializeTasks } from '../utils/appStorage';
+import { isSliceBlocked, registerBlockedSlice, subscribeStorageHealth } from '../utils/storageHealth';
 import { buildNextOccurrence, getTodayString, nextRecurrenceDate, rolloverTasksForDate, withRecurrenceAnchor } from '../utils/taskUtils';
 
 export function useTasks() {
+  // Loaded once, synchronously, so the "may we persist?" answer exists before
+  // the first persistence effect can ever run. See useDailyEssentials for the
+  // same pattern applied independently to its two slices.
+  const [initialLoad] = useState(() => loadTasksSlice(localStorage, new Date().toISOString()));
+
   const [tasks, setTasks] = useState<Task[]>(() => {
     const today = getTodayString();
     const withDate = (rawTasks: Task[]): Task[] =>
       rawTasks.map(t => t.date ? t : { ...t, date: today });
 
-    const saved = localStorage.getItem('myDailyFlowTasks');
-    if (saved) {
-      try {
-        const parsed: unknown = JSON.parse(saved);
-        if (isStorageWrapper(parsed)) return withDate(parsed.data);
-        if (isValidTaskArray(parsed)) {
-          console.log('Migrating legacy tasks array to versioned storage');
-          return withDate(parsed);
-        }
-        console.warn('Invalid task data format in localStorage, clearing corrupted data');
-        localStorage.removeItem('myDailyFlowTasks');
-        return [];
-      } catch (e) {
-        console.error('Failed to parse saved tasks, clearing corrupted data', e);
-        localStorage.removeItem('myDailyFlowTasks');
-        return [];
+    if (initialLoad.value) {
+      if (initialLoad.status === 'migrated') {
+        console.log('Migrating legacy tasks array to versioned storage');
       }
+      return withDate(initialLoad.value);
+    }
+
+    if (initialLoad.blocked) {
+      // The stored value could not be read. It has been copied aside (or left
+      // in place if that copy failed) and writes stay suppressed, so this empty
+      // list never reaches storage.
+      console.warn('Task data unreadable — persistence suspended', initialLoad.detail);
+      return [];
     }
 
     if (import.meta.env.DEV) {
@@ -42,18 +45,37 @@ export function useTasks() {
     return [];
   });
 
+  /** Write suppression for the task slice only — essentials are unaffected. */
+  const [persistBlocked, setPersistBlocked] = useState(initialLoad.blocked);
+
   useEffect(() => {
+    if (!initialLoad.blocked) return;
+
+    registerBlockedSlice({
+      slice: 'tasks',
+      reason: initialLoad.status === 'quarantined' ? 'quarantined' : 'quarantine-failed',
+      recoveryKey: initialLoad.recoveryKey,
+      detail: initialLoad.detail,
+    });
+
+    // Lifted by an explicit user action in Settings, or by a successful import.
+    return subscribeStorageHealth(() => {
+      if (!isSliceBlocked('tasks')) setPersistBlocked(false);
+    });
+  }, [initialLoad]);
+
+  useEffect(() => {
+    if (persistBlocked) return;
     try {
       if (isValidTaskArray(tasks)) {
-        const wrapper: StorageWrapper = { version: 1, data: tasks };
-        localStorage.setItem('myDailyFlowTasks', JSON.stringify(wrapper));
+        localStorage.setItem(STORAGE_KEYS.tasks, serializeTasks(tasks));
       } else {
         console.error('Invalid tasks state detected, skipping save to protect localStorage');
       }
     } catch (e) {
       console.error('Failed to stringify tasks for saving', e);
     }
-  }, [tasks]);
+  }, [tasks, persistBlocked]);
 
   useEffect(() => {
     let lastProcessedDate: string | null = null;
