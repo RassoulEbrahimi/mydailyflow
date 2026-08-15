@@ -26,6 +26,9 @@ export interface Task {
     notes?: string;
     recurrence?: Recurrence;       // recurrence rule; 'none' or undefined = no recurrence
     recurrenceSourceId?: string;   // ID of the completed task that spawned this occurrence (dedup)
+    recurrenceAnchorDay?: number;  // monthly only: day-of-month (1-31) the series is anchored to,
+                                   // so a clamped occurrence (Jan 31 -> Feb 28) can return to 31 later.
+                                   // Optional: legacy tasks fall back to the day of their own date.
     reminderEnabled?: boolean;     // whether a notification reminder is enabled for this task
 }
 
@@ -33,6 +36,11 @@ export interface StorageWrapper {
     version: number;
     data: Task[];
 }
+
+// A monthly anchor must be a real day-of-month: an integer within 1..31.
+// Rejects 0, 32, fractions, NaN, Infinity, and non-numbers.
+export const isValidAnchorDay = (value: unknown): value is number =>
+    typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 31;
 
 const isChecklistItem = (item: unknown): item is ChecklistItem => {
     if (!item || typeof item !== 'object') return false;
@@ -67,6 +75,7 @@ export const isValidTaskArray = (data: unknown): data is Task[] => {
             (t.notes === undefined || typeof t.notes === 'string') &&
             (t.recurrence === undefined || VALID_RECURRENCES.includes(t.recurrence as Recurrence)) &&
             (t.recurrenceSourceId === undefined || typeof t.recurrenceSourceId === 'string') &&
+            (t.recurrenceAnchorDay === undefined || isValidAnchorDay(t.recurrenceAnchorDay)) &&
             (t.reminderEnabled === undefined || typeof t.reminderEnabled === 'boolean')
         );
     });

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Task } from '../types/task';
 import { isStorageWrapper, isValidTaskArray, type StorageWrapper } from '../types/task';
-import { getTodayString, nextRecurrenceDate, rolloverTasksForDate } from '../utils/taskUtils';
+import { buildNextOccurrence, getTodayString, nextRecurrenceDate, rolloverTasksForDate, withRecurrenceAnchor } from '../utils/taskUtils';
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>(() => {
@@ -83,20 +83,22 @@ export function useTasks() {
     };
   }, []);
 
-  const saveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed' | 'date' | 'rolledOverFrom'>, taskToEdit?: Task | null): Task => {
+  // recurrenceAnchorDay is owned by this hook, not by callers: it is derived
+  // from the task's own recurrence and scheduled date on every save.
+  const saveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed' | 'date' | 'rolledOverFrom' | 'recurrenceAnchorDay'>, taskToEdit?: Task | null): Task => {
     let savedTaskInner: Task;
 
     if (taskToEdit) {
-      savedTaskInner = { ...taskToEdit, ...taskData };
+      savedTaskInner = withRecurrenceAnchor({ ...taskToEdit, ...taskData });
       setTasks(prev => prev.map(t => t.id === taskToEdit.id ? savedTaskInner : t));
     } else {
-      savedTaskInner = {
+      savedTaskInner = withRecurrenceAnchor({
         ...taskData,
         id: Math.random().toString(36).substr(2, 9),
         completed: false,
         createdAt: new Date().toISOString(),
         date: getTodayString(),
-      };
+      });
       setTasks(prev => [...prev, savedTaskInner]);
     }
     return savedTaskInner;
@@ -110,30 +112,14 @@ export function useTasks() {
       const nowCompleted = !target.completed;
       const updated = prev.map(t => t.id === id ? { ...t, completed: nowCompleted } : t);
 
-      if (nowCompleted && target.recurrence && target.recurrence !== 'none') {
-        const alreadySpawned = updated.some(t => t.recurrenceSourceId === target.id);
-        if (!alreadySpawned) {
-          const nextDate = nextRecurrenceDate(target.date, target.recurrence);
-          const nextTask: Task = {
-            id: Math.random().toString(36).substr(2, 9),
-            createdAt: new Date().toISOString(),
-            completed: false,
-            date: nextDate,
-            title: target.title,
-            description: target.description,
-            notes: target.notes,
-            time: target.time,
-            duration: target.duration,
-            timeBlock: target.timeBlock,
-            priority: target.priority,
-            recurrence: target.recurrence,
-            recurrenceSourceId: target.id,
-            checklistItems: target.checklistItems
-              ? target.checklistItems.map(ci => ({ ...ci, completed: false }))
-              : undefined,
-          };
-          return [...updated, nextTask];
-        }
+      if (nowCompleted) {
+        const nextTask = buildNextOccurrence(
+          target,
+          updated,
+          () => Math.random().toString(36).substr(2, 9),
+          () => new Date().toISOString(),
+        );
+        if (nextTask) return [...updated, nextTask];
       }
       return updated;
     });

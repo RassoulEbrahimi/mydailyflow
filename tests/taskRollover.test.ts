@@ -62,5 +62,5 @@ test('daily, every-two-days, and weekly recurrence cross date boundaries safely'
   assert.equal(nextRecurrenceDate('2026-02-28', 'weekly'), '2026-03-07');
 });
 
-test.todo('define and test monthly recurrence behavior for days 29 through 31');
-test.todo('define whether rolled recurring tasks keep their original cadence');
+// Monthly day 29-31 handling and post-rollover cadence are covered in
+// tests/recurrence.test.ts.
