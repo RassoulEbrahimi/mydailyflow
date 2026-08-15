@@ -21,6 +21,32 @@ export interface EssentialsStateWrapper {
     data: DailyEssentialState;
 }
 
+// ─── Shared primitive validators ──────────────────────────────────────────────
+// Number.isInteger already rejects NaN, Infinity and non-numbers, so these also
+// cover "finite" without a separate check.
+
+/** A count that must be at least 1 (e.g. targetCount). */
+export const isPositiveInteger = (value: unknown): value is number =>
+    typeof value === 'number' && Number.isInteger(value) && value >= 1;
+
+/** A count that may be 0 (e.g. order, progress). */
+export const isNonNegativeInteger = (value: unknown): value is number =>
+    typeof value === 'number' && Number.isInteger(value) && value >= 0;
+
+/** A real calendar date in YYYY-MM-DD form (rejects 2026-02-30, 2026-13-01, …). */
+export const isValidDateString = (value: unknown): value is string => {
+    if (typeof value !== 'string') return false;
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (!match) return false;
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const dt = new Date(Date.UTC(year, month - 1, day));
+    return dt.getUTCFullYear() === year
+        && dt.getUTCMonth() === month - 1
+        && dt.getUTCDate() === day;
+};
+
 export const isValidEssentialArray = (data: unknown): data is DailyEssential[] => {
     if (!Array.isArray(data)) return false;
     return data.every(item => {
@@ -28,8 +54,8 @@ export const isValidEssentialArray = (data: unknown): data is DailyEssential[] =
         const e = item as Record<string, unknown>;
         return typeof e.id === 'string' &&
             typeof e.title === 'string' &&
-            typeof e.targetCount === 'number' &&
-            typeof e.order === 'number' &&
+            isPositiveInteger(e.targetCount) &&
+            isNonNegativeInteger(e.order) &&
             typeof e.createdAt === 'string';
     });
 };
@@ -44,11 +70,16 @@ export const isEssentialsStateWrapper = (data: unknown): data is EssentialsState
     if (!data || typeof data !== 'object') return false;
     const w = data as Record<string, unknown>;
     if (typeof w.version !== 'number') return false;
-    const state = w.data as Record<string, unknown>;
-    if (!state || typeof state !== 'object') return false;
-    if (typeof state.date !== 'string') return false;
+    return isValidEssentialState(w.data);
+};
+
+export const isValidEssentialState = (data: unknown): data is DailyEssentialState => {
+    if (!data || typeof data !== 'object') return false;
+    const state = data as Record<string, unknown>;
+    if (!isValidDateString(state.date)) return false;
     if (!state.progressById || typeof state.progressById !== 'object') return false;
-    
-    // Check that progressById values are numbers
-    return Object.values(state.progressById).every(val => typeof val === 'number');
+    if (Array.isArray(state.progressById)) return false;
+
+    // Progress is a count of completions: finite, non-negative, whole.
+    return Object.values(state.progressById as Record<string, unknown>).every(isNonNegativeInteger);
 };

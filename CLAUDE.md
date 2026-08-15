@@ -23,7 +23,24 @@ npm start        # Express backend on port 3001 (voice API only)
 Run `npm run lint` and `npm run build` to verify correctness after any code change.
 
 ## Architecture
-All task and essentials data is stored in **browser localStorage** — there is no database for the main app. The Express backend (`server.js`, port 3001) exists solely to proxy audio blobs to Mistral/Voxtral for voice transcription (`POST /api/transcribe`). Vite proxies `/api` → `http://localhost:3001` during dev.
+All task and essentials data is stored in **browser localStorage** — there is no database for the main app.
+
+### localStorage keys
+`src/utils/appStorage.ts` is the single source of truth for every key the app owns.
+
+| Key | Owner | Contents | In backup |
+|-----|-------|----------|-----------|
+| `myDailyFlowTasks` | `useTasks.ts` | `{version, data: Task[]}` | yes |
+| `myDailyFlowEssentialsData` | `useDailyEssentials.ts` | `{version, data: DailyEssential[]}` | yes |
+| `myDailyFlowEssentialsState` | `useDailyEssentials.ts` | `{version, data: {date, progressById}}` | yes |
+| `myDailyFlow_theme` | `useTheme.ts` | `light \| dark \| system` | yes |
+| `remindersEnabled` / `stickyHeroEnabled` | `App.tsx` | `"true" \| "false"` | yes |
+| `myDailyFlow_essentialsCollapsed` | `DailyEssentialsSection.tsx` | `"true" \| "false"` | yes |
+| `lastRolloverDate` | `useTasks.ts` | `YYYY-MM-DD`, write-only derived state | no |
+| `mdf_auth_session` | `fakeAuth.ts` | demo session | **never** |
+| `myDailyFlow_recovery__*` | `appStorage.ts` | quarantined raw values | never auto-restored |
+
+**Storage safety rules:** a value that fails parsing or validation is copied to a timestamped recovery key and only then removed; if the copy fails, the original stays put. Writes for that slice are suspended (independently per slice) until the user resolves it in Settings or an import succeeds. Multi-key writes go through `applyStorageTransaction`, which verifies each write by read-back and restores every affected key on failure. The Express backend (`server.js`, port 3001) exists solely to proxy audio blobs to Mistral/Voxtral for voice transcription (`POST /api/transcribe`). Vite proxies `/api` → `http://localhost:3001` during dev.
 
 ## Key Files
 
@@ -42,7 +59,8 @@ All task and essentials data is stored in **browser localStorage** — there is 
 | `HomeHero.tsx` | Progress circle + stats on Today tab — **keep stable** |
 | `TaskCard.tsx` | Task card with swipe actions |
 | `NewTaskModal.tsx` | Create/edit task form |
-| `SettingsModal.tsx` | Reminders toggle, sticky hero, logout |
+| `SettingsModal.tsx` | Reminders toggle, sticky hero, theme, backup/restore, logout |
+| `BackupRestoreSection.tsx` | Export/import JSON backup, recovery snapshot list |
 | `DailyEssentialsSection.tsx` | Essentials display + progress |
 | `ManageEssentialsModal.tsx` | Add/edit essentials |
 | `VoiceTaskModal.tsx` | Audio recording → transcription → task |
@@ -56,6 +74,12 @@ All task and essentials data is stored in **browser localStorage** — there is 
 | `src/types/essential.ts` | `DailyEssential` interface + validators |
 | `src/utils/taskUtils.ts` | Date helpers, filtering, grouping, recurrence date calc |
 | `src/services/voiceApi.ts` | HTTP call to Express `/api/transcribe` |
+| `src/types/backup.ts` | `BackupFileV1` format + full-file validation |
+| `src/utils/appStorage.ts` | Storage keys, quarantine, atomic multi-key writes, slice loaders |
+| `src/utils/backupFormat.ts` | Build / serialize / parse backup files (pure) |
+| `src/utils/backupMerge.ts` | Merge & replace semantics, dedup, progress reset (pure) |
+| `src/utils/backupService.ts` | Export/import orchestration against localStorage |
+| `src/utils/storageHealth.ts` | Registry of slices whose writes are suspended |
 
 ### Task Shape (abbreviated)
 ```typescript
@@ -88,6 +112,7 @@ interface Task {
 - PWA with service worker + update banner
 - Drag-and-drop task reordering (dnd-kit)
 - Search and date-range filtering (All tab)
+- Backup & Restore (versioned JSON export/import, merge or replace, corruption-safe storage)
 
 ## Working Rules
 1. **Do not redesign stable areas** (especially Today tab / HomeHero) unless explicitly requested.

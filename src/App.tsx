@@ -494,6 +494,9 @@ function AppInner({ logout }: { logout: () => void }) {
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+        // Storage has already been written and verified at this point; a full
+        // reload is the safest way to rehydrate every hook from it at once.
+        onDataImported={() => window.location.reload()}
         remindersEnabled={remindersEnabled}
         onRemindersEnabledChange={setRemindersEnabled}
         permission={notifPermission}
