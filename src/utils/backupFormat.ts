@@ -5,7 +5,7 @@
  */
 
 import type { AppDataSnapshot, BackupFileV1, ValidationResult } from '../types/backup';
-import { BACKUP_APP_ID, BACKUP_SCHEMA_VERSION, validateBackupObject } from '../types/backup';
+import { BACKUP_APP_ID, BACKUP_SCHEMA_VERSION, isBackupPreferences, validateBackupObject } from '../types/backup';
 import { isValidEssentialArray, isValidEssentialState } from '../types/essential';
 import { isValidTaskArray } from '../types/task';
 
@@ -42,6 +42,7 @@ export function validateSnapshot(snapshot: AppDataSnapshot): ValidationResult<Ap
     if (!isValidTaskArray(snapshot.tasks)) errors.push('invalid-tasks');
     if (!isValidEssentialArray(snapshot.essentials)) errors.push('invalid-essentials');
     if (!isValidEssentialState(snapshot.essentialsState)) errors.push('invalid-essentials-state');
+    if (!isBackupPreferences(snapshot.preferences)) errors.push('invalid-preferences');
     if (errors.length > 0) return { status: 'invalid', errors };
     return { status: 'valid', value: snapshot };
 }

@@ -5,6 +5,7 @@ import type { BackupFileV1 } from '../src/types/backup';
 import type { DailyEssential } from '../src/types/essential';
 import type { Task } from '../src/types/task';
 import {
+  MANAGED_KEYS,
   RECOVERY_PREFIX,
   STORAGE_KEYS,
   applyStorageTransaction,
@@ -19,7 +20,7 @@ import {
 } from '../src/utils/appStorage';
 import type { StorageLike } from '../src/utils/appStorage';
 import { buildBackup } from '../src/utils/backupFormat';
-import { exportBackup, importBackup, readSnapshot } from '../src/utils/backupService';
+import { exportBackup, importBackup, readSnapshotStrict } from '../src/utils/backupService';
 
 // ─── In-memory storage with failure injection ─────────────────────────────────
 
@@ -29,8 +30,13 @@ class FakeStorage implements StorageLike {
   failWrite: (key: string, callIndex: number) => boolean = () => false;
   /** Silently drops the write when this returns true (simulates a lying quota). */
   swallowWrite: (key: string, callIndex: number) => boolean = () => false;
+  /** Throws on read when this returns true. */
+  failRead: (key: string, callIndex: number) => boolean = () => false;
   failRemove: (key: string) => boolean = () => false;
+  /** Silently ignores the removal when this returns true. */
+  swallowRemove: (key: string) => boolean = () => false;
   writeCount = 0;
+  readCount = 0;
 
   get length(): number {
     return this.map.size;
@@ -41,6 +47,10 @@ class FakeStorage implements StorageLike {
   }
 
   getItem(key: string): string | null {
+    this.readCount += 1;
+    if (this.failRead(key, this.readCount)) {
+      throw new Error('SecurityError: read blocked');
+    }
     return this.map.has(key) ? this.map.get(key)! : null;
   }
 
@@ -55,6 +65,7 @@ class FakeStorage implements StorageLike {
 
   removeItem(key: string): void {
     if (this.failRemove(key)) throw new Error('SecurityError');
+    if (this.swallowRemove(key)) return;
     this.map.delete(key);
   }
 
@@ -420,9 +431,11 @@ test('stale daily progress is not exported as if it were today', () => {
     serializeEssentialsState({ date: '2026-01-01', progressById: { 'current-essential': 2 } }),
   );
 
-  const snapshot = readSnapshot(storage, TODAY, NOW);
+  const read = readSnapshotStrict(storage, TODAY);
 
-  assert.deepEqual(snapshot.essentialsState, { date: TODAY, progressById: {} });
+  assert.equal(read.status, 'ok');
+  if (read.status !== 'ok') return;
+  assert.deepEqual(read.snapshot.essentialsState, { date: TODAY, progressById: {} });
 });
 
 // ─── Import ───────────────────────────────────────────────────────────────────
@@ -572,4 +585,220 @@ test('import does not resurrect the derived lastRolloverDate key', () => {
   importBackup(storage, makeBackup(), 'replace', TODAY, NOW);
 
   assert.equal(storage.getItem('lastRolloverDate'), null);
+});
+
+// ─── Regressions: export must be strictly read-only ───────────────────────────
+
+test('export with corrupted current tasks fails and changes no key', () => {
+  const storage = seededStorage();
+  storage.seed(STORAGE_KEYS.tasks, '{ corrupted task blob');
+  const before = storage.snapshotOfAllKeys();
+
+  const result = exportBackup(storage, TODAY, NOW);
+
+  assert.equal(result.status, 'invalid');
+  if (result.status !== 'invalid') return;
+  // No file is produced…
+  assert.equal('text' in result, false);
+  assert.equal(result.errors.some(e => e.startsWith('invalid-tasks')), true);
+  // …and nothing was written, removed or quarantined.
+  assert.deepEqual(storage.snapshotOfAllKeys(), before);
+  assert.equal(storage.getItem(STORAGE_KEYS.tasks), '{ corrupted task blob');
+  assert.deepEqual(recoveryKeys(storage), []);
+  assert.equal(storage.writeCount, 0);
+});
+
+test('export with corrupted essentials or daily state fails without mutating', () => {
+  for (const key of [STORAGE_KEYS.essentialsData, STORAGE_KEYS.essentialsState]) {
+    const storage = seededStorage();
+    storage.seed(key, '{{{ not json');
+    const before = storage.snapshotOfAllKeys();
+
+    const result = exportBackup(storage, TODAY, NOW);
+
+    assert.equal(result.status, 'invalid', `expected ${key} to fail the export`);
+    assert.deepEqual(storage.snapshotOfAllKeys(), before);
+    assert.equal(storage.writeCount, 0);
+  }
+});
+
+test('export fails without mutating when a key cannot be read', () => {
+  const storage = seededStorage();
+  const before = storage.snapshotOfAllKeys();
+  storage.failRead = key => key === STORAGE_KEYS.essentialsData;
+
+  const result = exportBackup(storage, TODAY, NOW);
+
+  assert.equal(result.status, 'invalid');
+  if (result.status !== 'invalid') return;
+  assert.equal(result.errors.some(e => e.startsWith('capture-read-failed')), true);
+  assert.deepEqual(storage.snapshotOfAllKeys(), before);
+  assert.equal(storage.writeCount, 0);
+});
+
+test('an unrecognised preference value does not fail an otherwise valid export', () => {
+  const storage = seededStorage();
+  storage.seed(STORAGE_KEYS.theme, 'neon');
+
+  const result = exportBackup(storage, TODAY, NOW);
+
+  assert.equal(result.status, 'ok');
+  if (result.status !== 'ok') return;
+  assert.equal(JSON.parse(result.text).preferences.theme, 'dark');
+  assert.equal(storage.getItem(STORAGE_KEYS.theme), 'neon'); // untouched
+  assert.equal(storage.writeCount, 0);
+});
+
+// ─── Regressions: rollback baseline is the true pre-import state ──────────────
+
+test('a failed import restores a corrupted task value that was there before', () => {
+  const storage = seededStorage();
+  const corrupted = '{ corrupted raw value the user may still want';
+  storage.seed(STORAGE_KEYS.tasks, corrupted);
+  const before = storage.snapshotOfAllKeys();
+  // Fail the third managed write, well after the corrupted slice was read.
+  storage.failWrite = key => key === STORAGE_KEYS.essentialsState;
+
+  const result = importBackup(storage, makeBackup(), 'merge', TODAY, NOW);
+
+  assert.equal(result.status, 'failed');
+  if (result.status !== 'failed') return;
+  assert.equal(result.stage, 'write');
+  assert.equal(result.rolledBack, true);
+
+  // The corrupted original is back, byte for byte, and so is every other key.
+  assert.equal(storage.getItem(STORAGE_KEYS.tasks), corrupted);
+  for (const key of MANAGED_KEYS) {
+    assert.equal(storage.getItem(key), before[key] ?? null, `key ${key} was not restored exactly`);
+  }
+});
+
+test('the pre-import snapshot records the corrupted raw value, not an empty slice', () => {
+  const storage = seededStorage();
+  const corrupted = '{ corrupted raw value';
+  storage.seed(STORAGE_KEYS.tasks, corrupted);
+
+  const result = importBackup(storage, makeBackup(), 'replace', TODAY, NOW);
+
+  assert.equal(result.status, 'ok');
+  if (result.status !== 'ok') return;
+  const snapshot = JSON.parse(storage.getItem(result.recoveryKey)!);
+  assert.equal(snapshot.raw[STORAGE_KEYS.tasks], corrupted);
+});
+
+test('import aborts before any write when a managed key cannot be read', () => {
+  const storage = seededStorage();
+  const before = storage.snapshotOfAllKeys();
+  storage.failRead = key => key === STORAGE_KEYS.essentialsState;
+
+  const result = importBackup(storage, makeBackup(), 'replace', TODAY, NOW);
+
+  assert.equal(result.status, 'failed');
+  if (result.status !== 'failed') return;
+  assert.equal(result.stage, 'capture');
+  assert.equal(result.rolledBack, true);
+  assert.deepEqual(storage.snapshotOfAllKeys(), before);
+  assert.equal(storage.writeCount, 0);
+  assert.deepEqual(recoveryKeys(storage), []);
+});
+
+test('two pre-import snapshots sharing a timestamp do not overwrite each other', () => {
+  const storage = seededStorage();
+  const originalTasks = storage.getItem(STORAGE_KEYS.tasks);
+
+  const first = importBackup(storage, makeBackup(), 'merge', TODAY, NOW);
+  const second = importBackup(storage, makeBackup({ tasks: [makeTask({ id: 'second-import' })] }), 'merge', TODAY, NOW);
+
+  assert.equal(first.status, 'ok');
+  assert.equal(second.status, 'ok');
+  if (first.status !== 'ok' || second.status !== 'ok') return;
+  assert.notEqual(first.recoveryKey, second.recoveryKey);
+
+  const preimport = listRecoverySnapshots(storage).filter(s => s.sourceKey === 'preimport');
+  assert.equal(preimport.length, 2);
+
+  // The older snapshot still holds the state from before the first import.
+  const firstSnapshot = JSON.parse(storage.getItem(first.recoveryKey)!);
+  assert.equal(firstSnapshot.raw[STORAGE_KEYS.tasks], originalTasks);
+});
+
+// ─── Regressions: a thrown read is never a successful read ────────────────────
+
+test('a thrown read during transaction capture fails before any write', () => {
+  const storage = new FakeStorage();
+  storage.seed('k1', 'one');
+  storage.seed('k2', 'two');
+  storage.failRead = key => key === 'k2';
+
+  const result = applyStorageTransaction(storage, [
+    { key: 'k1', value: 'ONE' },
+    { key: 'k2', value: 'TWO' },
+  ]);
+
+  assert.equal(result.status, 'failed');
+  if (result.status !== 'failed') return;
+  assert.match(result.error, /^capture-read-failed/);
+  assert.equal(result.failedKey, 'k2');
+  assert.equal(result.restored, true); // nothing was written, so nothing to undo
+  assert.equal(storage.writeCount, 0);
+  assert.deepEqual(storage.snapshotOfAllKeys(), { k1: 'one', k2: 'two' });
+});
+
+test('a thrown read during verification is never reported as success', () => {
+  const storage = new FakeStorage();
+  storage.seed('k1', 'one');
+  // The capture read succeeds; every read after it throws.
+  storage.failRead = (_key, callIndex) => callIndex >= 2;
+
+  const result = applyStorageTransaction(storage, [{ key: 'k1', value: 'ONE' }]);
+
+  assert.equal(result.status, 'failed');
+  if (result.status !== 'failed') return;
+  assert.equal(result.error, 'verification-failed');
+  assert.equal(result.failedKey, 'k1');
+  // The rollback write was still attempted, but could not be confirmed.
+  assert.equal(result.restored, false);
+  assert.equal(storage.snapshotOfAllKeys().k1, 'one');
+});
+
+test('a removal cannot verify merely because the read threw', () => {
+  const storage = new FakeStorage();
+  storage.seed('k1', 'one');
+  storage.swallowRemove = () => true; // the removal silently does nothing
+  storage.failRead = (_key, callIndex) => callIndex >= 2;
+
+  const result = applyStorageTransaction(storage, [{ key: 'k1', value: null }]);
+
+  assert.equal(result.status, 'failed');
+  if (result.status !== 'failed') return;
+  assert.equal(result.error, 'verification-failed');
+  // The key is still present: a thrown read must not be mistaken for absence.
+  assert.equal(storage.snapshotOfAllKeys().k1, 'one');
+});
+
+test('an unreadable slice is blocked without being written to', () => {
+  const storage = seededStorage();
+  const before = storage.snapshotOfAllKeys();
+  storage.failRead = key => key === STORAGE_KEYS.tasks;
+
+  const result = loadTasksSlice(storage, NOW);
+
+  assert.equal(result.status, 'unreadable');
+  assert.equal(result.blocked, true);
+  assert.equal(result.value, null);
+  assert.deepEqual(storage.snapshotOfAllKeys(), before);
+  assert.equal(storage.writeCount, 0);
+});
+
+test('a value that cannot be read is never quarantined away', () => {
+  const storage = new FakeStorage();
+  storage.seed(STORAGE_KEYS.tasks, 'irreplaceable');
+  storage.failRead = key => key === STORAGE_KEYS.tasks;
+
+  const result = quarantineRawValue(storage, STORAGE_KEYS.tasks, NOW);
+
+  assert.equal(result.status, 'failed');
+  if (result.status !== 'failed') return;
+  assert.match(result.reason, /^source-read-failed/);
+  assert.equal(storage.snapshotOfAllKeys()[STORAGE_KEYS.tasks], 'irreplaceable');
 });

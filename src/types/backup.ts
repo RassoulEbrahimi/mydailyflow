@@ -52,7 +52,7 @@ export type ValidationResult<T> =
 export const isTheme = (value: unknown): value is Theme =>
     value === 'light' || value === 'dark' || value === 'system';
 
-const isPreferences = (value: unknown): value is BackupPreferences => {
+export const isBackupPreferences = (value: unknown): value is BackupPreferences => {
     if (!value || typeof value !== 'object') return false;
     const p = value as Record<string, unknown>;
     return isTheme(p.theme)
@@ -93,7 +93,7 @@ export function validateBackupObject(data: unknown): ValidationResult<BackupFile
     if (!isValidTaskArray(b.tasks)) errors.push('invalid-tasks');
     if (!isValidEssentialArray(b.essentials)) errors.push('invalid-essentials');
     if (!isValidEssentialState(b.essentialsState)) errors.push('invalid-essentials-state');
-    if (!isPreferences(b.preferences)) errors.push('invalid-preferences');
+    if (!isBackupPreferences(b.preferences)) errors.push('invalid-preferences');
 
     if (errors.length > 0) return { status: 'invalid', errors };
 

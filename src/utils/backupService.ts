@@ -1,16 +1,22 @@
 /**
  * backupService.ts — orchestrates export and import against a StorageLike.
  *
- * The import path is deliberately step-by-step and abortable:
+ * Export is strictly read-only: it reads raw values and parses them purely, so a
+ * corrupted slice makes the export fail rather than quietly producing a file
+ * with that slice missing — and no key is written, removed or quarantined.
  *
- *   1. capture the exact raw value of every key the import will touch
- *   2. write and verify a timestamped recovery snapshot of those raw values
- *   3. compute the destination state and validate it in full
+ * The import path is step-by-step and abortable:
+ *
+ *   1. capture the exact raw value of every managed key (a read error aborts)
+ *   2. write and verify a timestamped, collision-safe recovery snapshot
+ *   3. compute the destination *from the captured raw values*, never by
+ *      re-reading storage, and validate it in full
  *   4. write every destination key, verifying each by read-back
- *   5. on any failure, restore every affected key to its exact previous value
+ *   5. on any failure, restore every key to the captured value and confirm the
+ *      restore before claiming it succeeded
  *
- * Steps 1-3 write nothing but the recovery snapshot, and step 4 is all-or-
- * nothing, so there is no state in which half a backup has been applied.
+ * Nothing between steps 1 and 4 mutates a managed key, so the rollback baseline
+ * is always the true pre-import state.
  */
 
 import type { AppDataSnapshot, BackupFileV1, BackupPreferences } from '../types/backup';
@@ -19,62 +25,143 @@ import type { DailyEssentialState } from '../types/essential';
 import {
     MANAGED_KEYS,
     PRE_IMPORT_SOURCE,
-    RECOVERY_PREFIX,
     STORAGE_KEYS,
     applyStorageTransaction,
-    loadEssentialsSlice,
-    loadEssentialsStateSlice,
-    loadTasksSlice,
-    safeGetItem,
+    parseEssentialsRaw,
+    parseEssentialsStateRaw,
+    parseTasksRaw,
+    readRaw,
     serializeEssentials,
     serializeEssentialsState,
     serializeTasks,
+    uniqueRecoveryKey,
 } from './appStorage';
 import type { StorageLike, StorageWrite } from './appStorage';
 import { backupFileName, buildBackup, serializeBackup, validateSnapshot } from './backupFormat';
 import { applyBackup } from './backupMerge';
 import type { ImportMode } from './backupMerge';
 
-// ─── Reading what is currently stored ─────────────────────────────────────────
+// ─── Raw capture ──────────────────────────────────────────────────────────────
 
-const readBoolean = (storage: StorageLike, key: string, fallback: boolean): boolean => {
-    const raw = safeGetItem(storage, key);
+/** A lookup over captured raw values — no storage access. */
+type RawLookup = (key: string) => string | null;
+
+const lookupOf = (captured: StorageWrite[]): RawLookup => {
+    const map = new Map(captured.map(entry => [entry.key, entry.value]));
+    return key => (map.has(key) ? map.get(key) : null);
+};
+
+export type CaptureResult =
+    | { status: 'ok'; captured: StorageWrite[] }
+    | { status: 'failed'; error: string };
+
+/**
+ * Reads the exact raw value of every managed key. A read that throws aborts the
+ * whole capture: recording it as `null` would make a later rollback erase the
+ * very value it was meant to protect.
+ */
+export function captureManagedKeys(storage: StorageLike): CaptureResult {
+    const captured: StorageWrite[] = [];
+    for (const key of MANAGED_KEYS) {
+        const read = readRaw(storage, key);
+        if (read.status === 'error') {
+            return { status: 'failed', error: `capture-read-failed: ${key}: ${read.error}` };
+        }
+        captured.push({ key, value: read.value });
+    }
+    return { status: 'ok', captured };
+}
+
+/** Confirms every managed key currently equals the captured raw value. */
+export function matchesCapture(storage: StorageLike, captured: StorageWrite[]): boolean {
+    for (const entry of captured) {
+        const read = readRaw(storage, entry.key);
+        if (read.status === 'error' || read.value !== entry.value) return false;
+    }
+    return true;
+}
+
+// ─── Preferences ──────────────────────────────────────────────────────────────
+
+const readBooleanRaw = (raw: string | null, fallback: boolean): boolean => {
     if (raw === 'true') return true;
     if (raw === 'false') return false;
     return fallback;
 };
 
-export function readPreferences(storage: StorageLike): BackupPreferences {
-    const theme = safeGetItem(storage, STORAGE_KEYS.theme);
+/**
+ * Preferences are independent scalars with safe defaults, so an unrecognised
+ * value falls back rather than failing the whole export. Their *keys* are still
+ * captured and restored byte-for-byte like every other managed key.
+ */
+export function preferencesFromRaw(raw: RawLookup): BackupPreferences {
+    const theme = raw(STORAGE_KEYS.theme);
     return {
         theme: isTheme(theme) ? theme : 'dark',
-        remindersEnabled: readBoolean(storage, STORAGE_KEYS.remindersEnabled, false),
-        stickyHeroEnabled: readBoolean(storage, STORAGE_KEYS.stickyHeroEnabled, true),
-        essentialsCollapsed: readBoolean(storage, STORAGE_KEYS.essentialsCollapsed, false),
+        remindersEnabled: readBooleanRaw(raw(STORAGE_KEYS.remindersEnabled), false),
+        stickyHeroEnabled: readBooleanRaw(raw(STORAGE_KEYS.stickyHeroEnabled), true),
+        essentialsCollapsed: readBooleanRaw(raw(STORAGE_KEYS.essentialsCollapsed), false),
     };
 }
 
 const emptyState = (today: string): DailyEssentialState => ({ date: today, progressById: {} });
 
-/**
- * Best-effort read of everything the app owns.
- *
- * A slice that fails validation reads as empty rather than throwing: its raw
- * value has already been quarantined by the loader, so it is recoverable from a
- * snapshot rather than from here.
- */
-export function readSnapshot(storage: StorageLike, today: string, nowISO: string): AppDataSnapshot {
-    const tasks = loadTasksSlice(storage, nowISO);
-    const essentials = loadEssentialsSlice(storage, nowISO);
-    const state = loadEssentialsStateSlice(storage, nowISO);
+// ─── Read-only snapshot ───────────────────────────────────────────────────────
 
-    const storedState = state.value;
+export type SnapshotReadResult =
+    | { status: 'ok'; snapshot: AppDataSnapshot }
+    | { status: 'invalid'; errors: string[] };
+
+/**
+ * Interprets already-captured raw values. Invalid slices are reported rather
+ * than silently treated as empty.
+ */
+export function snapshotFromRaw(raw: RawLookup, today: string): SnapshotReadResult {
+    const tasks = parseTasksRaw(raw(STORAGE_KEYS.tasks));
+    const essentials = parseEssentialsRaw(raw(STORAGE_KEYS.essentialsData));
+    const state = parseEssentialsStateRaw(raw(STORAGE_KEYS.essentialsState));
+
+    const errors: string[] = [];
+    if (tasks.status === 'invalid') errors.push(`invalid-tasks: ${tasks.detail}`);
+    if (essentials.status === 'invalid') errors.push(`invalid-essentials: ${essentials.detail}`);
+    if (state.status === 'invalid') errors.push(`invalid-essentials-state: ${state.detail}`);
+    if (errors.length > 0) return { status: 'invalid', errors };
+
+    return {
+        status: 'ok',
+        snapshot: {
+            tasks: tasks.value ?? [],
+            essentials: essentials.value ?? [],
+            // Yesterday's progress is never presented as today's.
+            essentialsState: state.value && state.value.date === today ? state.value : emptyState(today),
+            preferences: preferencesFromRaw(raw),
+        },
+    };
+}
+
+/**
+ * Same interpretation, tolerant of invalid slices: they read as empty. Used only
+ * where the caller has already preserved the raw values and is about to
+ * overwrite them anyway (the import path).
+ */
+function lenientSnapshotFromRaw(raw: RawLookup, today: string): AppDataSnapshot {
+    const tasks = parseTasksRaw(raw(STORAGE_KEYS.tasks));
+    const essentials = parseEssentialsRaw(raw(STORAGE_KEYS.essentialsData));
+    const state = parseEssentialsStateRaw(raw(STORAGE_KEYS.essentialsState));
+
     return {
         tasks: tasks.value ?? [],
         essentials: essentials.value ?? [],
-        essentialsState: storedState && storedState.date === today ? storedState : emptyState(today),
-        preferences: readPreferences(storage),
+        essentialsState: state.value && state.value.date === today ? state.value : emptyState(today),
+        preferences: preferencesFromRaw(raw),
     };
+}
+
+/** Strictly read-only view of what is stored. Never writes or quarantines. */
+export function readSnapshotStrict(storage: StorageLike, today: string): SnapshotReadResult {
+    const capture = captureManagedKeys(storage);
+    if (capture.status === 'failed') return { status: 'invalid', errors: [capture.error] };
+    return snapshotFromRaw(lookupOf(capture.captured), today);
 }
 
 // ─── Export ───────────────────────────────────────────────────────────────────
@@ -83,10 +170,15 @@ export type ExportResult =
     | { status: 'ok'; fileName: string; text: string; taskCount: number; essentialCount: number }
     | { status: 'invalid'; errors: string[] };
 
+/**
+ * Builds a backup from what is stored. Read-only: on invalid data it returns
+ * `invalid` and every storage key is left byte-for-byte unchanged.
+ */
 export function exportBackup(storage: StorageLike, today: string, nowISO: string): ExportResult {
-    const snapshot = readSnapshot(storage, today, nowISO);
+    const read = readSnapshotStrict(storage, today);
+    if (read.status === 'invalid') return { status: 'invalid', errors: read.errors };
 
-    const validation = validateSnapshot(snapshot);
+    const validation = validateSnapshot(read.snapshot);
     if (validation.status === 'invalid') return { status: 'invalid', errors: validation.errors };
 
     const backup = buildBackup(validation.value, nowISO);
@@ -110,36 +202,38 @@ export interface ImportSuccess {
 
 export interface ImportFailure {
     status: 'failed';
-    stage: 'snapshot' | 'validation' | 'write';
+    stage: 'capture' | 'snapshot' | 'validation' | 'write';
     errors: string[];
-    /** True when every affected key was put back to its exact previous value. */
+    /** True only when every managed key provably matches the pre-import capture. */
     rolledBack: boolean;
 }
 
 export type ImportResult = ImportSuccess | ImportFailure;
 
-const timestampSlug = (iso: string): string => iso.replace(/[:.]/g, '-');
-
 /**
- * Copies the raw value of every managed key into one snapshot entry, and
- * verifies it by read-back before the caller is allowed to continue.
+ * Stores one snapshot entry holding the raw value of every managed key, under a
+ * key that cannot collide with an existing snapshot, and verifies it by
+ * read-back before the caller may continue.
  */
 function writePreImportSnapshot(
     storage: StorageLike,
+    captured: StorageWrite[],
     nowISO: string,
 ): { status: 'ok'; key: string } | { status: 'failed'; error: string } {
     const raw: Record<string, string | null> = {};
-    for (const key of MANAGED_KEYS) raw[key] = safeGetItem(storage, key);
+    for (const entry of captured) raw[entry.key] = entry.value;
 
     const payload = JSON.stringify({ capturedAt: nowISO, raw });
-    const key = `${RECOVERY_PREFIX}${PRE_IMPORT_SOURCE}__${timestampSlug(nowISO)}`;
+    const key = uniqueRecoveryKey(storage, PRE_IMPORT_SOURCE, nowISO);
 
     try {
         storage.setItem(key, payload);
     } catch (e) {
         return { status: 'failed', error: `snapshot-write-failed: ${e instanceof Error ? e.message : String(e)}` };
     }
-    if (safeGetItem(storage, key) !== payload) {
+
+    const verify = readRaw(storage, key);
+    if (verify.status === 'error' || verify.value !== payload) {
         try {
             storage.removeItem(key);
         } catch {
@@ -163,10 +257,6 @@ export function snapshotToWrites(snapshot: AppDataSnapshot): StorageWrite[] {
     ];
 }
 
-/**
- * Applies a validated backup. Returns without touching the managed keys unless
- * every preceding step succeeded.
- */
 export function importBackup(
     storage: StorageLike,
     backup: BackupFileV1,
@@ -174,28 +264,36 @@ export function importBackup(
     today: string,
     nowISO: string,
 ): ImportResult {
-    // 1 + 2 — preserve the current raw values before anything else happens.
-    const snapshotResult = writePreImportSnapshot(storage, nowISO);
+    // 1 — capture the true pre-import state before anything else happens.
+    const capture = captureManagedKeys(storage);
+    if (capture.status === 'failed') {
+        return { status: 'failed', stage: 'capture', errors: [capture.error], rolledBack: true };
+    }
+    const { captured } = capture;
+
+    // 2 — preserve it, verified, before any managed key is touched.
+    const snapshotResult = writePreImportSnapshot(storage, captured, nowISO);
     if (snapshotResult.status === 'failed') {
         return { status: 'failed', stage: 'snapshot', errors: [snapshotResult.error], rolledBack: true };
     }
 
-    // 3 — compute the destination and validate it in full before writing.
-    const current = readSnapshot(storage, today, nowISO);
+    // 3 — compute from the capture, not from storage: no re-read, no quarantine,
+    // so `captured` stays the true rollback baseline.
+    const current = lenientSnapshotFromRaw(lookupOf(captured), today);
     const destination = applyBackup(current, backup, mode, today);
     const validation = validateSnapshot(destination);
     if (validation.status === 'invalid') {
         return { status: 'failed', stage: 'validation', errors: validation.errors, rolledBack: true };
     }
 
-    // 4 + 5 — write everything, verify everything, roll back on any failure.
-    const transaction = applyStorageTransaction(storage, snapshotToWrites(validation.value));
+    // 4 + 5 — write everything against that baseline, then confirm the rollback.
+    const transaction = applyStorageTransaction(storage, snapshotToWrites(validation.value), captured);
     if (transaction.status === 'failed') {
         return {
             status: 'failed',
             stage: 'write',
             errors: [`${transaction.error} (${transaction.failedKey})`],
-            rolledBack: transaction.restored,
+            rolledBack: transaction.restored && matchesCapture(storage, captured),
         };
     }
 

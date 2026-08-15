@@ -64,7 +64,7 @@ const BackupRestoreSection = ({ onImported }: BackupRestoreSectionProps) => {
     if (result.status === 'invalid') {
       setStatus({
         kind: 'error',
-        message: 'Export abgebrochen — die aktuellen Daten sind ungültig.',
+        message: 'Export abgebrochen — die aktuellen Daten sind ungültig. Es wurde nichts verändert.',
         details: result.errors,
       });
       return;

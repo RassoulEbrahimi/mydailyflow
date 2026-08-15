@@ -10,7 +10,7 @@ import {
     serializeEssentialsState,
 } from '../utils/appStorage';
 import type { SliceLoadResult } from '../utils/appStorage';
-import { isSliceBlocked, registerBlockedSlice, subscribeStorageHealth } from '../utils/storageHealth';
+import { blockReasonFor, isSliceBlocked, registerBlockedSlice, subscribeStorageHealth } from '../utils/storageHealth';
 import type { StorageSlice } from '../utils/storageHealth';
 import { getTodayString } from '../utils/taskUtils';
 
@@ -28,7 +28,7 @@ function useSliceGuard(slice: StorageSlice, load: SliceLoadResult<unknown>): boo
 
         registerBlockedSlice({
             slice,
-            reason: load.status === 'quarantined' ? 'quarantined' : 'quarantine-failed',
+            reason: blockReasonFor(load.status),
             recoveryKey: load.recoveryKey,
             detail: load.detail,
         });

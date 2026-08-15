@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import type { Task } from '../types/task';
 import { isValidTaskArray } from '../types/task';
 import { STORAGE_KEYS, loadTasksSlice, serializeTasks } from '../utils/appStorage';
-import { isSliceBlocked, registerBlockedSlice, subscribeStorageHealth } from '../utils/storageHealth';
+import { blockReasonFor, isSliceBlocked, registerBlockedSlice, subscribeStorageHealth } from '../utils/storageHealth';
 import { buildNextOccurrence, getTodayString, nextRecurrenceDate, rolloverTasksForDate, withRecurrenceAnchor } from '../utils/taskUtils';
 
 export function useTasks() {
@@ -53,7 +53,7 @@ export function useTasks() {
 
     registerBlockedSlice({
       slice: 'tasks',
-      reason: initialLoad.status === 'quarantined' ? 'quarantined' : 'quarantine-failed',
+      reason: blockReasonFor(initialLoad.status),
       recoveryKey: initialLoad.recoveryKey,
       detail: initialLoad.detail,
     });

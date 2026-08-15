@@ -12,11 +12,22 @@ export type StorageSlice = 'tasks' | 'essentials' | 'essentialsState';
 
 export interface BlockedSlice {
     slice: StorageSlice;
-    /** 'quarantined' — a recovery copy exists. 'quarantine-failed' — the original is still in place. */
-    reason: 'quarantined' | 'quarantine-failed';
+    /**
+     * - 'quarantined'       — a verified recovery copy exists
+     * - 'quarantine-failed' — invalid, and the original is still in place
+     * - 'unreadable'        — the key could not be read at all
+     */
+    reason: 'quarantined' | 'quarantine-failed' | 'unreadable';
     recoveryKey?: string;
     detail?: string;
 }
+
+/** Maps a slice load status onto the reason shown to the user. */
+export const blockReasonFor = (status: string): BlockedSlice['reason'] => {
+    if (status === 'quarantined') return 'quarantined';
+    if (status === 'unreadable') return 'unreadable';
+    return 'quarantine-failed';
+};
 
 let blocked: readonly BlockedSlice[] = [];
 const listeners = new Set<() => void>();

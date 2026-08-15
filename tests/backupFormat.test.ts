@@ -135,6 +135,16 @@ test('the current data is validated before it can be exported', () => {
   assert.deepEqual(result.errors, ['invalid-essentials']);
 });
 
+test('snapshot validation covers preferences, not only tasks and essentials', () => {
+  const result = validateSnapshot(
+    makeSnapshot({ preferences: { theme: 'neon' } as never }),
+  );
+
+  assert.equal(result.status, 'invalid');
+  if (result.status !== 'invalid') return;
+  assert.deepEqual(result.errors, ['invalid-preferences']);
+});
+
 test('the preview summarizes task and essential counts', () => {
   const summary = summarizeBackup(makeBackup());
 

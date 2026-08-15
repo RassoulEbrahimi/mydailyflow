@@ -81,13 +81,34 @@ export interface StorageLike {
 const errorMessage = (e: unknown): string =>
     e instanceof Error ? e.message : String(e);
 
-/** getItem that treats a throwing storage as "absent" rather than crashing. */
-export const safeGetItem = (storage: StorageLike, key: string): string | null => {
+/**
+ * A read that failed and a key that is genuinely absent are different facts, and
+ * every safety-critical path has to tell them apart: treating a thrown read as
+ * `null` would let a capture record "nothing was here" and let a verification
+ * pass for a removal that never happened.
+ */
+export type ReadResult =
+    | { status: 'read'; value: string | null }
+    | { status: 'error'; error: string };
+
+export function readRaw(storage: StorageLike, key: string): ReadResult {
     try {
-        return storage.getItem(key);
-    } catch {
-        return null;
+        return { status: 'read', value: storage.getItem(key) };
+    } catch (e) {
+        return { status: 'error', error: errorMessage(e) };
     }
+}
+
+/**
+ * Best-effort read that flattens a thrown read into `null`.
+ *
+ * Only for paths where "unreadable" and "absent" lead to the same harmless
+ * outcome — listing snapshots, rendering UI. Never use it to capture a rollback
+ * baseline, to verify a write, or to decide whether data may be deleted.
+ */
+export const safeGetItem = (storage: StorageLike, key: string): string | null => {
+    const read = readRaw(storage, key);
+    return read.status === 'read' ? read.value : null;
 };
 
 // ─── Quarantine ───────────────────────────────────────────────────────────────
@@ -102,13 +123,22 @@ export type QuarantineResult =
 /** ISO timestamps contain ':' — harmless in a key, but awkward in file names. */
 const timestampSlug = (iso: string): string => iso.replace(/[:.]/g, '-');
 
-const uniqueRecoveryKey = (storage: StorageLike, sourceKey: string, nowISO: string): string => {
+/** True only when the key is provably free; an unreadable slot counts as taken. */
+const isKeyFree = (storage: StorageLike, key: string): boolean => {
+    const read = readRaw(storage, key);
+    return read.status === 'read' && read.value === null;
+};
+
+/**
+ * Picks a recovery key that is not already in use, so two snapshots taken in the
+ * same millisecond cannot overwrite one another.
+ */
+export const uniqueRecoveryKey = (storage: StorageLike, sourceKey: string, nowISO: string): string => {
     const base = `${RECOVERY_PREFIX}${sourceKey}__${timestampSlug(nowISO)}`;
-    if (safeGetItem(storage, base) === null) return base;
-    // Two failures inside the same millisecond: keep both copies.
+    if (isKeyFree(storage, base)) return base;
     for (let i = 2; i < 100; i++) {
         const candidate = `${base}__${i}`;
-        if (safeGetItem(storage, candidate) === null) return candidate;
+        if (isKeyFree(storage, candidate)) return candidate;
     }
     return `${base}__${Math.random().toString(36).slice(2, 8)}`;
 };
@@ -125,7 +155,11 @@ export function quarantineRawValue(
     sourceKey: string,
     nowISO: string,
 ): QuarantineResult {
-    const raw = safeGetItem(storage, sourceKey);
+    const source = readRaw(storage, sourceKey);
+    if (source.status === 'error') {
+        return { status: 'failed', reason: `source-read-failed: ${source.error}` };
+    }
+    const raw = source.value;
     if (raw === null) return { status: 'failed', reason: 'nothing-to-quarantine' };
 
     const recoveryKey = uniqueRecoveryKey(storage, sourceKey, nowISO);
@@ -136,7 +170,8 @@ export function quarantineRawValue(
         return { status: 'failed', reason: `snapshot-write-failed: ${errorMessage(e)}` };
     }
 
-    if (safeGetItem(storage, recoveryKey) !== raw) {
+    const verify = readRaw(storage, recoveryKey);
+    if (verify.status === 'error' || verify.value !== raw) {
         // The snapshot is not trustworthy: drop it and keep the original.
         try {
             storage.removeItem(recoveryKey);
@@ -200,35 +235,67 @@ const writeOne = (storage: StorageLike, entry: StorageWrite): void => {
     else storage.setItem(entry.key, entry.value);
 };
 
-const verifyOne = (storage: StorageLike, entry: StorageWrite): boolean =>
-    safeGetItem(storage, entry.key) === entry.value;
+/**
+ * Confirms a write landed. A read that throws is a failure, never a pass —
+ * including for a removal, whose expected value is `null`.
+ */
+const verifyWrite = (storage: StorageLike, entry: StorageWrite): boolean => {
+    const read = readRaw(storage, entry.key);
+    return read.status === 'read' && read.value === entry.value;
+};
 
 /**
  * Applies every write, verifying each by read-back. If any write throws or fails
  * verification, every key touched by this transaction is restored to the exact
- * raw value it held before the transaction started.
+ * raw value recorded in the baseline.
+ *
+ * @param baseline The exact pre-transaction raw values to roll back to. Pass one
+ *   when it was captured earlier (an import captures before writing its recovery
+ *   snapshot, so the baseline must predate anything that happened since).
+ *   Omitted, the baseline is captured here — and a read error while capturing
+ *   aborts before the first write rather than recording a false `null`.
  */
 export function applyStorageTransaction(
     storage: StorageLike,
     writes: StorageWrite[],
+    baseline?: StorageWrite[],
 ): TransactionResult {
-    const previous: StorageWrite[] = writes.map(w => ({
-        key: w.key,
-        value: safeGetItem(storage, w.key),
-    }));
+    const previous: StorageWrite[] = [];
+
+    if (baseline) {
+        previous.push(...baseline);
+    } else {
+        for (const write of writes) {
+            const read = readRaw(storage, write.key);
+            if (read.status === 'error') {
+                // Nothing has been written yet, so the store is untouched.
+                return {
+                    status: 'failed',
+                    error: `capture-read-failed: ${read.error}`,
+                    failedKey: write.key,
+                    restored: true,
+                };
+            }
+            previous.push({ key: write.key, value: read.value });
+        }
+    }
 
     const rollback = (): boolean => {
         let allRestored = true;
         for (const entry of previous) {
             // Keys the failure never reached already hold their previous value;
             // rewriting them would risk failing on a key that needs no repair.
-            if (verifyOne(storage, entry)) continue;
+            // An unreadable key is never assumed to be fine — it gets rewritten
+            // and re-verified like any other.
+            const current = readRaw(storage, entry.key);
+            if (current.status === 'read' && current.value === entry.value) continue;
             try {
                 writeOne(storage, entry);
-                if (!verifyOne(storage, entry)) allRestored = false;
             } catch {
                 allRestored = false;
+                continue;
             }
+            if (!verifyWrite(storage, entry)) allRestored = false;
         }
         return allRestored;
     };
@@ -244,7 +311,7 @@ export function applyStorageTransaction(
                 restored: rollback(),
             };
         }
-        if (!verifyOne(storage, entry)) {
+        if (!verifyWrite(storage, entry)) {
             return {
                 status: 'failed',
                 error: 'verification-failed',
@@ -257,7 +324,69 @@ export function applyStorageTransaction(
     return { status: 'ok' };
 }
 
-// ─── Slice loading ────────────────────────────────────────────────────────────
+// ─── Slice parsing (pure) ─────────────────────────────────────────────────────
+//
+// Parsing is separated from loading so that read-only callers — export, and the
+// import's computation over already-captured raw values — can interpret stored
+// data without any chance of writing, removing or quarantining it.
+
+export type SliceParseStatus = 'empty' | 'ok' | 'migrated' | 'invalid';
+
+export interface SliceParseResult<T> {
+    status: SliceParseStatus;
+    value: T | null;
+    detail?: string;
+}
+
+export function parseTasksRaw(raw: string | null): SliceParseResult<Task[]> {
+    if (raw === null) return { status: 'empty', value: null };
+
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(raw);
+    } catch (e) {
+        return { status: 'invalid', value: null, detail: `unparseable JSON: ${errorMessage(e)}` };
+    }
+
+    if (isStorageWrapper(parsed)) return { status: 'ok', value: parsed.data };
+    // Legacy migration path: a bare, fully valid task array.
+    if (isValidTaskArray(parsed)) return { status: 'migrated', value: parsed };
+
+    return { status: 'invalid', value: null, detail: 'invalid task data format' };
+}
+
+export function parseEssentialsRaw(raw: string | null): SliceParseResult<DailyEssential[]> {
+    if (raw === null) return { status: 'empty', value: null };
+
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(raw);
+    } catch (e) {
+        return { status: 'invalid', value: null, detail: `unparseable JSON: ${errorMessage(e)}` };
+    }
+
+    if (isEssentialsDataWrapper(parsed)) return { status: 'ok', value: parsed.data };
+    if (isValidEssentialArray(parsed)) return { status: 'migrated', value: parsed };
+
+    return { status: 'invalid', value: null, detail: 'invalid essentials data format' };
+}
+
+export function parseEssentialsStateRaw(raw: string | null): SliceParseResult<DailyEssentialState> {
+    if (raw === null) return { status: 'empty', value: null };
+
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(raw);
+    } catch (e) {
+        return { status: 'invalid', value: null, detail: `unparseable JSON: ${errorMessage(e)}` };
+    }
+
+    if (isEssentialsStateWrapper(parsed)) return { status: 'ok', value: parsed.data };
+
+    return { status: 'invalid', value: null, detail: 'invalid essentials state format' };
+}
+
+// ─── Slice loading (may quarantine) ───────────────────────────────────────────
 
 /**
  * - `empty`             — nothing stored yet (fresh install)
@@ -265,11 +394,12 @@ export function applyStorageTransaction(
  * - `migrated`          — valid legacy shape, will be rewritten as a wrapper
  * - `quarantined`       — invalid; raw value safely copied aside and removed
  * - `quarantine-failed` — invalid; raw value could not be copied, left in place
+ * - `unreadable`        — the key could not even be read
  *
- * The last two both block persistence for that slice. They are reported
+ * The last three all block persistence for that slice. They are reported
  * separately so the UI can tell the user which copy still exists.
  */
-export type SliceStatus = 'empty' | 'ok' | 'migrated' | 'quarantined' | 'quarantine-failed';
+export type SliceStatus = 'empty' | 'ok' | 'migrated' | 'quarantined' | 'quarantine-failed' | 'unreadable';
 
 export interface SliceLoadResult<T> {
     status: SliceStatus;
@@ -294,59 +424,35 @@ const quarantineSlice = <T>(
     return { status: 'quarantine-failed', value: null, blocked: true, detail: `${detail} (${result.reason})` };
 };
 
-export function loadTasksSlice(storage: StorageLike, nowISO: string): SliceLoadResult<Task[]> {
-    const raw = safeGetItem(storage, STORAGE_KEYS.tasks);
-    if (raw === null) return { status: 'empty', value: null, blocked: false };
-
-    let parsed: unknown;
-    try {
-        parsed = JSON.parse(raw);
-    } catch (e) {
-        return quarantineSlice(storage, STORAGE_KEYS.tasks, nowISO, `unparseable JSON: ${errorMessage(e)}`);
-    }
-
-    if (isStorageWrapper(parsed)) return { status: 'ok', value: parsed.data, blocked: false };
-    // Legacy migration path: a bare, fully valid task array.
-    if (isValidTaskArray(parsed)) return { status: 'migrated', value: parsed, blocked: false };
-
-    return quarantineSlice(storage, STORAGE_KEYS.tasks, nowISO, 'invalid task data format');
-}
-
-export function loadEssentialsSlice(storage: StorageLike, nowISO: string): SliceLoadResult<DailyEssential[]> {
-    const raw = safeGetItem(storage, STORAGE_KEYS.essentialsData);
-    if (raw === null) return { status: 'empty', value: null, blocked: false };
-
-    let parsed: unknown;
-    try {
-        parsed = JSON.parse(raw);
-    } catch (e) {
-        return quarantineSlice(storage, STORAGE_KEYS.essentialsData, nowISO, `unparseable JSON: ${errorMessage(e)}`);
-    }
-
-    if (isEssentialsDataWrapper(parsed)) return { status: 'ok', value: parsed.data, blocked: false };
-    if (isValidEssentialArray(parsed)) return { status: 'migrated', value: parsed, blocked: false };
-
-    return quarantineSlice(storage, STORAGE_KEYS.essentialsData, nowISO, 'invalid essentials data format');
-}
-
-export function loadEssentialsStateSlice(
+/** Shared load pipeline: read → parse → quarantine only when invalid. */
+function loadSlice<T>(
     storage: StorageLike,
+    key: string,
     nowISO: string,
-): SliceLoadResult<DailyEssentialState> {
-    const raw = safeGetItem(storage, STORAGE_KEYS.essentialsState);
-    if (raw === null) return { status: 'empty', value: null, blocked: false };
-
-    let parsed: unknown;
-    try {
-        parsed = JSON.parse(raw);
-    } catch (e) {
-        return quarantineSlice(storage, STORAGE_KEYS.essentialsState, nowISO, `unparseable JSON: ${errorMessage(e)}`);
+    parse: (raw: string | null) => SliceParseResult<T>,
+): SliceLoadResult<T> {
+    const read = readRaw(storage, key);
+    if (read.status === 'error') {
+        // Unreadable is not empty: writing here could destroy what we failed to
+        // read, so the slice is blocked without touching storage.
+        return { status: 'unreadable', value: null, blocked: true, detail: `read failed: ${read.error}` };
     }
 
-    if (isEssentialsStateWrapper(parsed)) return { status: 'ok', value: parsed.data, blocked: false };
-
-    return quarantineSlice(storage, STORAGE_KEYS.essentialsState, nowISO, 'invalid essentials state format');
+    const parsed = parse(read.value);
+    if (parsed.status === 'invalid') {
+        return quarantineSlice(storage, key, nowISO, parsed.detail);
+    }
+    return { status: parsed.status, value: parsed.value, blocked: false };
 }
+
+export const loadTasksSlice = (storage: StorageLike, nowISO: string): SliceLoadResult<Task[]> =>
+    loadSlice(storage, STORAGE_KEYS.tasks, nowISO, parseTasksRaw);
+
+export const loadEssentialsSlice = (storage: StorageLike, nowISO: string): SliceLoadResult<DailyEssential[]> =>
+    loadSlice(storage, STORAGE_KEYS.essentialsData, nowISO, parseEssentialsRaw);
+
+export const loadEssentialsStateSlice = (storage: StorageLike, nowISO: string): SliceLoadResult<DailyEssentialState> =>
+    loadSlice(storage, STORAGE_KEYS.essentialsState, nowISO, parseEssentialsStateRaw);
 
 // ─── Wrapper helpers ──────────────────────────────────────────────────────────
 
