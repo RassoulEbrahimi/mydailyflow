@@ -534,6 +534,17 @@ just the rule ID is what makes this work at node granularity — a rule-ID-only
 comparison cannot see a newly unnamed button appearing under the already-known
 `button-name` rule.
 
+**The matrix key set is pinned as well.** Before any fingerprint is compared,
+the run asserts that the keys of `AXE_FINGERPRINTS` are exactly the 18 cells
+derived from `VIEWPORTS × THEMES × TABS`. Without that, a *missing* cell would
+merely leave `AXE_FINGERPRINTS[key]` undefined and a *stale* cell — left behind
+after a viewport or tab is renamed — would never be compared against at all.
+Both are silent holes in the baseline, so both fail. The expected keys are
+derived from the same constants the tests iterate, never hand-listed, so the
+expectation cannot drift from what actually runs. `regenerate.mjs` enforces the
+same completeness on the way in, and additionally refuses to overwrite duplicate
+evidence for a cell.
+
 Verified by mutation test (each mutation failed exactly the mutated cell and left
 the other five `done tab` cells passing):
 

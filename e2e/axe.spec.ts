@@ -51,6 +51,23 @@ import { measureBoundaries, measurePage } from './utils/measure';
 const TABS: AxeTab[] = ['today', 'all', 'done'];
 
 /**
+ * Every cell the matrix is supposed to cover, derived from the same VIEWPORTS,
+ * THEMES and TABS the tests iterate — never hand-listed, so the expectation
+ * cannot drift from what actually runs.
+ *
+ * The committed baseline's key set is pinned against this. Comparing
+ * fingerprints alone is not enough: a cell whose entry went missing would make
+ * `AXE_FINGERPRINTS[key]` undefined, and a *stale* cell left behind after a
+ * viewport or tab is renamed would simply never be looked at. Both are silent
+ * holes in the baseline, so both are assertion failures.
+ */
+const EXPECTED_CELL_KEYS: string[] = VIEWPORTS.flatMap((viewport) =>
+  (THEMES as AxeTheme[]).flatMap((theme) =>
+    TABS.map((tab) => cellKey(viewport.name, theme, tab)),
+  ),
+).sort();
+
+/**
  * Recording pass: measure and write the fingerprints without asserting, so the
  * committed baseline can be regenerated. See the header of
  * `e2e/baseline/axe-fingerprints.ts` for the exact regeneration command.
@@ -254,6 +271,20 @@ for (const theme of THEMES as AxeTheme[]) {
             // Recording pass: no assertion, so the baseline file can be regenerated.
             return;
           }
+
+          // ── The matrix itself is pinned, before any fingerprint is compared ──
+          // Checked inside the existing cells rather than as a separate test, so
+          // the reported test count stays at 36.
+          expect(
+            Object.keys(AXE_FINGERPRINTS).sort(),
+            'The committed axe baseline must cover exactly the measured matrix ' +
+              `(${VIEWPORTS.length} viewports x ${THEMES.length} themes x ${TABS.length} tabs = ` +
+              `${EXPECTED_CELL_KEYS.length} cells).\n` +
+              '  · A missing key means a viewport/theme/tab has no baseline at all.\n' +
+              '  · An extra key means a stale cell left behind after a rename or removal, ' +
+              'which nothing would ever compare against.\n' +
+              'Regenerate with e2e/baseline/regenerate.mjs.',
+          ).toEqual(EXPECTED_CELL_KEYS);
 
           const expected = AXE_FINGERPRINTS[key];
 

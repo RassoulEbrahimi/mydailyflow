@@ -14,6 +14,10 @@
  * A regenerated file is byte-identical when nothing changed, so an unexpected
  * diff here is itself the signal.
  *
+ * The key set is pinned too, not just the fingerprints: axe.spec.ts asserts that
+ * these keys are exactly the measured matrix, so a missing cell and a stale
+ * leftover cell both fail the run.
+ *
  * See known-violations.ts for what each rule means and which PR owns it.
  */
 
