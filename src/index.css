@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@source not "../e2e";
+@source not "../docs";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Theme Token System — all semantic colors are defined here.

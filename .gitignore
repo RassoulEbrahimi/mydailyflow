@@ -11,3 +11,12 @@ coverage/
 mydailyflow-backup-*.json
 myDailyFlow_recovery__*.json
 *.backup.json
+
+# Playwright browser suite — reports, traces, screenshots and measured output.
+# Everything the run produces is disposable; the committed baseline lives in
+# e2e/baseline/ and docs/a11y-baseline-1a.md.
+/playwright-report/
+/test-results/
+/blob-report/
+/playwright/.cache/
+/e2e/.auth/
