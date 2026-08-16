@@ -8,9 +8,11 @@
  * travels with the data.
  *
  * File safety: the download is captured through Playwright's download API and
- * written into the test's own output directory (test-results/artifacts/...),
- * which Playwright creates and removes. The browser's own Downloads folder is
- * never used, and no file is written anywhere inside the repository tree.
+ * written into this test's own output directory under `test-results/`, which
+ * Playwright creates and manages. That directory does sit inside the checkout,
+ * but it is gitignored and disposable — every artifact this suite produces stays
+ * there. What is never touched: the browser's real Downloads folder, any real
+ * user file, any existing backup, and any tracked file in the repository.
  */
 
 import { readFileSync } from 'node:fs';

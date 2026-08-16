@@ -13,7 +13,7 @@
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "test": "node --import tsx --test \"tests/*.test.ts\"",
-    "test:browser": "playwright test",
+    "test:browser": "npm run build && playwright test",
     "test:browser:report": "playwright show-report"
   },
   "_comment_overrides": "@axe-core/playwright depends on playwright-core directly rather than as a peer, so it pulls in a second copy at a different version. Two copies means two sets of Playwright types, and tsc then rejects passing our Page to AxeBuilder. Pinning it to the version @playwright/test already uses collapses them into one.",

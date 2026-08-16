@@ -10,6 +10,13 @@ import { defineConfig, devices } from '@playwright/test';
  * Everything runs against a *production* Vite build served by `vite preview`,
  * under the real GitHub Pages base path `/mydailyflow/`, so the measured
  * baseline reflects what is actually deployed rather than a dev-server build.
+ *
+ * Two guarantees that make "the build under test" unambiguous:
+ *   - `npm run test:browser` runs `npm run build` first, so `dist/` is always
+ *     regenerated from the current HEAD rather than reused from a stale run.
+ *   - `reuseExistingServer: false`, so Playwright always starts its own
+ *     `vite preview`. If something unrelated already holds the port, the run
+ *     fails loudly instead of silently measuring that other server.
  */
 
 /** Preview server port. Overridable so a busy port never wedges a run. */
@@ -31,8 +38,9 @@ export default defineConfig({
   timeout: 45_000,
   expect: { timeout: 7_000 },
 
-  /* Fail the run if a `test.only` is left behind. */
-  forbidOnly: !!process.env.CI,
+  /* Fail the run if a `test.only` is left behind — locally as well as in CI.
+     A baseline measured from a narrowed-down run is not a baseline. */
+  forbidOnly: true,
 
   reporter: [
     ['list'],
@@ -80,7 +88,10 @@ export default defineConfig({
   webServer: {
     command: `npm run preview -- --port=${PORT} --strictPort --host=127.0.0.1`,
     url: `${ORIGIN}${BASE_PATH}`,
-    reuseExistingServer: !process.env.CI,
+    /* Never adopt a server this run did not start: it could be serving an old
+       `dist/`, a dev server, or an entirely different project. Combined with
+       `--strictPort`, an occupied port is an error rather than a silent swap. */
+    reuseExistingServer: false,
     timeout: 120_000,
     stdout: 'ignore',
     stderr: 'pipe',

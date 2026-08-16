@@ -35,8 +35,20 @@ npm run test:browser  # the Phase 1A browser suite (this document's source)
 npm run test:browser:report   # open the HTML report
 ```
 
-`npm run test:browser` starts `vite preview` itself on `127.0.0.1:4173`; nothing
-needs to be running first. Override the port with `MDF_PREVIEW_PORT`.
+**`npm run test:browser` always measures a fresh build of the current HEAD.**
+The script runs `npm run build` first, so `dist/` is never reused from an earlier
+run, and Playwright is configured with `reuseExistingServer: false` so it always
+starts its own `vite preview` on `127.0.0.1:4173`. If something unrelated already
+holds that port, `--strictPort` makes the run fail loudly rather than silently
+measuring the other server. Override the port with `MDF_PREVIEW_PORT`.
+`forbidOnly: true` applies locally as well as in CI — a baseline measured from a
+`test.only`-narrowed run is not a baseline.
+
+Arguments still forward: `npm run test:browser -- e2e/nav.spec.ts` rebuilds and
+then runs just that file. One npm quirk to know: quotes around a *multi-word*
+argument are lost in `npm run … --` forwarding, so a phrase filter needs the
+runner directly — `npx playwright test --grep "done tab"` — which skips the
+rebuild and is therefore for ad-hoc inspection, not for producing a baseline.
 
 ### Test data and isolation
 
@@ -51,7 +63,10 @@ needs to be running first. Override the port with `MDF_PREVIEW_PORT`.
 * Task and Essentials data is synthetic (`e2e-*` ids, German placeholder
   titles), seeded via `addInitScript` before any page script runs.
 * Downloads produced by the export test are captured through Playwright's
-  download API into that test's own output directory.
+  download API into that test's own output directory under `test-results/`.
+  That directory is inside the checkout but gitignored and disposable; the
+  browser's real Downloads folder, any real user file, any existing backup, and
+  every tracked file in the repository are left untouched.
 
 ### ⚠️ Measurement caveat — the Inter webfont did not load
 
@@ -77,7 +92,7 @@ egress to that host, so:
 **What must be rechecked:** anything derived from *text width* — specifically the
 Daily Essentials chip-row overflow figures in §6.3 (+45 px at 360, +15 px at
 390). Re-verify these in the **networked PR8 live pass or real-device smoke**,
-with Inter actually loaded, before PR5 sizes a fix. The *existence* of the
+with Inter actually loaded, before PR3 sizes a fix. The *existence* of the
 overflow at 360 px is not in doubt (six 32 px chips plus gaps and padding exceed
 the row on their own); only the exact pixel counts are provisional. See §11.
 
@@ -399,7 +414,7 @@ The hero pins correctly at `top: -1px` and does **not** clip its own content.
 | Scroll container overlap | **85.5 px of `<main>` sits underneath the nav** |
 
 `<main>` carries `pb-24` (96 px) of bottom padding, which covers the 85.5 px nav,
-so no content is permanently unreachable. Recorded so PR5 can verify the margin
+so no content is permanently unreachable. Recorded so PR4 can verify the margin
 survives a taller safe-area inset on a real device (§10).
 
 ### 6.3 Horizontal bleed — the Daily Essentials chip row
@@ -419,7 +434,7 @@ The chips are clipped rather than wrapped. **Both themes behave identically**;
 this is pure layout.
 
 > ⚠️ These three numbers depend on the width of the title text, which was
-> measured in the fallback font (§1). Re-measure with Inter loaded before PR5
+> measured in the fallback font (§1). Re-measure with Inter loaded before PR3
 > sizes the fix. The *existence* of the overflow at 360 is not in doubt — the
 > chips alone are 6 × 32 px + 5 gaps + padding — but the exact px is provisional.
 
@@ -495,22 +510,67 @@ Authentication data is excluded from the file **and** untouched by the import.
 
 | Test | Why |
 |---|---|
-| `nav.spec.ts › Erinnerungen tab — known gap › opens a Reminders screen` | `test.fail()`. Asserts that pressing Erinnerungen replaces the Today content. Fails today because the tab is inert. **If it ever passes, Playwright fails the run**, forcing this document to be updated with the fix. Owner: **PR3**. |
+| `nav.spec.ts › Erinnerungen tab — known gap › opens a Reminders screen` | `test.fail()`. Asserts that pressing Erinnerungen replaces the Today content. Fails today because the tab is inert. **If it ever passes, Playwright fails the run**, forcing this document to be updated with the fix. Owner: **PR2**. |
 
-### 9.2 axe baseline (ratchet)
+### 9.2 axe baseline — a node-level, two-directional ratchet
 
-Committed in `e2e/baseline/known-violations.ts`. Identical across all three
-viewports and both themes, on all three reachable tabs:
+**What is pinned.** `e2e/baseline/axe-fingerprints.ts` commits **332
+fingerprints across all 18 cells** of the matrix (`viewport|theme|tab`). Each
+fingerprint is one violating node:
 
 ```
-button-name · color-contrast · label · select-name
+<rule id> :: <normalized axe target selector>
 ```
 
-The suite asserts the measured rule set **equals** this list. A longer list is a
-regression; a **shorter** list also fails, so a fix cannot land without updating
-the baseline and this document together. Nothing is suppressed — every violating
-node is classified, counted, annotated in the run output, and written to
-`test-results/baseline/axe-*.json`.
+for example:
+
+```
+button-name :: .overflow-hidden.relative.rounded-2xl:nth-child(1) > … > .mt-\[2px\].w-\[22px\].h-\[22px\]
+select-name :: select
+```
+
+The suite asserts **exact set equality** per cell. Pinning the *target* and not
+just the rule ID is what makes this work at node granularity — a rule-ID-only
+comparison cannot see a newly unnamed button appearing under the already-known
+`button-name` rule.
+
+Verified by mutation test (each mutation failed exactly the mutated cell and left
+the other five `done tab` cells passing):
+
+| Transition | Result |
+|---|---|
+| A violating target is **added** under an existing rule | ❌ fails |
+| A violating target is **removed / fixed** | ❌ fails |
+| A violating target **moves** to a different element | ❌ fails |
+| A **new rule** starts firing | ❌ fails |
+| An existing **rule stops** firing | ❌ fails |
+
+A fix failing the suite is deliberate: `e2e/baseline/axe-fingerprints.ts` and
+this document must be updated in the same PR that lands the fix, so the recorded
+baseline can never drift from the code.
+
+Fingerprints are deterministic — two independent full runs regenerated a
+byte-identical file. They contain no element HTML, timestamps, absolute paths or
+browser-generated IDs; the only inputs are the rule ID and axe's own CSS target
+path over a fixed build and fixed synthetic data.
+
+Rule meanings and PR ownership stay human-readable in
+`e2e/baseline/known-violations.ts`. Regenerate with:
+
+```bash
+MDF_AXE_BASELINE_WRITE=1 npm run test:browser
+node e2e/baseline/regenerate.mjs > e2e/baseline/axe-fingerprints.ts
+```
+
+**What is *not* pinned.** The harness's own measurements — sub-44px targets,
+unnamed controls, boundary contrast, and the full contrast table — are
+**measured, attached and annotated, but not pinned node by node**. The suite
+asserts only that each probe still returns findings, which proves the probe
+works, not that the exact set is unchanged. Their numbers live in this document
+and in `test-results/baseline/*.json`. Two exceptions are genuinely pinned,
+because they are single scalars with a clear meaning: every drawn focus ring is
+below 3:1 (§5.1), and hidden swipe actions precede the visible checkbox in tab
+order (§5.2).
 
 Violating nodes per scan (390 × 812, Today):
 
@@ -525,9 +585,18 @@ Violating nodes per scan (390 × 812, Today):
 
 ---
 
-## 10. What PR3, PR4 and PR5 must improve
+## 10. What the later Phase 1A PRs must improve
 
-### PR3 — colour, tokens, and the Reminders screen
+### PR2 — untimed-task correctness, navigation, Reminders screen
+
+* Build a real, truthful Reminders screen, or remove the dead tab (§7). Retire
+  the expected failure in §9.1 in the same PR.
+* Give the bottom nav a real fourth destination so `activeTab` is no longer typed
+  `'today' | 'all' | 'done'` while four buttons are rendered.
+
+### PR3 — tokens/contrast, names and semantics, focus/keyboard, 44 px targets
+
+*Colour and tokens*
 
 * Raise every pair in §3.1 and §3.2 to its threshold. The light palette is the
   bigger job.
@@ -538,12 +607,10 @@ Violating nodes per scan (390 × 812, Today):
 * Fix `--ring-track`: `HomeHero` reads `var(--ring-track)`, but the token is
   defined as `--_ring-track` / `--color-ring-track`, so the progress ring's track
   currently resolves to nothing.
-* Build a real Reminders screen, or remove the dead tab. Retire the expected
-  failure in §9.1 in the same PR.
 * Consider self-hosting Inter instead of a render-blocking Google Fonts link
   (§1, §11).
 
-### PR4 — semantics, names, and keyboard operability
+*Names and semantics*
 
 * Give the task completion checkbox an accessible name and `role="checkbox"` +
   `aria-checked` (or a real `<input type="checkbox">`).
@@ -555,6 +622,9 @@ Violating nodes per scan (390 × 812, Today):
   Give the chips `aria-pressed` and a name beyond the bare digit.
 * Give the bottom nav tab semantics (`role="tablist"`/`tab` + `aria-selected`, or
   at minimum `aria-current`), so the active view is not colour-only.
+
+*Focus and keyboard*
+
 * Author a real `:focus-visible` style meeting 3:1 (§5.1), and stop removing the
   ring with `focus:outline-none`.
 * Unmount closed modals, or make them `inert` + `aria-hidden`, so Tab does not
@@ -563,16 +633,40 @@ Violating nodes per scan (390 × 812, Today):
   those actions a non-swipe path (they are otherwise keyboard-unreachable).
 * Fix the focus order so visible controls precede invisible ones (§5.2).
 
-### PR5 — target sizes and small-screen layout
+*Target sizes and related accessibility layout*
 
 * Bring the controls in §4.1 to 44 × 44 (Search 22×22, Settings 22×22, Verwalten
   30×30, task checkbox 22×22, Essentials chips 32×32, filter pills ×30, date
   input ×30, checklist rows ×18.69).
 * Fix the Daily Essentials chip-row overflow at 360 px (§6.3) — wrap the chips or
   reflow the row.
-* Re-verify the 85.5 px nav / 96 px `pb-24` margin against a real safe-area inset.
-* Size the modal controls in §4.2 once PR4 has decided how closed modals are
-  handled.
+* Size the modal controls in §4.2 once the closed-modal decision above is made.
+
+### PR4 — sticky-surface clipping and F8 / action-strip containment
+
+* Re-verify the 85.5 px nav / 96 px `pb-24` margin against a real safe-area
+  inset, and confirm the sticky hero never clips content beneath it (§6.1, §6.2).
+* Keep the F8 / task action strip contained within its rounded wrapper at every
+  supported width (§6.4).
+
+### PR5 — RTL/bidi hardening
+
+* **Not covered by this baseline.** All synthetic data here is German (LTR), so
+  no right-to-left rendering was measured. `TaskCard`, its checklist and its
+  notes use `dir="auto"`; nothing else does.
+* Add measured DE / EN / FA / mixed-direction coverage, and extend this harness
+  with the corresponding cells.
+
+### PR6 — safe destructive actions
+
+* Delete and "replace" import currently commit immediately (§8 records the
+  pre-import recovery snapshot that already exists). Confirmation and undo are
+  PR6's scope, not PR0's.
+
+### PR7 — date capture
+
+* The All-tab `input[type="date"]` is unnamed and 131 × 30 (§4.1). Its naming and
+  size belong to PR3; the capture flow itself is PR7.
 
 ---
 
@@ -595,7 +689,7 @@ emulated viewports. The following can only be verified on real hardware:
 * Real notification permission prompt and delivery for the reminders feature.
 * **Re-measurement of every font-width-dependent number with Inter actually
   loaded** (§1, §6.3) — the Daily Essentials chip-row overflow at 360 px and
-  390 px is the concrete item. This is a PR8 deliverable: PR5 should not size its
+  390 px is the concrete item. This is a PR8 deliverable: PR3 should not size its
   fix from the provisional numbers alone.
 
 ---
@@ -605,12 +699,19 @@ emulated viewports. The following can only be verified on real hardware:
 | Artifact | Contents |
 |---|---|
 | `test-results/baseline/matrix-<viewport>-<theme>.json` | every contrast pair, every hit target, overflow, sticky geometry |
-| `test-results/baseline/axe-<viewport>-<theme>-<tab>.json` | axe rule ids, classified findings, category counts |
+| `test-results/baseline/axe-<viewport>-<theme>-<tab>.json` | node fingerprints, axe rule ids, classified findings, category counts |
 | `test-results/baseline/keyboard-focus-order-today.json` | the full 38-stop traversal with focus styles and ring contrast |
 | `test-results/baseline/backup-*.json` | export contents and round-trip results |
 | `test-results/baseline/reminders-tab-state.json` | the inert-tab evidence |
 | `playwright-report/` | HTML report with the same payloads attached per test |
 
 All of these are gitignored — they are regenerated by `npm run test:browser`.
-The only committed baseline is `e2e/baseline/known-violations.ts` and this
-document.
+
+The committed baseline is three files:
+
+| File | Role |
+|---|---|
+| `e2e/baseline/axe-fingerprints.ts` | generated; the 332 pinned node fingerprints (§9.2) |
+| `e2e/baseline/known-violations.ts` | hand-written; rule meanings and PR ownership |
+| `e2e/baseline/regenerate.mjs` | rebuilds the fingerprints file from a recording run |
+| `docs/a11y-baseline-1a.md` | this document |

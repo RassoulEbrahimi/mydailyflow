@@ -102,9 +102,9 @@ test.describe('Erinnerungen tab — known gap', () => {
    * before a task), but no Reminders *screen* was ever built. The nav button
    * has no onClick, so pressing it does nothing at all.
    *
-   * PR3 owns making this tab reach a real view. Until then this test fails on
-   * purpose; if it ever passes, Playwright fails the run so the baseline and
-   * the doc get updated together.
+   * PR2 owns navigation and building a real, truthful Reminders screen. Until
+   * then this test fails on purpose; if it ever passes, Playwright fails the run
+   * so the baseline and the doc get updated together.
    */
   test.fail(
     'opens a Reminders screen',
@@ -160,7 +160,7 @@ test.describe('Erinnerungen tab — known gap', () => {
     annotate(
       testInfo,
       'baseline',
-      'Erinnerungen tab is inert: clicking it changes nothing in <main>. No Reminders screen exists. Owner: PR3.',
+      'Erinnerungen tab is inert: clicking it changes nothing in <main>. No Reminders screen exists. Owner: PR2.',
     );
   });
 });

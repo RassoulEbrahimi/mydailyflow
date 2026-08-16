@@ -17,6 +17,21 @@
  * here explicitly, because axe's own target-size and focus-indicator coverage
  * does not reach controls that are click-handled <div>s or that never receive a
  * focus style at all.
+ *
+ * ── What is ratcheted, and what is only recorded ──────────────────────────────
+ *
+ * RATCHETED (asserted for exact equality against a committed baseline):
+ *   the full set of axe violating nodes, per viewport/theme/tab, as
+ *   `rule ID :: normalized target` fingerprints. Adding a node, removing a node,
+ *   moving a node to a different element, adding a rule and removing a rule all
+ *   fail the run.
+ *
+ * RECORDED ONLY (measured, attached, annotated — but not pinned node by node):
+ *   the harness's own measurements — sub-44px targets, unnamed controls,
+ *   boundary contrast, and the full contrast table. These are asserted to be
+ *   *non-empty*, which proves the probe still works, not that the exact set is
+ *   unchanged. Their numbers live in docs/a11y-baseline-1a.md and in the
+ *   generated JSON evidence.
  */
 
 import AxeBuilder from '@axe-core/playwright';
@@ -24,16 +39,22 @@ import AxeBuilder from '@axe-core/playwright';
 import { annotate, recordFindings } from './utils/report';
 import { expect, test, THEMES, VIEWPORTS, type Tab } from './fixtures/app';
 import {
-  KNOWN_AXE_VIOLATIONS,
+  axeFingerprint,
+  cellKey,
   VIOLATION_OWNERS,
   type AxeTab,
   type AxeTheme,
 } from './baseline/known-violations';
+import { AXE_FINGERPRINTS } from './baseline/axe-fingerprints';
 import { measureBoundaries, measurePage } from './utils/measure';
 
 const TABS: AxeTab[] = ['today', 'all', 'done'];
 
-/** Set true to record the measured rule IDs without asserting against the baseline. */
+/**
+ * Recording pass: measure and write the fingerprints without asserting, so the
+ * committed baseline can be regenerated. See the header of
+ * `e2e/baseline/axe-fingerprints.ts` for the exact regeneration command.
+ */
 const WRITE_MODE = process.env.MDF_AXE_BASELINE_WRITE === '1';
 
 interface ClassifiedFinding {
@@ -62,6 +83,19 @@ for (const theme of THEMES as AxeTheme[]) {
             .analyze();
 
           const ruleIds = [...new Set(results.violations.map((v) => v.id))].sort();
+
+          // One fingerprint per violating node: `rule :: normalized target`.
+          // Deduplicated and sorted so the comparison is order-independent and
+          // the committed baseline diffs cleanly.
+          const fingerprints = [
+            ...new Set(
+              results.violations.flatMap((v) =>
+                v.nodes.map((n) => axeFingerprint(v.id, n.target)),
+              ),
+            ),
+          ].sort();
+
+          const key = cellKey(viewport.name, theme, tab);
 
           // ── Classify every axe node into the brief's categories ───────────
           const classified: ClassifiedFinding[] = [];
@@ -189,6 +223,10 @@ for (const theme of THEMES as AxeTheme[]) {
             viewport: viewport.name,
             theme,
             tab,
+            cellKey: key,
+            /* The ratcheted set. Also the regeneration source — see
+               e2e/baseline/axe-fingerprints.ts. */
+            axeFingerprints: fingerprints,
             axeRuleIds: ruleIds,
             axeViolationCount: results.violations.reduce((n, v) => n + v.nodes.length, 0),
             passes: results.passes.length,
@@ -202,7 +240,7 @@ for (const theme of THEMES as AxeTheme[]) {
           annotate(
             testInfo,
             'baseline',
-            `${viewport.name}/${theme}/${tab}: axe rules [${ruleIds.join(', ')}] · ` +
+            `${key}: ${fingerprints.length} violating nodes across [${ruleIds.join(', ')}] · ` +
               Object.entries(byCategory)
                 .map(([k, v]) => `${k}: ${v}`)
                 .join(' · '),
@@ -213,22 +251,45 @@ for (const theme of THEMES as AxeTheme[]) {
           }
 
           if (WRITE_MODE) {
-            // Recording pass: no assertion, so the baseline file can be filled in.
+            // Recording pass: no assertion, so the baseline file can be regenerated.
             return;
           }
 
-          // The committed baseline is a ratchet in both directions.
-          expect(
-            ruleIds,
-            `${theme}/${tab} axe violations must match the committed Phase 1A baseline. ` +
-              'A longer list is a regression; a shorter one means something was fixed — ' +
-              'update e2e/baseline/known-violations.ts and docs/a11y-baseline-1a.md together.',
-          ).toEqual(KNOWN_AXE_VIOLATIONS[theme][tab]);
+          const expected = AXE_FINGERPRINTS[key];
 
-          // Categories the brief requires evidence for must actually have been
-          // measured; an empty category would mean the probe stopped working.
-          expect(byCategory['unnamed buttons'] ?? 0).toBeGreaterThan(0);
-          expect(byCategory['hit area below 44x44 CSS px'] ?? 0).toBeGreaterThan(0);
+          expect(
+            expected,
+            `No committed axe baseline for cell "${key}". Every viewport/theme/tab ` +
+              'combination must be represented — regenerate e2e/baseline/axe-fingerprints.ts.',
+          ).toBeDefined();
+
+          // ── The two-directional ratchet ─────────────────────────────────────
+          // Exact equality on the full node-level fingerprint set. This fails on
+          // all five transitions the baseline has to catch:
+          //   a new node under an existing rule, a removed/fixed node, a node
+          //   that moved to a different element, a new rule, a removed rule.
+          expect(
+            fingerprints,
+            `Cell "${key}": the set of axe violating nodes no longer matches the ` +
+              'committed Phase 1A baseline.\n' +
+              '  · Extra fingerprints  = a regression: a new violating element.\n' +
+              '  · Missing fingerprints = something was fixed. That is good, and it ' +
+              'still fails here on purpose: update e2e/baseline/axe-fingerprints.ts ' +
+              'and docs/a11y-baseline-1a.md in the same PR so the recorded baseline ' +
+              'never drifts from the code.',
+          ).toEqual(expected);
+
+          // The harness's own measurements are recorded rather than pinned, so
+          // these assertions only prove the probes still find something. The
+          // exact sets live in the JSON evidence and the baseline document.
+          expect(
+            byCategory['unnamed buttons'] ?? 0,
+            'the unnamed-control probe still reports findings',
+          ).toBeGreaterThan(0);
+          expect(
+            byCategory['hit area below 44x44 CSS px'] ?? 0,
+            'the target-size probe still reports findings',
+          ).toBeGreaterThan(0);
         });
       }
     });

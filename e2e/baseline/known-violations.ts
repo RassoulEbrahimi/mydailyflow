@@ -1,58 +1,80 @@
 /**
- * known-violations.ts — the committed axe-core baseline for Phase 1A.
+ * known-violations.ts — human-readable side of the committed axe baseline.
  *
- * These are the accessibility violations the app has *today*. They are listed
- * here so that:
+ * The machine-checkable side lives in `axe-fingerprints.ts`. This file holds
+ * only what a person needs: which rule means what, and which PR in the approved
+ * Phase 1A queue owns closing it.
  *
- *   - the harness itself can pass, without any violation being silently
- *     swallowed — every entry is reported in the run output and written into
- *     docs/a11y-baseline-1a.md;
- *   - a *new* violation fails the suite immediately;
- *   - a *fixed* violation also fails the suite, forcing this list and the
- *     baseline document to be updated in the same PR that fixed it.
- *
- * Nothing in this file excuses a violation. It is a ratchet, not a suppression
- * list. PR3/PR4/PR5 are expected to shorten it.
- *
- * Regenerate the measured input with:
- *   MDF_AXE_BASELINE_WRITE=1 npm run test:browser -- axe.spec.ts
- * then read test-results/baseline/axe-*.json and update the sets below.
+ * Nothing here suppresses a violation. Every violating node is fingerprinted,
+ * asserted, annotated in the run output, and written to
+ * `test-results/baseline/axe-*.json`.
  */
 
 export type AxeTab = 'today' | 'all' | 'done';
 export type AxeTheme = 'dark' | 'light';
 
-/** Rule IDs axe reports as violations, per theme and tab. Sorted. */
-const CURRENT = ['button-name', 'color-contrast', 'label', 'select-name'];
-
-export const KNOWN_AXE_VIOLATIONS: Record<AxeTheme, Record<AxeTab, string[]>> = {
-  dark: {
-    today: CURRENT,
-    all: CURRENT,
-    done: CURRENT,
-  },
-  light: {
-    today: CURRENT,
-    all: CURRENT,
-    done: CURRENT,
-  },
-};
+/**
+ * Key for one cell of the measurement matrix.
+ *
+ * Stable and sortable, and deliberately free of anything environment-specific:
+ * no paths, no timestamps, no machine names.
+ */
+export function cellKey(viewport: string, theme: string, tab: string): string {
+  return `${viewport}|${theme}|${tab}`;
+}
 
 /**
- * Why each known rule is still open, and who closes it.
- * Surfaced in the run annotations so the reason travels with the failure.
+ * Deterministic identity for one violating node.
+ *
+ * `rule ID :: normalized axe target`. The axe target is a CSS selector path
+ * derived from the rendered DOM — stable across runs for the same build and the
+ * same seeded data, and free of the things that make snapshots rot: no element
+ * HTML, no timestamps, no absolute paths, no browser-generated IDs.
+ *
+ * Including the *target* and not just the rule ID is what makes the ratchet
+ * two-directional at node granularity: a newly unnamed button under the
+ * already-known `button-name` rule changes the fingerprint set, and the run
+ * fails, where a rule-ID-only comparison would have said nothing.
+ */
+export function axeFingerprint(ruleId: string, target: unknown): string {
+  const parts = Array.isArray(target) ? target : [target];
+  const normalized = parts
+    .map((part) => (Array.isArray(part) ? part.join(' ') : String(part)))
+    .map((part) => part.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    // Nested frames come through as an ordered path; keep the order, make the
+    // separator explicit so it can never be confused with a descendant combinator.
+    .join(' >>> ');
+  return `${ruleId} :: ${normalized}`;
+}
+
+/**
+ * Why each rule is still open, and which PR in the approved Phase 1A queue
+ * closes it. Surfaced in the run annotations so the reason travels with the
+ * finding.
+ *
+ * Queue for reference:
+ *   PR2 untimed-task correctness, navigation, the functional Reminders screen
+ *   PR3 tokens/contrast, accessible names and semantics, focus/keyboard, 44px
+ *       targets, related accessibility layout work
+ *   PR4 sticky-surface clipping and F8/action-strip containment
+ *   PR5 RTL/bidi hardening, measured DE/EN/FA/mixed coverage
+ *   PR6 safe destructive actions
+ *   PR7 date capture
+ *   PR8 physical Android / installed-PWA verification
  */
 export const VIOLATION_OWNERS: Record<string, string> = {
   'button-name':
-    'TaskCard completion checkboxes are <button>s that render nothing when unchecked and a bare icon when checked, with no aria-label. Owner: PR4.',
+    'TaskCard completion checkboxes are <button>s that render nothing when unchecked and a bare icon when checked, with no aria-label. The reminder toggle and the modal close buttons are likewise unnamed. Owner: PR3.',
   'color-contrast':
     'Secondary/faint/meta foreground tokens fall below 4.5:1 against their surfaces in both palettes; the light palette is the worse of the two. Owner: PR3.',
   label:
-    'The search field and the NewTaskModal inputs (title, time, duration) have neither a <label> nor an aria-label. Owner: PR4.',
+    'The search field, the All-tab date input and the NewTaskModal inputs (title, time, duration) have neither a <label> nor an aria-label. Owner: PR3.',
   'select-name':
-    'The recurrence <select> in NewTaskModal has no accessible name. Owner: PR4.',
-  /* Rules not currently triggered, listed so an owner exists the moment one is. */
-  'aria-allowed-attr': 'Owner: PR4.',
-  'nested-interactive': 'Owner: PR4.',
-  'target-size': 'Owner: PR5.',
+    'The recurrence <select> in NewTaskModal has no accessible name. Owner: PR3.',
+  /* Not currently triggered. Listed so an owner exists the moment one is. */
+  'aria-allowed-attr': 'Owner: PR3.',
+  'aria-required-attr': 'Owner: PR3.',
+  'nested-interactive': 'Owner: PR3.',
+  'target-size': 'Owner: PR3.',
 };

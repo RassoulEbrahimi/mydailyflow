@@ -8,7 +8,9 @@
  *      docs/a11y-baseline-1a.md can be regenerated from real numbers rather
  *      than from memory.
  *
- * Both destinations are gitignored. The suite never writes into the repo tree.
+ * `test-results/` sits inside the checkout but is gitignored and disposable, so
+ * nothing written here can end up staged or committed. The suite never writes
+ * to a tracked file, and never outside the checkout.
  */
 
 import { mkdirSync, writeFileSync } from 'node:fs';

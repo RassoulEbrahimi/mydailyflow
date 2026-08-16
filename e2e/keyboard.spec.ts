@@ -8,7 +8,7 @@
  *   - which focusable controls have no accessible name.
  *
  * Everything asserted here is asserted against the *current* behaviour, so the
- * suite passes today and fails the moment PR4 changes it — at which point the
+ * suite passes today and fails the moment PR3 changes it — at which point the
  * numbers in docs/a11y-baseline-1a.md get updated in the same PR.
  */
 
@@ -79,7 +79,7 @@ test.describe('keyboard traversal — Today', () => {
           ...ringed.map((s) => s.indicatorContrast ?? 0),
         )}:1 against their surface (WCAG 2.4.11 needs 3:1). ` +
         `${withoutIndicator.length} stops draw nothing at all (focus:outline-none). ` +
-        'The app defines no :focus-visible style anywhere. Owner: PR4.',
+        'The app defines no :focus-visible style anywhere. Owner: PR3.',
     );
 
     // ── Finding 2: controls with the ring explicitly removed ────────────────
@@ -101,7 +101,7 @@ test.describe('keyboard traversal — Today', () => {
       'baseline',
       `Unnamed focus stops: ${unnamed.length} of ${steps.length} (${unnamed
         .map((s) => s.path.split(' > ').pop())
-        .join(', ')}). Owner: PR4.`,
+        .join(', ')}). Owner: PR3.`,
     );
 
     // ── Finding 4: focus leaves the viewport into closed modals ─────────────
@@ -117,7 +117,7 @@ test.describe('keyboard traversal — Today', () => {
       'baseline',
       `Off-screen focus stops: ${offscreen.length} (${offscreen
         .map((s) => s.label || '(unnamed)')
-        .join(', ')}). These belong to NewTaskModal, which stays mounted at translate-y-full when closed. Owner: PR4.`,
+        .join(', ')}). These belong to NewTaskModal, which stays mounted at translate-y-full when closed. Owner: PR3.`,
     );
   });
 
@@ -154,7 +154,7 @@ test.describe('keyboard traversal — Today', () => {
     annotate(
       testInfo,
       'baseline',
-      `Focus order: the first hidden swipe action is tab stop #${firstStripIndex}, the first visible task checkbox is #${firstCheckboxIndex}. Owner: PR4.`,
+      `Focus order: the first hidden swipe action is tab stop #${firstStripIndex}, the first visible task checkbox is #${firstCheckboxIndex}. Owner: PR3.`,
     );
   });
 
@@ -204,7 +204,7 @@ test.describe('keyboard traversal — Today', () => {
     annotate(
       testInfo,
       'baseline',
-      `Task action strip: ${strip.length} buttons are keyboard-focusable and exposed to AT while completely hidden behind the card body. Reachable by pointer only via a horizontal swipe, which has no keyboard equivalent. Owner: PR4.`,
+      `Task action strip: ${strip.length} buttons are keyboard-focusable and exposed to AT while completely hidden behind the card body. Reachable by pointer only via a horizontal swipe, which has no keyboard equivalent. Owner: PR3.`,
     );
   });
 
@@ -277,7 +277,7 @@ test.describe('keyboard traversal — Today', () => {
     annotate(
       testInfo,
       'baseline',
-      'Daily Essentials: collapse header and simple-essential rows are <div onClick> — not focusable, no role, no aria-expanded/aria-checked. Multi-target chips are 32x32 buttons named only by their digit, with no aria-pressed. Owner: PR4 (semantics) / PR5 (target size).',
+      'Daily Essentials: collapse header and simple-essential rows are <div onClick> — not focusable, no role, no aria-expanded/aria-checked. Multi-target chips are 32x32 buttons named only by their digit, with no aria-pressed. Owner: PR3 (semantics and target size).',
     );
   });
 });
