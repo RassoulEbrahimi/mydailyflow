@@ -93,8 +93,37 @@ export const groupTasksByDate = (
         .sort(([a], [b]) => (a < b ? 1 : a > b ? -1 : 0))
         .map(([date, group]) => ({
             date,
-            tasks: [...group].sort((a, b) => a.time.localeCompare(b.time)),
+            tasks: [...group].sort(compareByTimeUntimedLast),
         }));
+};
+
+// ─── "No time" as a first-class state ─────────────────────────────────────────
+//
+// `Task.time` is a "HH:MM" string, but the empty string is a legitimate value:
+// a native <input type="time"> can be cleared, and the stored shape allows it.
+// An untimed task is not "a task at 00:00" and is not "a task at 23:59" — it
+// simply has no scheduled moment, and every comparison has to say so explicitly
+// rather than let `''` sort or compare as if it were a real time.
+
+/** True when the task carries a usable "HH:MM" time. */
+export const hasTime = (task: Pick<Task, 'time'>): boolean =>
+    typeof task.time === 'string' && task.time.trim().length > 0;
+
+/**
+ * Orders tasks within one date group: timed tasks first, ascending by time,
+ * then every untimed task.
+ *
+ * Untimed tasks keep their incoming relative order — `Array.prototype.sort` is
+ * stable, so equal comparisons preserve input order. The result is therefore
+ * deterministic for a given input, without inventing a synthetic time that
+ * would then leak into overdue checks or display.
+ */
+export const compareByTimeUntimedLast = (a: Task, b: Task): number => {
+    const aHas = hasTime(a);
+    const bHas = hasTime(b);
+    if (aHas !== bHas) return aHas ? -1 : 1;
+    if (!aHas) return 0;
+    return a.time.localeCompare(b.time);
 };
 
 // ─── Recurrence helper ────────────────────────────────────────────────────────
@@ -280,9 +309,13 @@ export const buildNextOccurrence = (
 // Returns true if a task is scheduled for today, incomplete, and its scheduled time has passed.
 export const isTaskOverdue = (task: Task): boolean => {
     if (task.completed) return false;
+    // A task with no time has no moment to be late for. Without this guard the
+    // comparison below reads `'' < '14:30'` as true and marks every untimed
+    // task overdue.
+    if (!hasTime(task)) return false;
     const today = getTodayString();
     if (task.date !== today) return false;
-    
+
     // Compare task time "HH:MM" with current local time (24-hour HH:MM format)
     const d = new Date();
     const currH = String(d.getHours()).padStart(2, '0');

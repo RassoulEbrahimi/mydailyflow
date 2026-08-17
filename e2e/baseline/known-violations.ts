@@ -10,7 +10,7 @@
  * `test-results/baseline/axe-*.json`.
  */
 
-export type AxeTab = 'today' | 'all' | 'done';
+export type AxeTab = 'today' | 'all' | 'done' | 'reminders';
 export type AxeTheme = 'dark' | 'light';
 
 /**

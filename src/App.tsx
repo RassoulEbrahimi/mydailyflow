@@ -9,6 +9,7 @@ import {
   getYesterdayString,
   filterTasksBySearch,
   groupTasksByDate,
+  compareByTimeUntimedLast,
 } from './utils/taskUtils';
 import DateGroupHeader from './components/DateGroupHeader';
 import AllTasksFilterBar from './components/AllTasksFilterBar';
@@ -20,6 +21,7 @@ import { useTasks } from './hooks/useTasks';
 import { useReminders } from './hooks/useReminders';
 import { useDailyEssentials } from './hooks/useDailyEssentials';
 import DailyEssentialsSection from './components/DailyEssentialsSection';
+import RemindersView from './components/RemindersView';
 import ManageEssentialsModal from './components/ManageEssentialsModal';
 import VoiceTaskModal from './components/VoiceTaskModal';
 import { useTheme } from './hooks/useTheme';
@@ -153,7 +155,7 @@ function AppInner({ logout }: { logout: () => void }) {
     reorderEssentials
   } = useDailyEssentials();
 
-  const [activeTab, setActiveTab] = useState<'today' | 'all' | 'done'>('today');
+  const [activeTab, setActiveTab] = useState<'today' | 'all' | 'done' | 'reminders'>('today');
 
   // 'all' | 'today' | 'yesterday' | YYYY-MM-DD
   const [allDateFilter, setAllDateFilter] = useState<string>('all');
@@ -193,8 +195,9 @@ function AppInner({ logout }: { logout: () => void }) {
   // Sort incomplete tasks first, then completed tasks. Existing time-based sort is preserved.
   const sortSectionTasks = (sectionTasks: Task[]) => {
     return [...sectionTasks].sort((a, b) => {
-      if (a.completed === b.completed) return 0;
-      return a.completed ? 1 : -1;
+      if (a.completed !== b.completed) return a.completed ? 1 : -1;
+      // Within the same completion state, untimed tasks come after timed ones.
+      return compareByTimeUntimedLast(a, b);
     });
   };
 
@@ -368,6 +371,17 @@ function AppInner({ logout }: { logout: () => void }) {
               </div>
             )}
           </div>
+        ) : activeTab === 'reminders' ? (
+          <RemindersView
+            tasks={filteredTasks}
+            remindersEnabled={remindersEnabled}
+            permission={notifPermission}
+            onEditTask={openEditTaskModal}
+            onOpenSettings={() => {
+              setNotifPermission('Notification' in window ? Notification.permission : 'denied');
+              setIsSettingsOpen(true);
+            }}
+          />
         ) : (
           <div className="flex flex-col gap-8 px-5">
             {doneTasks.length > 0 ? (
@@ -446,12 +460,19 @@ function AppInner({ logout }: { logout: () => void }) {
             }`}>Alle Aufgaben</span>
           </button>
 
-          {/* Reminders (non-functional tab, keep stable) */}
-          <button className="flex flex-col items-center gap-1 flex-1 py-1 transition-colors">
-            <div className="flex items-center justify-center w-11 h-7">
-              <Bell size={22} className="text-fg-faint" strokeWidth={2} />
+          {/* Reminders */}
+          <button
+            onClick={() => setActiveTab('reminders')}
+            className="flex flex-col items-center gap-1 flex-1 py-1 transition-colors"
+          >
+            <div className={`flex items-center justify-center w-11 h-7 rounded-full transition-all ${
+              activeTab === 'reminders' ? 'bg-primary/15' : ''
+            }`}>
+              <Bell size={22} className={activeTab === 'reminders' ? 'text-primary' : 'text-fg-faint'} strokeWidth={activeTab === 'reminders' ? 2.5 : 2} />
             </div>
-            <span className="text-[11px] font-semibold tracking-tight text-fg-faint">Erinnerungen</span>
+            <span className={`text-[11px] font-semibold tracking-tight ${
+              activeTab === 'reminders' ? 'text-primary' : 'text-fg-faint'
+            }`}>Erinnerungen</span>
           </button>
 
           {/* Done */}

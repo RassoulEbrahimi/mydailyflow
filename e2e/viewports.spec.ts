@@ -16,7 +16,7 @@ import { annotate, recordFindings } from './utils/report';
 import { expect, test, THEMES, VIEWPORTS, type Tab } from './fixtures/app';
 import { measurePage, measureSticky } from './utils/measure';
 
-const TABS: Tab[] = ['today', 'all', 'done'];
+const TABS: Tab[] = ['today', 'all', 'done', 'reminders'];
 
 for (const theme of THEMES) {
   for (const viewport of VIEWPORTS) {
