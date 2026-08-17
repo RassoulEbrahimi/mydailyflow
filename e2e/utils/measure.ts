@@ -473,6 +473,108 @@ export async function measurePage(page: Page): Promise<PageMeasurements> {
   return page.evaluate(collectMeasurements);
 }
 
+// ─── Targeted text contrast ───────────────────────────────────────────────────
+
+export interface TextContrastSample {
+  /** Trimmed text of the element, for identifying it in a failure message. */
+  text: string;
+  foreground: string;
+  background: string;
+  ratio: number;
+  fontSizePx: number;
+  fontWeight: number;
+  /** WCAG large text: >=24px, or >=18.66px at weight >=700. */
+  isLargeText: boolean;
+  /** 3 for large text, 4.5 otherwise. */
+  threshold: number;
+  passes: boolean;
+}
+
+/**
+ * Measures the real rendered contrast of every element matching `selector`.
+ *
+ * Deliberately reads *computed* colours — resolving `oklch()`, compositing the
+ * whole background stack, and folding in inherited `opacity` — rather than
+ * asserting on class names. The Daily Essentials light-theme regression was a
+ * hardcoded dark-palette class that looked perfectly reasonable in the source;
+ * only the composited pixel colours revealed it.
+ */
+export async function measureTextContrast(
+  page: Page,
+  selector: string,
+): Promise<TextContrastSample[]> {
+  await ensureColorUtils(page);
+  return page.evaluate((sel) => {
+    const color = (window as unknown as { __mdfColor: ColorUtils }).__mdfColor;
+
+    const canvasBase = (() => {
+      const body = getComputedStyle(document.body).backgroundColor;
+      const parsed = color.rgba(body);
+      return parsed && parsed[3] >= 0.999 ? body : '#ffffff';
+    })();
+
+    const out: TextContrastSample[] = [];
+
+    document.querySelectorAll<HTMLElement>(sel).forEach((el) => {
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') return;
+      const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+      if (!text) return;
+
+      // Background stack, front-most first, to the first opaque layer.
+      const layers: string[] = [];
+      let node: Element | null = el;
+      while (node) {
+        const raw = getComputedStyle(node).backgroundColor;
+        const parsed = color.rgba(raw);
+        if (parsed && parsed[3] > 0) {
+          layers.push(raw);
+          if (parsed[3] >= 0.999) break;
+        }
+        node = node.parentElement;
+      }
+      const bg = color.flatten(layers, canvasBase);
+
+      // Inherited opacity fades the text toward its backdrop.
+      let opacity = 1;
+      let walker: Element | null = el;
+      while (walker) {
+        const o = Number(getComputedStyle(walker).opacity);
+        if (!Number.isNaN(o)) opacity *= o;
+        walker = walker.parentElement;
+      }
+
+      const solid = color.flatten([cs.color], color.hex(bg));
+      const fg: [number, number, number, number] = [
+        solid[0] * opacity + bg[0] * (1 - opacity),
+        solid[1] * opacity + bg[1] * (1 - opacity),
+        solid[2] * opacity + bg[2] * (1 - opacity),
+        1,
+      ];
+
+      const fontSizePx = parseFloat(cs.fontSize);
+      const fontWeight = Number(cs.fontWeight) || 400;
+      const isLargeText = fontSizePx >= 24 || (fontSizePx >= 18.66 && fontWeight >= 700);
+      const threshold = isLargeText ? 3 : 4.5;
+      const ratio = Math.round(color.contrast(fg, bg) * 100) / 100;
+
+      out.push({
+        text: text.slice(0, 60),
+        foreground: color.hex(fg),
+        background: color.hex(bg),
+        ratio,
+        fontSizePx,
+        fontWeight,
+        isLargeText,
+        threshold,
+        passes: ratio >= threshold,
+      });
+    });
+
+    return out;
+  }, selector);
+}
+
 // ─── Non-text (boundary) contrast ─────────────────────────────────────────────
 
 export interface BoundaryContrast {

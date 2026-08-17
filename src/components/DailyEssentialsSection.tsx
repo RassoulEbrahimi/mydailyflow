@@ -41,13 +41,13 @@ export default function DailyEssentialsSection({
             <Droplets size={16} strokeWidth={2.5} />
           </div>
           <h2 className="text-[16px] font-bold text-fg tracking-tight truncate">Tägliche Essentials</h2>
-          <span className="text-[13px] font-medium text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full flex-shrink-0">
+          <span className="text-[13px] font-medium text-fg-secondary bg-surface-raised px-2 py-0.5 rounded-full flex-shrink-0">
             {completedCount}/{totalCount}
           </span>
           {isCollapsed ? (
-            <ChevronDown size={18} className="text-slate-500 flex-shrink-0" />
+            <ChevronDown size={18} className="text-fg-secondary flex-shrink-0" />
           ) : (
-            <ChevronUp size={18} className="text-slate-500 flex-shrink-0" />
+            <ChevronUp size={18} className="text-fg-secondary flex-shrink-0" />
           )}
         </div>
         
@@ -64,8 +64,8 @@ export default function DailyEssentialsSection({
       {!isCollapsed && (
         <div className="flex flex-col gap-2.5 bg-surface-dim p-3 rounded-[16px] border border-edge/50 shadow-sm">
           {essentials.length === 0 ? (
-            <div className="text-center py-4 text-slate-400 text-[14px]">
-              Noch keine Essentials. <span className="text-blue-400 cursor-pointer" onClick={onManageClick}>Hinzufügen</span>
+            <div className="text-center py-4 text-fg-secondary text-[14px]">
+              Noch keine Essentials. <span className="text-primary cursor-pointer" onClick={onManageClick}>Hinzufügen</span>
             </div>
           ) : (
             essentials.map(essential => {
@@ -80,17 +80,17 @@ export default function DailyEssentialsSection({
                   onClick={() => onUpdateProgress(essential.id, isDone ? 0 : 1)}
                   className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all active:scale-[0.98] ${
                     isDone 
-                      ? 'bg-blue-500/10 border border-blue-500/20' 
+                      ? 'bg-blue-500/10 border border-blue-500/20'
                       : 'bg-surface-raised border border-transparent hover:border-edge-subtle'
                   }`}
                 >
                   <span className={`text-[15px] font-medium transition-colors ${
-                    isDone ? 'text-blue-400 line-through opacity-70' : 'text-slate-200'
+                    isDone ? 'text-fg line-through opacity-70' : 'text-fg'
                   }`}>
                     {essential.title}
                   </span>
                   <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                    isDone ? 'bg-blue-500 border-blue-500 text-white' : 'border-slate-500 text-transparent'
+                    isDone ? 'bg-primary border-primary text-white' : 'border-edge-strong text-transparent'
                   }`}>
                     <Check size={14} strokeWidth={3} />
                   </div>
@@ -103,17 +103,17 @@ export default function DailyEssentialsSection({
                 key={essential.id}
                 className={`flex items-center justify-between p-3 rounded-xl transition-all ${
                     isDone 
-                      ? 'bg-blue-500/10 border border-blue-500/20' 
+                      ? 'bg-blue-500/10 border border-blue-500/20'
                       : 'bg-surface-raised border border-transparent'
                 }`}
               >
                 <div className="flex flex-col gap-1">
                   <span className={`text-[15px] font-medium transition-colors ${
-                    isDone ? 'text-blue-400 line-through opacity-70' : 'text-slate-200'
+                    isDone ? 'text-fg line-through opacity-70' : 'text-fg'
                   }`}>
                     {essential.title}
                   </span>
-                  <span className="text-[12px] font-medium text-slate-400">
+                  <span className="text-[12px] font-medium text-fg-secondary">
                     {progress} / {essential.targetCount}
                   </span>
                 </div>
@@ -135,9 +135,9 @@ export default function DailyEssentialsSection({
                           }
                         }}
                         className={`w-8 h-8 rounded-md flex items-center justify-center text-[14px] font-bold transition-all active:scale-90 ${
-                          isActive 
-                            ? 'bg-blue-500 text-white shadow-[0_0_10px_rgba(59,130,246,0.3)]' 
-                            : 'bg-transparent text-slate-400 hover:bg-slate-800'
+                          isActive
+                            ? 'bg-primary text-white shadow-[0_0_10px_rgba(19,91,236,0.3)]'
+                            : 'bg-transparent text-fg-secondary hover:bg-surface-control'
                         }`}
                       >
                         {chipValue}
