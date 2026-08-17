@@ -2,8 +2,9 @@
  * axe.spec.ts — axe-core scan of every reachable tab, in both themes, at all
  * three baseline viewports.
  *
- * The Erinnerungen tab is deliberately absent: it opens nothing, so there is no
- * fourth surface to scan. That gap is covered by nav.spec.ts.
+ * All four tabs are scanned. Erinnerungen was absent at the PR0 baseline
+ * because it opened nothing; PR2 built the screen, so it is now a real surface
+ * and is held to the same ratchet as the others.
  *
  * Findings are classified into the categories the Phase 1A brief asks for:
  *   - normal-text contrast below 4.5:1
@@ -48,7 +49,7 @@ import {
 import { AXE_FINGERPRINTS } from './baseline/axe-fingerprints';
 import { measureBoundaries, measurePage } from './utils/measure';
 
-const TABS: AxeTab[] = ['today', 'all', 'done'];
+const TABS: AxeTab[] = ['today', 'all', 'done', 'reminders'];
 
 /**
  * Every cell the matrix is supposed to cover, derived from the same VIEWPORTS,

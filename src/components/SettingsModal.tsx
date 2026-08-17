@@ -146,9 +146,17 @@ const SettingsModal = ({
         {/* Granted: show success + toggle */}
         {permission === 'granted' && (
           <div className="mb-6">
-            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 mb-4">
-              <p className="text-emerald-400 text-sm font-semibold">Erinnerungen aktiviert ✓</p>
-              <p className="text-fg-secondary text-sm mt-1">Benachrichtigungen sind erlaubt.</p>
+            {/* Truthful by design: the app schedules reminders with an in-page
+                timer, so delivery stops when the app is closed. Never claim
+                background or exact-time delivery here. See
+                docs/adr/0001-background-reminders-feasibility.md. */}
+            <div className="bg-surface-raised border border-edge/50 rounded-2xl p-4 mb-4">
+              <p className="text-fg text-sm font-semibold">Benachrichtigungen sind erlaubt</p>
+              <p className="text-fg-secondary text-sm mt-1 leading-relaxed">
+                Erinnerungen werden nur ausgelöst, solange My Daily Flow geöffnet ist.
+                Wenn du die App oder den Browser schließt, können geplante Erinnerungen
+                ausbleiben.
+              </p>
             </div>
             {/* Reminders on/off toggle */}
             <button

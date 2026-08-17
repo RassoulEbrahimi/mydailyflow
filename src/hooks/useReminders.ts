@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { Task } from '../types/task';
+import { deliverNotification } from '../utils/notify';
+import { hasTime } from '../utils/taskUtils';
 
 // Store both the timeout handle AND the exact target time it was scheduled for.
 // This allows us to detect if a task was edited to a new time.
@@ -38,7 +40,8 @@ export function useReminders(tasks: Task[], globalRemindersEnabled: boolean) {
       // 3) Safe reminder scheduling rules
       if (task.completed) return;
       if (task.reminderEnabled === false) return; // allows undefined to default to true for backward compatibility
-      if (!task.time || !task.date) return;
+      // An untimed task has no moment to remind about, so it is never scheduled.
+      if (!hasTime(task) || !task.date) return;
 
       const [year, month, day] = task.date.split('-');
       const [hours, minutes] = task.time.split(':').map(Number);
@@ -60,8 +63,14 @@ export function useReminders(tasks: Task[], globalRemindersEnabled: boolean) {
              clearTimeout(existing.id);
           }
           const timeoutId = setTimeout(() => {
-            new Notification(`🔔 Reminder: ${task.title}`, {
-              body: `Your task is scheduled for ${task.time}`
+            // Prefers ServiceWorkerRegistration.showNotification() and falls back
+            // to the page constructor. Never throws: a reminder that cannot be
+            // displayed must not take the app down. This is display only — the
+            // trigger is still this in-page timer, so nothing fires while the
+            // app is closed.
+            void deliverNotification(`🔔 Erinnerung: ${task.title}`, {
+              body: `Geplant für ${task.time}`,
+              tag: `mdf-reminder-${task.id}`,
             });
             scheduled.delete(task.id);
           }, timeToWait);

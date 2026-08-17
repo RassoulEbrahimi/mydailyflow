@@ -144,11 +144,16 @@ Three widths × two themes. All three tabs are measured in every cell.
 | 390 × 812 | ✅ measured | ✅ measured |
 | 430 × 812 | ✅ measured | ✅ measured |
 
-Tabs measured per cell: **Heute**, **Alle Aufgaben**, **Erledigt**.
-**Erinnerungen is not measurable** — it opens nothing (§7).
+Tabs measured per cell: **Heute**, **Alle Aufgaben**, **Erledigt**, and — since
+PR2 — **Erinnerungen** (§7).
 
-36 tests total: 18 axe scans (3 viewports × 2 themes × 3 tabs), 6 layout/contrast
-matrix runs, and 12 behavioural/keyboard/backup tests.
+47 tests total: 24 axe scans (3 viewports × 2 themes × 4 tabs), 6 layout/contrast
+matrix runs, and 17 behavioural/keyboard/backup tests.
+
+> **Measured-at note.** Everything below §3–§6 is the PR0 baseline, measured on
+> `98ddf67` before the Reminders screen existed. PR2 added a fourth surface and
+> changed no pre-existing fingerprint (§9.2); the PR0 numbers therefore still
+> describe Heute / Alle Aufgaben / Erledigt as measured.
 
 ---
 
@@ -448,9 +453,21 @@ The 4 px overflow observed on the All tab's group containers is the same
 
 ---
 
-## 7. Current Reminders limitation
+## 7. Reminders — resolved in PR2
 
-**There is no Reminders screen. The tab does nothing.**
+> **Status: the limitation below was fixed in PR2.** The Erinnerungen tab now
+> opens a real screen that lists tasks with reminders enabled, split into
+> *Geplant*, *Ohne Zeit — keine Erinnerung möglich*, and *Zeitpunkt vergangen*,
+> and states plainly: „Erinnerungen werden nur ausgelöst, solange My Daily Flow
+> geöffnet ist. Wenn du die App oder den Browser schließt, können geplante
+> Erinnerungen ausbleiben." The underlying delivery mechanism is unchanged and
+> remains foreground-only — PR2 corrected the *claim*, not the capability.
+> `SettingsModal`'s „Erinnerungen aktiviert ✓" was replaced with the same
+> truthful wording.
+>
+> The original PR0 finding is preserved below for the record.
+
+**PR0 baseline finding — there was no Reminders screen; the tab did nothing.**
 
 * `App.tsx` types `activeTab` as `'today' | 'all' | 'done'` — Reminders is not a
   value it can hold.
@@ -510,12 +527,12 @@ Authentication data is excluded from the file **and** untouched by the import.
 
 | Test | Why |
 |---|---|
-| `nav.spec.ts › Erinnerungen tab — known gap › opens a Reminders screen` | `test.fail()`. Asserts that pressing Erinnerungen replaces the Today content. Fails today because the tab is inert. **If it ever passes, Playwright fails the run**, forcing this document to be updated with the fix. Owner: **PR2**. |
+| *(none)* | The PR0 baseline declared one expected failure — `nav.spec.ts › Erinnerungen tab — known gap › opens a Reminders screen`, pinned against the inert tab. **PR2 built the screen, so that entry is resolved and removed**; it is now an ordinary passing regression test (`Erinnerungen tab › opens a real Reminders screen`). No expected failures remain. |
 
 ### 9.2 axe baseline — a node-level, two-directional ratchet
 
-**What is pinned.** `e2e/baseline/axe-fingerprints.ts` commits **332
-fingerprints across all 18 cells** of the matrix (`viewport|theme|tab`). Each
+**What is pinned.** `e2e/baseline/axe-fingerprints.ts` commits **401
+fingerprints across all 24 cells** of the matrix (`viewport|theme|tab`). Each
 fingerprint is one violating node:
 
 ```
@@ -536,7 +553,7 @@ comparison cannot see a newly unnamed button appearing under the already-known
 
 **The matrix key set is pinned as well.** Before any fingerprint is compared,
 the run asserts that the keys of `AXE_FINGERPRINTS` are exactly the 18 cells
-derived from `VIEWPORTS × THEMES × TABS`. Without that, a *missing* cell would
+derived from `VIEWPORTS × THEMES × TABS` (3 × 2 × 4 = 24). Without that, a *missing* cell would
 merely leave `AXE_FINGERPRINTS[key]` undefined and a *stale* cell — left behind
 after a viewport or tab is renamed — would never be compared against at all.
 Both are silent holes in the baseline, so both fail. The expected keys are
@@ -722,7 +739,7 @@ The committed baseline is three files:
 
 | File | Role |
 |---|---|
-| `e2e/baseline/axe-fingerprints.ts` | generated; the 332 pinned node fingerprints (§9.2) |
+| `e2e/baseline/axe-fingerprints.ts` | generated; the 401 pinned node fingerprints (§9.2) |
 | `e2e/baseline/known-violations.ts` | hand-written; rule meanings and PR ownership |
 | `e2e/baseline/regenerate.mjs` | rebuilds the fingerprints file from a recording run |
 | `docs/a11y-baseline-1a.md` | this document |

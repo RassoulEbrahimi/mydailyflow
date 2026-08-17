@@ -31,7 +31,7 @@ const DIR = path.join(process.cwd(), 'test-results', 'baseline');
  */
 const MATRIX_VIEWPORTS = ['360x812', '390x812', '430x812'];
 const MATRIX_THEMES = ['dark', 'light'];
-const MATRIX_TABS = ['today', 'all', 'done'];
+const MATRIX_TABS = ['today', 'all', 'done', 'reminders'];
 
 const EXPECTED_KEYS = MATRIX_VIEWPORTS.flatMap((v) =>
   MATRIX_THEMES.flatMap((t) => MATRIX_TABS.map((tab) => `${v}|${t}|${tab}`)),

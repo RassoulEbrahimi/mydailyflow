@@ -1,7 +1,7 @@
 import React, { useRef, useState, useCallback } from 'react';
 import { Check, Clock, Pencil, Trash2, RepeatIcon, RotateCcw, ArrowRight } from 'lucide-react';
 import type { Task } from '../types/task';
-import { getRolloverLabel, isTaskOverdue } from '../utils/taskUtils';
+import { getRolloverLabel, hasTime, isTaskOverdue } from '../utils/taskUtils';
 
 // ─── Swipe constants ──────────────────────────────────────────────────────────
 const SWIPE_THRESHOLD = 60;   // px — must drag this far before actions reveal
@@ -39,6 +39,7 @@ const TaskCard = ({
   const hasNotes       = !!task.notes && task.notes.trim().length > 0;
 
   const overdue = isTaskOverdue(task);
+  const untimed = !hasTime(task);
 
   const isSwipeOpen = openSwipeId === id;
 
@@ -255,9 +256,13 @@ const TaskCard = ({
 
             {/* Meta row */}
             <div className="flex items-center gap-2 mt-1 flex-wrap">
+              {/* A task without a time is a valid state, not a broken one. The
+                  bullet is part of the time segment, so an untimed task shows
+                  "Ohne Zeit • 30m" rather than a leading " • 30m". */}
               <span className="flex items-center gap-1.5 text-[11.5px] text-fg-meta font-medium">
                 <Clock size={12} className="flex-shrink-0 opacity-70" />
-                {time} • {duration}
+                {untimed ? 'Ohne Zeit' : time}
+                {duration ? ` • ${duration}` : ''}
               </span>
 
               {/* Recurrence badge */}

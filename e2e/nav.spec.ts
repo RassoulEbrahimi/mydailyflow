@@ -1,19 +1,19 @@
 /**
  * nav.spec.ts — bottom navigation baseline.
  *
- * Three of the four tabs switch the view. The fourth, "Erinnerungen", is a
- * button with no click handler at all (src/App.tsx renders it under the comment
- * "non-functional tab, keep stable"), so there is no Reminders screen to open.
+ * All four tabs now switch the view. "Erinnerungen" was inert at the PR0
+ * baseline and was pinned there as a `test.fail()` expected failure; PR2 built
+ * the screen, so that expected failure is now an ordinary passing regression
+ * test (see `Erinnerungen tab` below).
  *
- * That gap is represented twice and hidden neither time:
- *   - a `test.fail()` test written against the behaviour the app *should* have,
- *     which the run reports as an expected failure;
- *   - a passing test that pins the current behaviour exactly, so the day the
- *     tab starts working, this suite says so.
+ * The Reminders screen is held to the standard the feasibility ADR sets: it may
+ * describe foreground-only delivery and must never imply background, closed-app,
+ * or exact-time delivery. Those assertions live here so a future copy edit that
+ * re-introduces an over-promise fails the suite.
  */
 
 import { annotate, recordFindings } from './utils/report';
-import { expect, test, TAB_LABEL } from './fixtures/app';
+import { expect, test, TAB_LABEL, waitForAppShell } from './fixtures/app';
 
 test.describe('bottom navigation', () => {
   test('renders exactly the four documented tabs', async ({ app }, testInfo) => {
@@ -94,73 +94,183 @@ test.describe('bottom navigation', () => {
   });
 });
 
-test.describe('Erinnerungen tab — known gap', () => {
+test.describe('Erinnerungen tab', () => {
   /**
-   * EXPECTED FAILURE (PR0 baseline).
-   *
-   * Reminders logic exists (useReminders schedules a notification 10 minutes
-   * before a task), but no Reminders *screen* was ever built. The nav button
-   * has no onClick, so pressing it does nothing at all.
-   *
-   * PR2 owns navigation and building a real, truthful Reminders screen. Until
-   * then this test fails on purpose; if it ever passes, Playwright fails the run
-   * so the baseline and the doc get updated together.
+   * Was a `test.fail()` expected failure at the PR0 baseline, when the tab had
+   * no click handler at all. PR2 implemented the screen, so this is now an
+   * ordinary regression test: if the tab ever goes inert again, it fails.
    */
-  test.fail(
-    'opens a Reminders screen',
-    async ({ app }) => {
-      await app.navButton('reminders').click();
+  test('opens a real Reminders screen', async ({ app }) => {
+    await app.navButton('reminders').click();
 
-      // Any real Reminders view would have to replace the Today content.
-      await expect(app.page.getByText('Tägliche Essentials')).toBeHidden({ timeout: 2_000 });
-    },
-  );
+    // The Today content is replaced, not merely overlaid.
+    await expect(app.page.getByText('Tägliche Essentials')).toBeHidden();
+    await expect(app.hero()).toBeHidden();
 
-  test('currently renders no Reminders screen at all (documented limitation)', async ({
-    app,
-  }, testInfo) => {
-    const before = await app.page.locator('main').innerHTML();
+    await expect(
+      app.page.getByRole('heading', { level: 2, name: 'Erinnerungen', exact: true }),
+    ).toBeVisible();
+  });
+
+  test('marks the Erinnerungen tab as active once opened', async ({ app }) => {
+    const state = async () =>
+      app.page.evaluate(() => {
+        const nav = document.querySelector('nav');
+        const button = Array.from(nav?.querySelectorAll('button') ?? []).find((b) =>
+          (b.textContent || '').includes('Erinnerungen'),
+        );
+        return {
+          pill: button?.querySelector('div')?.getAttribute('class') ?? '',
+          label: button?.querySelector('span')?.getAttribute('class') ?? '',
+        };
+      });
+
+    const before = await state();
+    expect(before.pill).not.toContain('bg-primary');
+    expect(before.label).toContain('text-fg-faint');
 
     await app.navButton('reminders').click();
-    await app.page.waitForTimeout(300);
 
-    const after = await app.page.locator('main').innerHTML();
+    const after = await state();
+    expect(after.pill, 'active tab gets the primary pill').toContain('bg-primary');
+    expect(after.label, 'active tab label switches to primary').toContain('text-primary');
+  });
 
-    // The click is inert: the view does not change by so much as one node.
-    expect(after).toBe(before);
+  test('states foreground-only delivery and promises nothing more', async ({ app }, testInfo) => {
+    await app.navButton('reminders').click();
 
-    // The Today view is still the one mounted.
-    await expect(app.page.getByText('Tägliche Essentials')).toBeVisible();
-    await expect(app.hero()).toBeVisible();
+    // The truth statement the ADR requires, verbatim.
+    await expect(
+      app.page.getByText(
+        'Erinnerungen werden nur ausgelöst, solange My Daily Flow geöffnet ist.',
+        { exact: false },
+      ),
+    ).toBeVisible();
+    await expect(
+      app.page.getByText('können geplante Erinnerungen ausbleiben', { exact: false }),
+    ).toBeVisible();
 
-    // And the button never takes the active styling the other three get.
-    const hasHandler = await app.page.evaluate(() => {
-      const nav = document.querySelector('nav');
-      const buttons = Array.from(nav?.querySelectorAll('button') ?? []);
-      const reminders = buttons.find((b) => (b.textContent || '').includes('Erinnerungen'));
-      const pill = reminders?.querySelector('div');
-      return {
-        activePillClasses: pill?.getAttribute('class') ?? '',
-        labelClasses: reminders?.querySelector('span')?.getAttribute('class') ?? '',
-      };
+    // And no over-promise anywhere on the screen. These are the claims the
+    // feasibility spike concluded the app cannot make.
+    const copy = (await app.page.locator('main').innerText()).toLowerCase();
+    for (const forbidden of [
+      'im hintergrund',
+      'hintergrund-erinnerung',
+      'auch wenn die app geschlossen',
+      'garantiert',
+      'zuverlässig',
+      'pünktlich',
+      'push',
+    ]) {
+      expect(copy, `Reminders copy must not claim "${forbidden}"`).not.toContain(forbidden);
+    }
+
+    await recordFindings(testInfo, 'reminders-screen-copy', {
+      containsForegroundOnlyStatement: true,
+      forbiddenClaimsFound: [],
     });
+  });
 
-    // The other tabs toggle `bg-primary/15` on the icon pill; this one has no
-    // such class in either state because nothing ever sets an active tab for it.
-    expect(hasHandler.activePillClasses).not.toContain('bg-primary');
-    expect(hasHandler.labelClasses).toContain('text-fg-faint');
-
-    await recordFindings(testInfo, 'reminders-tab-state', {
-      clickChangesView: false,
-      ...hasHandler,
-      note:
-        'App.tsx activeTab is typed \'today\' | \'all\' | \'done\'; the Erinnerungen button has no onClick and no active state.',
+  test('lists tasks that have reminders enabled, split by deliverability', async ({ app }) => {
+    // The untimed case is injected here rather than added to the shared seed, so
+    // the Today/All/Done fingerprints in the axe ratchet stay untouched by a
+    // fixture that only this screen needs.
+    await app.page.evaluate(() => {
+      const raw = localStorage.getItem('myDailyFlowTasks');
+      const parsed = JSON.parse(raw as string);
+      parsed.data.push({
+        id: 'e2e-untimed',
+        title: 'Synthetische Aufgabe — ohne Zeit',
+        time: '',
+        duration: '20m',
+        timeBlock: 'afternoon',
+        completed: false,
+        priority: 'low',
+        createdAt: '2026-05-20T06:10:00.000+02:00',
+        date: '2026-05-20',
+      });
+      localStorage.setItem('myDailyFlowTasks', JSON.stringify(parsed));
     });
+    await app.page.reload({ waitUntil: 'domcontentloaded' });
+    await waitForAppShell(app.page);
 
-    annotate(
-      testInfo,
-      'baseline',
-      'Erinnerungen tab is inert: clicking it changes nothing in <main>. No Reminders screen exists. Owner: PR2.',
-    );
+    await app.navButton('reminders').click();
+
+    // Seeded synthetic data: timed, future-dated tasks are deliverable today.
+    await expect(app.page.getByRole('heading', { name: 'Geplant', exact: true })).toBeVisible();
+    await expect(
+      app.page.getByRole('button', { name: /Synthetische Aufgabe — Abend/ }),
+    ).toBeVisible();
+
+    // The untimed task cannot be reminded about, and says so rather than
+    // silently disappearing.
+    await expect(
+      app.page.getByRole('heading', { name: /Ohne Zeit/ }),
+    ).toBeVisible();
+    await expect(
+      app.page.getByRole('button', { name: /Synthetische Aufgabe — ohne Zeit/ }),
+    ).toBeVisible();
+  });
+
+  test('an untimed task is never shown as overdue', async ({ app }) => {
+    await app.page.evaluate(() => {
+      const parsed = JSON.parse(localStorage.getItem('myDailyFlowTasks') as string);
+      // Dated today with no time: the regression made this render "Überfällig".
+      parsed.data = [{
+        id: 'e2e-untimed-today',
+        title: 'Synthetische Aufgabe — ohne Zeit',
+        time: '',
+        duration: '20m',
+        timeBlock: 'afternoon',
+        completed: false,
+        priority: 'low',
+        createdAt: '2026-05-20T06:10:00.000+02:00',
+        date: '2026-05-20',
+      }];
+      localStorage.setItem('myDailyFlowTasks', JSON.stringify(parsed));
+    });
+    await app.page.reload({ waitUntil: 'domcontentloaded' });
+    await waitForAppShell(app.page);
+
+    const card = app.page.locator('main .rounded-2xl').filter({
+      hasText: 'Synthetische Aufgabe — ohne Zeit',
+    }).first();
+    await expect(card).toBeVisible();
+    await expect(card.getByText('Überfällig')).toBeHidden();
+
+    // And the meta row shows a real label instead of an orphan separator.
+    const meta = await card.innerText();
+    expect(meta).toContain('Ohne Zeit');
+    expect(meta, 'no leading bullet before the duration').not.toMatch(/(^|\n)\s*•/);
+  });
+
+  test('shows a deliberate empty state when nothing is scheduled', async ({ app }) => {
+    // Clear the tasks in place, then reopen the tab.
+    await app.page.evaluate(() => {
+      localStorage.setItem('myDailyFlowTasks', JSON.stringify({ version: 1, data: [] }));
+    });
+    await app.page.reload({ waitUntil: 'domcontentloaded' });
+    await waitForAppShell(app.page);
+
+    await app.navButton('reminders').click();
+
+    await expect(app.page.getByText('Keine Erinnerungen geplant')).toBeVisible();
+    // The empty state still tells the truth about how delivery works.
+    await expect(
+      app.page.getByText('solange die App geöffnet ist', { exact: false }),
+    ).toBeVisible();
+  });
+
+  test('the Reminders tab is reachable and activatable by keyboard', async ({ app }) => {
+    const navButton = app.navButton('reminders');
+    await navButton.focus();
+    await expect(navButton).toBeFocused();
+
+    await app.page.keyboard.press('Enter');
+
+    await expect(
+      app.page.getByRole('heading', { level: 2, name: 'Erinnerungen', exact: true }),
+    ).toBeVisible();
+    await expect(app.page.getByText('Tägliche Essentials')).toBeHidden();
   });
 });
