@@ -40,8 +40,8 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
     return (
         <div className="bg-page font-display min-h-screen flex flex-col items-center justify-center px-5 selection:bg-primary selection:text-white">
             {/* Logo */}
-            <div className="flex items-center gap-2 text-primary mb-10">
-                <Waves size={32} strokeWidth={2.5} />
+            <div className="flex items-center gap-2 text-primary-text mb-10">
+                <Waves size={32} strokeWidth={2.5} aria-hidden="true" />
                 <span className="font-bold text-2xl tracking-tight text-fg">My Daily Flow</span>
             </div>
 
@@ -65,7 +65,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                             value={username}
                             onChange={(e) => { setUsername(e.target.value); setError(''); }}
                             placeholder="Benutzername eingeben"
-                            className="w-full bg-surface-raised text-fg placeholder:text-fg-placeholder rounded-2xl px-4 py-3.5 text-[15px] outline-none border border-edge/50 focus:border-primary/60 transition-colors"
+                            className="w-full bg-surface-raised text-fg placeholder:text-fg-placeholder rounded-2xl px-4 py-3.5 text-[15px] border border-edge/50 focus:border-primary/60 transition-colors"
                         />
                     </div>
 
@@ -81,7 +81,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                             value={password}
                             onChange={(e) => { setPassword(e.target.value); setError(''); }}
                             placeholder="Passwort eingeben"
-                            className="w-full bg-surface-raised text-fg placeholder:text-fg-placeholder rounded-2xl px-4 py-3.5 text-[15px] outline-none border border-edge/50 focus:border-primary/60 transition-colors"
+                            className="w-full bg-surface-raised text-fg placeholder:text-fg-placeholder rounded-2xl px-4 py-3.5 text-[15px] border border-edge/50 focus:border-primary/60 transition-colors"
                         />
                     </div>
 
@@ -93,7 +93,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                             role="checkbox"
                             aria-checked={remember}
                             onClick={() => setRemember((r) => !r)}
-                            className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${remember
+                            className={`tap-target-44 w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${remember
                                     ? 'bg-primary border-primary shadow-[0_0_8px_rgba(19,91,236,0.4)]'
                                     : 'border-edge-strong bg-transparent hover:border-primary/60'
                                 }`}
@@ -115,8 +115,8 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
 
                     {/* Error */}
                     {error && (
-                        <div className="mb-5 px-4 py-3 rounded-2xl bg-red-500/10 border border-red-500/30">
-                            <p className="text-red-400 text-sm font-medium">{error}</p>
+                        <div className="mb-5 px-4 py-3 rounded-2xl bg-danger-surface border border-danger-border" role="alert">
+                            <p className="text-danger text-sm font-medium">{error}</p>
                         </div>
                     )}
 
@@ -124,9 +124,9 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="w-full bg-primary hover:bg-blue-600 disabled:opacity-60 text-white font-semibold py-4 rounded-[1.5rem] flex items-center justify-center gap-2 shadow-[0_8px_25px_rgba(19,91,236,0.4)] active:scale-[0.98] transition-all text-[17px]"
+                        className="w-full bg-primary hover:brightness-110 disabled:opacity-60 text-white font-semibold py-4 rounded-[1.5rem] flex items-center justify-center gap-2 shadow-[0_8px_25px_rgba(19,91,236,0.4)] active:scale-[0.98] transition-all text-[17px]"
                     >
-                        <LogIn size={20} strokeWidth={2.5} />
+                        <LogIn size={20} strokeWidth={2.5} aria-hidden="true" />
                         {isLoading ? 'Anmeldung…' : 'Anmelden'}
                     </button>
                 </form>

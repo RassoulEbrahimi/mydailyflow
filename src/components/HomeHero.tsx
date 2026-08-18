@@ -24,8 +24,13 @@ const MiniRing = ({ percentage, completed, total }: { percentage: number; comple
           height={size}
           className="transform -rotate-90"
           viewBox={`0 0 ${size} ${size}`}
+          role="img"
+          aria-label={`Tagesfortschritt: ${percentage} Prozent, ${completed} von ${total} Aufgaben erledigt`}
         >
-          <circle cx={size / 2} cy={size / 2} r={r} fill="transparent" stroke="var(--ring-track)" strokeWidth={stroke} />
+          {/* `--ring-track` was never declared — the token is `--color-ring-track`
+              — so this stroke resolved to nothing and the ring had no track at
+              all. Baseline §10 assigns the fix to this PR. */}
+          <circle cx={size / 2} cy={size / 2} r={r} fill="transparent" stroke="var(--color-ring-track)" strokeWidth={stroke} />
           <circle
             cx={size / 2} cy={size / 2} r={r}
             fill="transparent"
@@ -38,16 +43,18 @@ const MiniRing = ({ percentage, completed, total }: { percentage: number; comple
           />
           <defs>
             <linearGradient id="heroRingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#818cf8" />
-              <stop offset="100%" stopColor="#135bec" />
+              <stop offset="0%" stopColor="var(--color-hero-glow)" />
+              <stop offset="100%" stopColor="var(--color-primary)" />
             </linearGradient>
           </defs>
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-[13px] font-bold text-fg leading-none">{percentage}%</span>
+          <span className="text-[13px] font-bold text-fg leading-none" aria-hidden="true">{percentage}%</span>
         </div>
       </div>
-      <span className="text-[10px] text-fg/50 font-medium leading-none mt-0.5">
+      {/* The ring already carries the full figure as its accessible name, so
+          this duplicate readout is hidden from assistive technology. */}
+      <span className="text-[10px] text-fg-secondary font-medium leading-none mt-0.5" aria-hidden="true">
         {completed}/{total}
       </span>
     </div>
@@ -89,10 +96,10 @@ const HomeHero = ({
       {/* Content row */}
       <div className="relative flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-semibold text-fg/40 uppercase tracking-widest mb-1">{dateLabel}</p>
+          <p className="text-[10px] font-semibold text-fg-secondary uppercase tracking-widest mb-1">{dateLabel}</p>
           <h1 className="text-[20px] font-bold text-fg leading-tight tracking-tight">
             {greeting},<br />
-            <span className="text-primary/90">{userName}!</span>
+            <span className="text-primary-text">{userName}!</span>
           </h1>
         </div>
         <MiniRing percentage={percentage} completed={completed} total={total} />

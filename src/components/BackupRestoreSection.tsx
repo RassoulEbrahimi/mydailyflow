@@ -182,9 +182,9 @@ const BackupRestoreSection = ({ onImported }: BackupRestoreSectionProps) => {
 
       {/* Blocked slices — writes are suspended until the user decides */}
       {blocked.length > 0 && (
-        <div className="mb-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
-          <p className="text-amber-400 text-sm font-semibold mb-1 flex items-center gap-2">
-            <AlertTriangle size={16} strokeWidth={2.5} />
+        <div className="mb-3 bg-warning-surface border border-warning-border rounded-2xl p-4" role="status">
+          <p className="text-warning text-sm font-semibold mb-1 flex items-center gap-2">
+            <AlertTriangle size={16} strokeWidth={2.5} aria-hidden="true" />
             Gespeicherte Daten unlesbar
           </p>
           <p className="text-fg-secondary text-sm">
@@ -198,8 +198,9 @@ const BackupRestoreSection = ({ onImported }: BackupRestoreSectionProps) => {
             {blocked.map(entry => (
               <button
                 key={entry.slice}
+                type="button"
                 onClick={() => resolveBlockedSlice(entry.slice)}
-                className="w-full bg-surface-raised border border-edge/50 text-fg-secondary hover:text-fg font-semibold py-2.5 rounded-2xl text-[14px] active:scale-[0.98] transition-all"
+                className="w-full bg-surface-raised border border-edge/50 text-fg-secondary hover:text-fg font-semibold py-2.5 min-h-11 rounded-2xl text-[14px] active:scale-[0.98] transition-all"
               >
                 {SLICE_LABELS[entry.slice]}: fortfahren und wieder speichern
               </button>
@@ -211,17 +212,19 @@ const BackupRestoreSection = ({ onImported }: BackupRestoreSectionProps) => {
       {/* Export / Import buttons */}
       <div className="flex gap-2.5">
         <button
+          type="button"
           onClick={handleExport}
-          className={`${cardClass} flex-1 flex items-center justify-center gap-2 text-fg font-semibold text-[15px] active:scale-[0.98] transition-transform`}
+          className={`${cardClass} flex-1 flex items-center justify-center gap-2 min-h-11 text-fg font-semibold text-[15px] active:scale-[0.98] transition-transform`}
         >
-          <Download size={18} strokeWidth={2.5} />
+          <Download size={18} strokeWidth={2.5} aria-hidden="true" />
           Exportieren
         </button>
         <button
+          type="button"
           onClick={() => fileInputRef.current?.click()}
-          className={`${cardClass} flex-1 flex items-center justify-center gap-2 text-fg font-semibold text-[15px] active:scale-[0.98] transition-transform`}
+          className={`${cardClass} flex-1 flex items-center justify-center gap-2 min-h-11 text-fg font-semibold text-[15px] active:scale-[0.98] transition-transform`}
         >
-          <Upload size={18} strokeWidth={2.5} />
+          <Upload size={18} strokeWidth={2.5} aria-hidden="true" />
           Importieren
         </button>
       </div>
@@ -230,6 +233,7 @@ const BackupRestoreSection = ({ onImported }: BackupRestoreSectionProps) => {
         type="file"
         accept="application/json,.json"
         className="hidden"
+        aria-label="Sicherungsdatei auswählen"
         onChange={handleFileChange}
       />
       <p className="text-fg-placeholder text-[11px] mt-2 px-1">
@@ -256,9 +260,11 @@ const BackupRestoreSection = ({ onImported }: BackupRestoreSectionProps) => {
             ]).map(({ value, label }) => (
               <button
                 key={value}
+                type="button"
                 onClick={() => setMode(value)}
-                className={`flex-1 py-2.5 rounded-xl font-semibold text-[14px] transition-all ${
-                  value === mode ? 'bg-surface-overlay text-primary shadow-sm' : 'text-fg-secondary hover:text-fg'
+                aria-pressed={value === mode}
+                className={`flex-1 py-2.5 min-h-11 rounded-xl font-semibold text-[14px] transition-all ${
+                  value === mode ? 'bg-surface-overlay text-primary-text shadow-sm' : 'text-fg-secondary hover:text-fg'
                 }`}
               >
                 {label}
@@ -274,15 +280,17 @@ const BackupRestoreSection = ({ onImported }: BackupRestoreSectionProps) => {
 
           <div className="flex gap-2.5">
             <button
+              type="button"
               onClick={() => setPending(null)}
-              className="flex-1 bg-surface-raised border border-edge/50 text-fg-secondary font-semibold py-3 rounded-2xl text-[15px] active:scale-[0.98] transition-all"
+              className="flex-1 bg-surface-raised border border-edge/50 text-fg-secondary font-semibold py-3 min-h-11 rounded-2xl text-[15px] active:scale-[0.98] transition-all"
             >
               Abbrechen
             </button>
             <button
+              type="button"
               onClick={handleConfirmImport}
               disabled={busy}
-              className="flex-1 bg-primary hover:bg-blue-600 disabled:opacity-40 text-white font-semibold py-3 rounded-2xl text-[15px] active:scale-[0.98] transition-all"
+              className="flex-1 bg-primary hover:brightness-110 disabled:opacity-40 text-white font-semibold py-3 min-h-11 rounded-2xl text-[15px] active:scale-[0.98] transition-all"
             >
               {busy ? 'Wird übernommen…' : 'Übernehmen'}
             </button>
@@ -292,16 +300,16 @@ const BackupRestoreSection = ({ onImported }: BackupRestoreSectionProps) => {
 
       {/* Status */}
       {status.kind === 'success' && (
-        <div className="mt-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4">
-          <p className="text-emerald-400 text-sm font-semibold flex items-center gap-2">
-            <ShieldCheck size={16} strokeWidth={2.5} />
+        <div className="mt-3 bg-success-surface border border-success-border rounded-2xl p-4" role="status">
+          <p className="text-success text-sm font-semibold flex items-center gap-2">
+            <ShieldCheck size={16} strokeWidth={2.5} aria-hidden="true" />
             {status.message}
           </p>
         </div>
       )}
       {status.kind === 'error' && (
-        <div className="mt-3 bg-red-500/10 border border-red-500/30 rounded-2xl p-4">
-          <p className="text-red-400 text-sm font-semibold">{status.message}</p>
+        <div className="mt-3 bg-danger-surface border border-danger-border rounded-2xl p-4" role="alert">
+          <p className="text-danger text-sm font-semibold">{status.message}</p>
           {status.details && status.details.length > 0 && (
             <ul className="text-fg-secondary text-[12px] mt-1.5 space-y-0.5">
               {status.details.map(detail => (
@@ -329,26 +337,29 @@ const BackupRestoreSection = ({ onImported }: BackupRestoreSectionProps) => {
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   <button
+                    type="button"
                     onClick={() => handleExportSnapshot(snapshot)}
                     aria-label="Wiederherstellungspunkt exportieren"
-                    className="p-2.5 rounded-xl bg-surface-inset text-fg-secondary hover:text-fg active:scale-95 transition-all"
+                    className="min-w-11 min-h-11 flex items-center justify-center rounded-xl bg-surface-inset text-fg-secondary hover:text-fg active:scale-95 transition-all"
                   >
-                    <Download size={16} strokeWidth={2.5} />
+                    <Download size={16} strokeWidth={2.5} aria-hidden="true" />
                   </button>
                   {confirmDelete === snapshot.key ? (
                     <button
+                      type="button"
                       onClick={() => handleDeleteSnapshot(snapshot)}
-                      className="px-3 py-2 rounded-xl bg-red-500/15 text-red-400 text-[12px] font-semibold active:scale-95 transition-all"
+                      className="px-3 py-2 min-h-11 rounded-xl bg-danger-surface text-danger text-[12px] font-semibold active:scale-95 transition-all"
                     >
                       Wirklich löschen?
                     </button>
                   ) : (
                     <button
+                      type="button"
                       onClick={() => setConfirmDelete(snapshot.key)}
                       aria-label="Wiederherstellungspunkt löschen"
-                      className="p-2.5 rounded-xl bg-surface-inset text-fg-secondary hover:text-red-400 active:scale-95 transition-all"
+                      className="min-w-11 min-h-11 flex items-center justify-center rounded-xl bg-surface-inset text-fg-secondary hover:text-danger active:scale-95 transition-all"
                     >
-                      <Trash2 size={16} strokeWidth={2.5} />
+                      <Trash2 size={16} strokeWidth={2.5} aria-hidden="true" />
                     </button>
                   )}
                 </div>

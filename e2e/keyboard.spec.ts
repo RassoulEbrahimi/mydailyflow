@@ -1,283 +1,275 @@
 /**
- * keyboard.spec.ts — keyboard traversal of the Today view.
+ * keyboard.spec.ts — keyboard traversal and focus of the Today view.
  *
- * Records, without repairing:
- *   - the focus order Tab actually produces;
- *   - whether a visible focus indicator is drawn at each stop;
- *   - which task actions cannot be reached by keyboard at all;
- *   - which focusable controls have no accessible name.
+ * PR0 recorded this area as a set of measured defects: no authored focus style
+ * (Chromium's UA ring landed at 1.04–1.19:1), unnamed controls in the tab ring,
+ * focus walking into closed modals, and Daily Essentials rows that were click-
+ * handled <div>s with no role and no way in from the keyboard.
  *
- * Everything asserted here is asserted against the *current* behaviour, so the
- * suite passes today and fails the moment PR3 changes it — at which point the
- * numbers in docs/a11y-baseline-1a.md get updated in the same PR.
+ * PR3 closed all four, so every assertion here is now the *fixed* invariant
+ * rather than the recorded defect. The measurements themselves are unchanged —
+ * same traversal, same composited-colour maths — only the expected answers moved.
  */
 
 import { annotate, recordFindings } from './utils/report';
-import { expect, test } from './fixtures/app';
+import { expect, test, THEMES } from './fixtures/app';
 import { traverseByKeyboard } from './utils/measure';
 
-test.describe('keyboard traversal — Today', () => {
-  test('Today can be traversed by keyboard, and the traversal is recorded', async ({
-    app,
-  }, testInfo) => {
-    const steps = await traverseByKeyboard(app.page, 60);
+/**
+ * WCAG 2.4.11 asks for 3:1 on the focus indicator. Chromium reports the
+ * outline colour it will paint; `measure.ts` composites it against the actual
+ * stack behind the control.
+ */
+const FOCUS_INDICATOR_MIN = 3;
 
-    // The view is reachable at all: Tab does move focus through real controls.
-    expect(steps.length, 'Tab must move focus through the Today view').toBeGreaterThan(5);
+for (const theme of THEMES) {
+  test.describe(`keyboard traversal — Today · ${theme}`, () => {
+    test.use({ appOptions: { theme } });
 
-    const withoutIndicator = steps.filter((s) => !s.hasVisibleFocusIndicator);
-    const ringed = steps.filter((s) => s.hasVisibleFocusIndicator);
-    const weakRings = ringed.filter((s) => s.indicatorBelow3);
-    const unnamed = steps.filter((s) => !s.label);
-    const offscreen = steps.filter((s) => !s.inViewport);
+    test('every focus stop is named, on screen, and draws a 3:1 indicator', async ({
+      app,
+    }, testInfo) => {
+      const steps = await traverseByKeyboard(app.page, 60);
 
-    await recordFindings(testInfo, 'keyboard-focus-order-today', {
-      totalStops: steps.length,
-      order: steps.map((s) => ({
-        index: s.index,
-        label: s.label || '(no accessible name)',
-        role: s.role,
-        path: s.path,
-        rect: s.rect,
-        inViewport: s.inViewport,
-        focusVisible: s.focusVisible,
-        hasVisibleFocusIndicator: s.hasVisibleFocusIndicator,
-        indicatorContrast: s.indicatorContrast,
-        indicatorBelow3: s.indicatorBelow3,
-        focusStyle: s.focusStyle,
-      })),
-      summary: {
-        stopsWithNoIndicatorAtAll: withoutIndicator.length,
-        stopsWithIndicator: ringed.length,
-        stopsWithIndicatorBelow3to1: weakRings.length,
-        indicatorContrastRange: ringed.length
-          ? {
-              min: Math.min(...ringed.map((s) => s.indicatorContrast ?? 0)),
-              max: Math.max(...ringed.map((s) => s.indicatorContrast ?? 0)),
-            }
-          : null,
-        stopsWithoutAccessibleName: unnamed.length,
-        stopsOutsideViewport: offscreen.length,
-      },
-    });
+      expect(steps.length, 'Tab must move focus through the Today view').toBeGreaterThan(5);
 
-    // ── Finding 1: the app authors no focus style of its own ────────────────
-    // Where a ring exists at all it is Chromium's UA default, whose colour is
-    // derived from the element's own text colour. Against these surfaces that
-    // lands at ~1.05–1.2:1 — drawn, but effectively invisible.
-    expect(ringed.length, 'some stops do draw the UA ring').toBeGreaterThan(0);
-    expect(
-      weakRings.length,
-      'baseline: every drawn focus ring is below the 3:1 non-text contrast minimum',
-    ).toBe(ringed.length);
+      const withoutIndicator = steps.filter((s) => !s.hasVisibleFocusIndicator);
+      const ringed = steps.filter((s) => s.hasVisibleFocusIndicator);
+      const weakRings = ringed.filter((s) => s.indicatorBelow3);
+      const unnamed = steps.filter((s) => !s.label);
+      const offscreen = steps.filter((s) => !s.inViewport);
 
-    annotate(
-      testInfo,
-      'baseline',
-      `Focus indicator: ${ringed.length}/${steps.length} stops draw only Chromium's UA ring, all at ` +
-        `${Math.min(...ringed.map((s) => s.indicatorContrast ?? 0))}–${Math.max(
-          ...ringed.map((s) => s.indicatorContrast ?? 0),
-        )}:1 against their surface (WCAG 2.4.11 needs 3:1). ` +
-        `${withoutIndicator.length} stops draw nothing at all (focus:outline-none). ` +
-        'The app defines no :focus-visible style anywhere. Owner: PR3.',
-    );
+      await recordFindings(testInfo, `keyboard-focus-order-today-${theme}`, {
+        theme,
+        totalStops: steps.length,
+        order: steps.map((s) => ({
+          index: s.index,
+          label: s.label || '(no accessible name)',
+          role: s.role,
+          path: s.path,
+          rect: s.rect,
+          inViewport: s.inViewport,
+          focusVisible: s.focusVisible,
+          hasVisibleFocusIndicator: s.hasVisibleFocusIndicator,
+          indicatorContrast: s.indicatorContrast,
+          indicatorBelow3: s.indicatorBelow3,
+          focusStyle: s.focusStyle,
+        })),
+        summary: {
+          stopsWithNoIndicatorAtAll: withoutIndicator.length,
+          stopsWithIndicator: ringed.length,
+          stopsWithIndicatorBelow3to1: weakRings.length,
+          indicatorContrastRange: ringed.length
+            ? {
+                min: Math.min(...ringed.map((s) => s.indicatorContrast ?? 0)),
+                max: Math.max(...ringed.map((s) => s.indicatorContrast ?? 0)),
+              }
+            : null,
+          stopsWithoutAccessibleName: unnamed.length,
+          stopsOutsideViewport: offscreen.length,
+        },
+      });
 
-    // ── Finding 2: controls with the ring explicitly removed ────────────────
-    for (const step of withoutIndicator) {
+      // ── 1. A focus indicator is drawn at every stop ─────────────────────
+      // The app now authors `:focus-visible { outline: 2px solid var(--_focus) }`
+      // in a base layer, so nothing falls back to the UA ring and nothing can
+      // opt out with `focus:outline-none`.
       expect(
-        step.focusStyle.outlineStyle,
-        `${step.path} suppresses the focus ring outright`,
-      ).toBe('none');
-    }
+        withoutIndicator.map((s) => `${s.path} — outline-style ${s.focusStyle.outlineStyle}`),
+        'every focus stop draws an indicator',
+      ).toEqual([]);
 
-    // ── Finding 3: unnamed controls sit in the tab ring ──────────────────────
-    expect(
-      unnamed.length,
-      'baseline: at least the task-completion checkboxes are unnamed',
-    ).toBeGreaterThan(0);
+      // ── 2. …and it clears the 3:1 non-text contrast minimum ─────────────
+      expect(
+        weakRings.map((s) => `${s.label || s.path} — ${s.indicatorContrast}:1`),
+        `every focus indicator reaches ${FOCUS_INDICATOR_MIN}:1 against its surface`,
+      ).toEqual([]);
 
-    annotate(
-      testInfo,
-      'baseline',
-      `Unnamed focus stops: ${unnamed.length} of ${steps.length} (${unnamed
-        .map((s) => s.path.split(' > ').pop())
-        .join(', ')}). Owner: PR3.`,
-    );
+      // ── 3. Every tab stop has an accessible name ────────────────────────
+      expect(
+        unnamed.map((s) => s.path),
+        'every keyboard-reachable control has an accessible name',
+      ).toEqual([]);
 
-    // ── Finding 4: focus leaves the viewport into closed modals ─────────────
-    // NewTaskModal is always mounted and merely translated off-screen when
-    // closed, so Tab walks into a dialog the user cannot see.
-    expect(
-      offscreen.length,
-      'baseline: focus reaches controls outside the viewport',
-    ).toBeGreaterThan(0);
+      // ── 4. Focus never leaves the visible screen ────────────────────────
+      // The modals stay mounted at translate-y-full when closed; `inert` keeps
+      // them out of the tab ring until they open.
+      expect(
+        offscreen.map((s) => `${s.label || '(unnamed)'} — ${s.path}`),
+        'focus stays within the viewport (closed modals are inert)',
+      ).toEqual([]);
 
-    annotate(
-      testInfo,
-      'baseline',
-      `Off-screen focus stops: ${offscreen.length} (${offscreen
-        .map((s) => s.label || '(unnamed)')
-        .join(', ')}). These belong to NewTaskModal, which stays mounted at translate-y-full when closed. Owner: PR3.`,
-    );
-  });
-
-  test('focus order puts hidden swipe actions ahead of the visible checkbox', async ({
-    app,
-  }, testInfo) => {
-    const steps = await traverseByKeyboard(app.page, 60);
-
-    // Within each task card the action strip precedes the card body in the DOM,
-    // so Tab reaches Bearbeiten/Erledigt/Löschen — none of them visible — before
-    // it reaches the checkbox the user can actually see.
-    const stripLabels = new Set(['Bearbeiten', 'Erledigt', 'Löschen', 'Morgen', 'Rückgängig']);
-
-    const firstCheckboxIndex = steps.findIndex(
-      (s) => !s.label && s.path.includes('w-[22px]'),
-    );
-    const firstStripIndex = steps.findIndex(
-      (s) => stripLabels.has(s.label) && s.path.includes('flex-1'),
-    );
-
-    expect(firstStripIndex, 'a swipe action appears in the tab ring').toBeGreaterThanOrEqual(0);
-    expect(firstCheckboxIndex, 'a task checkbox appears in the tab ring').toBeGreaterThanOrEqual(0);
-    expect(
-      firstStripIndex,
-      'baseline: hidden swipe actions are tabbed before the visible checkbox',
-    ).toBeLessThan(firstCheckboxIndex);
-
-    await recordFindings(testInfo, 'keyboard-focus-order-anomaly', {
-      firstStripIndex,
-      firstCheckboxIndex,
-      sequence: steps.slice(0, 30).map((s) => s.label || '(unnamed)'),
+      annotate(
+        testInfo,
+        'pr3',
+        `${theme}: ${steps.length} focus stops, all named, all on screen, indicator contrast ` +
+          `${Math.min(...ringed.map((s) => s.indicatorContrast ?? 0))}–${Math.max(
+            ...ringed.map((s) => s.indicatorContrast ?? 0),
+          )}:1.`,
+      );
     });
 
-    annotate(
-      testInfo,
-      'baseline',
-      `Focus order: the first hidden swipe action is tab stop #${firstStripIndex}, the first visible task checkbox is #${firstCheckboxIndex}. Owner: PR3.`,
-    );
-  });
+    test('the swipe-only task actions are reachable and become visible on focus', async ({
+      app,
+    }, testInfo) => {
+      // Pointer users reveal Bearbeiten / Erledigt / Löschen with a horizontal
+      // swipe, which has no keyboard equivalent. The buttons stay in the tab
+      // ring, and focusing one opens the strip so the user can see what is
+      // focused.
+      const stripLabels = ['Bearbeiten', 'Erledigt', 'Löschen', 'Morgen', 'Rückgängig'];
 
-  test('swipe-only task actions are focusable while invisible', async ({ app }, testInfo) => {
-    // The action strip (Bearbeiten / Erledigt / Löschen) is always in the DOM,
-    // positioned behind the card and revealed by a horizontal swipe. It is not
-    // hidden from the accessibility tree, so keyboard focus enters buttons the
-    // user cannot see and cannot otherwise reach.
-    const strip = await app.page.evaluate(() => {
-      const buttons = Array.from(
-        document.querySelectorAll<HTMLButtonElement>('main button[aria-label]'),
-      ).filter((b) => ['Bearbeiten', 'Erledigt', 'Löschen', 'Morgen', 'Rückgängig'].includes(b.getAttribute('aria-label') || ''));
+      const firstStrip = app.page
+        .locator('main button')
+        .filter({ hasText: '' })
+        .and(app.page.getByLabel('Bearbeiten'))
+        .first();
 
-      return buttons.map((b) => {
-        const r = b.getBoundingClientRect();
-        // Real hit-testing rather than geometry: whatever the browser returns
-        // at the button's own centre point is what a user's finger would hit.
+      await firstStrip.focus();
+      await app.page.waitForTimeout(400); // the card body animates aside
+
+      const state = await firstStrip.evaluate((el) => {
+        const r = el.getBoundingClientRect();
         const topmost = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
         return {
-          label: b.getAttribute('aria-label') || '',
-          tabbable: b.tabIndex >= 0 && !b.disabled,
-          ariaHidden: b.getAttribute('aria-hidden'),
-          inertAttr: b.hasAttribute('inert'),
           rect: { x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) },
-          // The strip lives underneath the card body; the card covers it fully
-          // until a swipe translates the card left.
-          occludedBy: topmost === b || b.contains(topmost) ? null : (topmost?.tagName.toLowerCase() ?? 'none'),
-          coveredByCard: !(topmost === b || b.contains(topmost)),
+          covered: !(topmost === el || el.contains(topmost)),
+          focused: document.activeElement === el,
         };
       });
+
+      await recordFindings(testInfo, `task-action-strip-focus-${theme}`, state);
+
+      expect(state.focused, 'the strip button holds focus').toBe(true);
+      expect(
+        state.covered,
+        'focusing a swipe action reveals it instead of leaving it under the card',
+      ).toBe(false);
+
+      // Every action is still keyboard reachable and exposed to AT.
+      for (const label of stripLabels) {
+        const button = app.page.getByLabel(label).first();
+        if ((await button.count()) === 0) continue;
+        expect(await button.getAttribute('aria-hidden'), `${label} is not aria-hidden`).toBeNull();
+      }
     });
 
-    await recordFindings(testInfo, 'task-action-strip-reachability', strip);
+    test('Daily Essentials rows are keyboard operable and carry real state', async ({
+      app,
+    }, testInfo) => {
+      const rows = await app.page.evaluate(() => {
+        const section = Array.from(document.querySelectorAll('section')).find((s) =>
+          (s.textContent || '').includes('Tägliche Essentials'),
+        );
+        if (!section) return null;
 
-    expect(strip.length, 'the action strip renders for every task card').toBeGreaterThan(0);
+        const shape = (el: Element | null | undefined) =>
+          el
+            ? {
+                tag: el.tagName.toLowerCase(),
+                role: el.getAttribute('role'),
+                ariaChecked: el.getAttribute('aria-checked'),
+                ariaExpanded: el.getAttribute('aria-expanded'),
+                ariaLabel: el.getAttribute('aria-label'),
+                text: (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 50),
+              }
+            : null;
 
-    for (const button of strip) {
-      // Focusable...
-      expect(button.tabbable, `${button.label} is in the tab ring`).toBe(true);
-      // ...and not hidden from assistive tech...
-      expect(button.ariaHidden, `${button.label} is not aria-hidden`).toBeNull();
-      expect(button.inertAttr, `${button.label} is not inert`).toBe(false);
-      // ...while being visually covered by the card body.
-      expect(button.coveredByCard, `${button.label} is visually covered`).toBe(true);
-    }
+        const collapseToggle = section.querySelector('button[aria-expanded]');
+        const simpleRow = section.querySelector('button[role="checkbox"]');
 
-    annotate(
-      testInfo,
-      'baseline',
-      `Task action strip: ${strip.length} buttons are keyboard-focusable and exposed to AT while completely hidden behind the card body. Reachable by pointer only via a horizontal swipe, which has no keyboard equivalent. Owner: PR3.`,
-    );
-  });
-
-  test('Daily Essentials rows are not keyboard operable', async ({ app }, testInfo) => {
-    // Simple essentials and the section collapse toggle are click-handled <div>s
-    // with no tabindex, no role and no key handler.
-    const rows = await app.page.evaluate(() => {
-      const section = Array.from(document.querySelectorAll('section')).find((s) =>
-        (s.textContent || '').includes('Tägliche Essentials'),
-      );
-      if (!section) return null;
-
-      const collapseToggle = section.querySelector('div.cursor-pointer');
-      const simpleRow = Array.from(section.querySelectorAll('div.cursor-pointer')).find((d) =>
-        (d.textContent || '').includes('einfach'),
-      );
-
-      const shape = (el: Element | null | undefined) =>
-        el
-          ? {
-              tag: el.tagName.toLowerCase(),
-              role: el.getAttribute('role'),
-              tabindex: el.getAttribute('tabindex'),
-              ariaChecked: el.getAttribute('aria-checked'),
-              ariaExpanded: el.getAttribute('aria-expanded'),
-              text: (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 50),
-            }
-          : null;
-
-      const chips = Array.from(section.querySelectorAll('button'))
-        .filter((b) => /^\d+$/.test((b.textContent || '').trim()))
-        .map((b) => {
-          const r = b.getBoundingClientRect();
-          return {
+        const chips = Array.from(section.querySelectorAll('button'))
+          .filter((b) => /^\d+$/.test((b.textContent || '').trim()))
+          .map((b) => ({
             name: (b.textContent || '').trim(),
-            width: Math.round(r.width),
-            height: Math.round(r.height),
             ariaPressed: b.getAttribute('aria-pressed'),
-            role: b.getAttribute('role'),
-          };
-        });
+            ariaLabel: b.getAttribute('aria-label'),
+          }));
 
-      return { collapseToggle: shape(collapseToggle), simpleRow: shape(simpleRow), chips };
+        return { collapseToggle: shape(collapseToggle), simpleRow: shape(simpleRow), chips };
+      });
+
+      expect(rows, 'the Daily Essentials section renders').not.toBeNull();
+      await recordFindings(testInfo, `essentials-keyboard-semantics-${theme}`, rows);
+
+      // Collapse header: a real button that reports its expanded state.
+      expect(rows!.collapseToggle, 'the collapse header is a button').not.toBeNull();
+      expect(rows!.collapseToggle!.tag).toBe('button');
+      expect(rows!.collapseToggle!.ariaExpanded).toBe('true');
+      expect(rows!.collapseToggle!.ariaLabel).toBeTruthy();
+
+      // Simple essential row: a checkbox, announced as one, with real state.
+      expect(rows!.simpleRow, 'a simple essential row is a checkbox').not.toBeNull();
+      expect(rows!.simpleRow!.tag).toBe('button');
+      expect(rows!.simpleRow!.role).toBe('checkbox');
+      expect(['true', 'false']).toContain(rows!.simpleRow!.ariaChecked);
+
+      // Counter chips: named by what they do, not by a bare digit, and each
+      // reports whether it is currently the reached value.
+      expect(rows!.chips.length).toBeGreaterThan(0);
+      for (const chip of rows!.chips) {
+        expect(chip.ariaLabel, `chip "${chip.name}" is named beyond its digit`).toBeTruthy();
+        expect(['true', 'false']).toContain(chip.ariaPressed);
+      }
     });
 
-    expect(rows, 'the Daily Essentials section renders').not.toBeNull();
-    await recordFindings(testInfo, 'essentials-keyboard-semantics', rows);
+    test('a simple Essential can be toggled with the keyboard alone', async ({ app }) => {
+      const row = app.page.locator('section button[role="checkbox"]').first();
+      const before = await row.getAttribute('aria-checked');
 
-    // Collapse header: a <div onClick> — no role, no tabindex, no aria-expanded.
-    expect(rows!.collapseToggle!.tag).toBe('div');
-    expect(rows!.collapseToggle!.role).toBeNull();
-    expect(rows!.collapseToggle!.tabindex).toBeNull();
-    expect(rows!.collapseToggle!.ariaExpanded).toBeNull();
+      await row.focus();
+      await app.page.keyboard.press('Enter');
+      await app.page.waitForTimeout(200);
 
-    // Simple essential row: same shape, and it is really a checkbox in disguise.
-    expect(rows!.simpleRow!.tag).toBe('div');
-    expect(rows!.simpleRow!.role).toBeNull();
-    expect(rows!.simpleRow!.tabindex).toBeNull();
-    expect(rows!.simpleRow!.ariaChecked).toBeNull();
+      expect(
+        await row.getAttribute('aria-checked'),
+        'Enter on a focused Essential flips its checked state',
+      ).not.toBe(before);
+    });
 
-    // Multi-target chips are real buttons, but carry no pressed state and are
-    // 32x32 — under the 44x44 target minimum.
-    expect(rows!.chips.length).toBe(6);
-    for (const chip of rows!.chips) {
-      expect(chip.ariaPressed, `chip "${chip.name}" has no pressed state`).toBeNull();
-      expect(chip.width).toBeLessThan(44);
-      expect(chip.height).toBeLessThan(44);
-    }
+    test('opening a sheet moves focus into it, and closing returns it', async ({ app }) => {
+      const trigger = app.settingsButton();
+      await trigger.click();
 
-    annotate(
-      testInfo,
-      'baseline',
-      'Daily Essentials: collapse header and simple-essential rows are <div onClick> — not focusable, no role, no aria-expanded/aria-checked. Multi-target chips are 32x32 buttons named only by their digit, with no aria-pressed. Owner: PR3 (semantics and target size).',
-    );
+      const dialog = app.page.getByRole('dialog', { name: 'Einstellungen' });
+      await expect(dialog).toBeVisible();
+
+      // Focus is inside the dialog, not left behind on the trigger.
+      await expect
+        .poll(
+          () => dialog.evaluate((el) => el.contains(document.activeElement)),
+          { message: 'focus moves into the Einstellungen sheet' },
+        )
+        .toBe(true);
+
+      // Scoped to the dialog: two closed VoiceTaskModal sheets carry the same
+      // "Schließen" label, and Playwright's role query still sees them.
+      await dialog.getByRole('button', { name: 'Schließen' }).click();
+
+      // …and comes back to whatever opened it, rather than dropping to <body>.
+      await expect
+        .poll(
+          () =>
+            app.page.evaluate(
+              () => document.activeElement?.getAttribute('aria-label') ?? null,
+            ),
+          { message: 'focus returns to the control that opened the sheet' },
+        )
+        .toBe('Einstellungen');
+    });
+
+    test('the bottom navigation reports the current destination', async ({ app }) => {
+      const nav = app.page.locator('nav');
+      await expect(nav).toHaveAttribute('aria-label', 'Hauptnavigation');
+
+      // Exactly one tab is marked current, and it is the one that is active.
+      const current = nav.locator('button[aria-current="page"]');
+      await expect(current).toHaveCount(1);
+      await expect(current).toContainText('Heute');
+
+      await app.navButton('reminders').click();
+      await app.page.waitForTimeout(200);
+      await expect(nav.locator('button[aria-current="page"]')).toHaveCount(1);
+      await expect(nav.locator('button[aria-current="page"]')).toContainText('Erinnerungen');
+    });
   });
-});
+}

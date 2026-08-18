@@ -53,6 +53,11 @@ export function axeFingerprint(ruleId: string, target: unknown): string {
  * closes it. Surfaced in the run annotations so the reason travels with the
  * finding.
  *
+ * **As of PR3 the committed baseline is empty: axe reports zero violating nodes
+ * in all 24 cells.** This map is therefore no longer a list of open debt — it is
+ * the triage table the ratchet reaches for if a rule ever comes back, so an
+ * annotation always carries a reason and an owner instead of a bare rule ID.
+ *
  * Queue for reference:
  *   PR2 untimed-task correctness, navigation, the functional Reminders screen
  *   PR3 tokens/contrast, accessible names and semantics, focus/keyboard, 44px
@@ -65,16 +70,19 @@ export function axeFingerprint(ruleId: string, target: unknown): string {
  */
 export const VIOLATION_OWNERS: Record<string, string> = {
   'button-name':
-    'TaskCard completion checkboxes are <button>s that render nothing when unchecked and a bare icon when checked, with no aria-label. The reminder toggle and the modal close buttons are likewise unnamed. Owner: PR3.',
+    'Closed in PR3: every button carries an aria-label or visible text, including the TaskCard completion checkboxes, the reminder toggles and the modal close buttons. A recurrence here is a regression, not known debt. Owner: whoever reintroduced it.',
   'color-contrast':
-    'Secondary/faint/meta foreground tokens fall below 4.5:1 against their surfaces in both palettes; the light palette is the worse of the two. Owner: PR3.',
+    'Closed in PR3: the foreground ramp, the status token families and primary-as-text were re-tuned in both palettes, and e2e/viewports.spec.ts asserts an empty failure set across the matrix. A recurrence is a regression. Owner: whoever reintroduced it.',
   label:
-    'The search field, the All-tab date input and the NewTaskModal inputs (title, time, duration) have neither a <label> nor an aria-label. Owner: PR3.',
+    'Closed in PR3: the search field, the All-tab date input and every NewTaskModal input carry an aria-label or a <label for>. A recurrence is a regression.',
   'select-name':
-    'The recurrence <select> in NewTaskModal has no accessible name. Owner: PR3.',
-  /* Not currently triggered. Listed so an owner exists the moment one is. */
-  'aria-allowed-attr': 'Owner: PR3.',
-  'aria-required-attr': 'Owner: PR3.',
-  'nested-interactive': 'Owner: PR3.',
-  'target-size': 'Owner: PR3.',
+    'Closed in PR3: the recurrence <select> has an aria-label. A recurrence is a regression.',
+  'aria-allowed-attr':
+    'Not currently triggered. PR3 introduced role="checkbox"/"switch" with aria-checked and aria-pressed; a violation here means an ARIA attribute was put on an element whose role does not allow it.',
+  'aria-required-attr':
+    'Not currently triggered. A violation here means a role="checkbox"/"switch" lost its aria-checked.',
+  'nested-interactive':
+    'Not currently triggered. Watch the TaskCard checklist rows and the Daily Essentials rows, which are buttons containing other content.',
+  'target-size':
+    'Not currently triggered as an axe violation. The harness measures target size itself; the two classes still below 44x44 are enumerated with owners in TARGET_SIZE_EXCEPTIONS in e2e/viewports.spec.ts. Owner: PR4.',
 };

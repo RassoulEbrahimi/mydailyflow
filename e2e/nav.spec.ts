@@ -28,9 +28,9 @@ test.describe('bottom navigation', () => {
       TAB_LABEL.done,
     ]);
 
-    // No tab semantics anywhere in the nav: these are plain buttons, so a screen
-    // reader announces four unrelated buttons rather than a tab list with a
-    // selected item. Recorded, not fixed.
+    // PR3 gave the nav a name and marked the active destination with
+    // `aria-current="page"`, so a screen reader announces which of the four the
+    // user is on instead of four unrelated buttons.
     const semantics = await app.page.evaluate(() => {
       const nav = document.querySelector('nav');
       return Array.from(nav?.querySelectorAll('button') ?? []).map((b) => ({
@@ -45,17 +45,23 @@ test.describe('bottom navigation', () => {
 
     await recordFindings(testInfo, 'nav-tab-semantics', semantics);
 
-    for (const tab of semantics) {
-      expect(
-        tab.role ?? tab.ariaSelected ?? tab.ariaCurrent ?? tab.ariaPressed,
-        `baseline: "${tab.label}" carries no tab/selected/current semantics`,
-      ).toBeNull();
+    const current = semantics.filter((t) => t.ariaCurrent === 'page');
+    expect(
+      current.map((t) => t.label),
+      'exactly one nav destination is marked current, and it is the active one',
+    ).toEqual([TAB_LABEL.today]);
+
+    // Every other destination must not claim to be current.
+    for (const tab of semantics.filter((t) => t.label !== TAB_LABEL.today)) {
+      expect(tab.ariaCurrent, `"${tab.label}" is not marked current`).toBeNull();
     }
+
+    await expect(app.page.locator('nav')).toHaveAttribute('aria-label', 'Hauptnavigation');
 
     annotate(
       testInfo,
-      'baseline',
-      'Bottom nav is four plain <button>s: no role="tablist"/"tab", no aria-selected, no aria-current. Active state is colour-only.',
+      'pr3',
+      'Bottom nav: <nav aria-label="Hauptnavigation"> with aria-current="page" on the active destination. Active state is no longer colour-only.',
     );
   });
 

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 import { Plus, Check, Trash2, CheckCircle2, ChevronDown, Mic } from 'lucide-react';
 
 import type { Task, ChecklistItem, Recurrence } from '../types/task';
@@ -39,6 +40,9 @@ const NewTaskModal = ({
   const [selectedRecurrence, setSelectedRecurrence] = useState<Recurrence>('none');
   const [isAdvancedExpanded, setIsAdvancedExpanded] = useState(false);
   const [showVoiceNoteModal, setShowVoiceNoteModal] = useState(false);
+
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(isOpen, sheetRef);
 
   useEffect(() => {
     if (isOpen) {
@@ -127,24 +131,39 @@ const NewTaskModal = ({
       <div
         className={`fixed inset-0 bg-black/70 z-40 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={onClose}
+        aria-hidden="true"
       />
 
-      {/* Sheet */}
-      <div className={`fixed bottom-0 left-0 w-full bg-surface-overlay rounded-t-[2rem] z-50 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] flex flex-col max-h-[92vh] ${isOpen ? 'translate-y-0' : 'translate-y-full'}`}>
+      {/* Sheet.
+          The sheet stays mounted and is translated off-screen when closed, so
+          without `inert` the Tab ring walks straight into a dialog the user
+          cannot see. `inert` removes it from focus order *and* from the
+          accessibility tree for exactly as long as it is closed. */}
+      <div
+        ref={sheetRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-label={taskToEdit ? 'Aufgabe bearbeiten' : 'Neue Aufgabe'}
+        inert={!isOpen}
+        className={`fixed bottom-0 left-0 w-full bg-surface-overlay rounded-t-[2rem] z-50 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] flex flex-col max-h-[92vh] ${isOpen ? 'translate-y-0' : 'translate-y-full'}`}
+      >
         {/* ── Top handle + nav bar ── */}
         <div className="flex-none">
           <div className="w-10 h-1 bg-handle rounded-full mx-auto mt-3 mb-1" />
           <div className="flex items-center justify-between px-5 py-3">
             <button
+              type="button"
               onClick={onClose}
-              className="text-fg-secondary text-[15px] active:opacity-60 transition-opacity w-16"
+              className="text-fg-secondary text-[15px] active:opacity-60 transition-opacity w-16 min-h-11 text-left"
             >
               Abbrechen
             </button>
             <h2 className="text-fg font-bold text-[16px]">{taskToEdit ? 'Aufgabe bearbeiten' : 'Neue Aufgabe'}</h2>
             <button
+              type="button"
               onClick={handleSaveClick}
-              className="text-primary font-semibold text-[15px] active:opacity-60 transition-opacity w-16 text-right"
+              className="text-primary-text font-semibold text-[15px] active:opacity-60 transition-opacity w-16 min-h-11 text-right"
             >
               Fertig
             </button>
@@ -157,35 +176,42 @@ const NewTaskModal = ({
           {/* Task title */}
           <input
             type="text"
+            id="task-title"
+            aria-label="Aufgabentitel"
+            dir="auto"
             placeholder="Aufgabentitel"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             autoFocus={isOpen && !taskToEdit}
-            className="w-full bg-transparent text-fg text-[26px] font-bold placeholder:text-fg-placeholder focus:outline-none mb-5 leading-tight"
+            className="w-full bg-transparent text-fg text-[26px] font-bold placeholder:text-fg-placeholder mb-5 leading-tight"
           />
 
           {/* Add Note / Add Checklist pill buttons */}
           <div className="flex gap-3 mb-6">
             <button
+              type="button"
               onClick={() => setShowNotes(v => !v)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-full border text-[14px] font-medium transition-all ${
+              aria-pressed={showNotes}
+              className={`flex items-center gap-1.5 px-4 py-2 min-h-11 rounded-full border text-[14px] font-medium transition-all ${
                 showNotes
-                  ? 'border-primary/70 text-primary bg-primary/10'
+                  ? 'border-primary-border text-primary-text bg-primary-surface'
                   : 'border-edge-muted text-fg-secondary hover:border-primary/50 hover:text-fg'
               }`}
             >
-              <Plus size={15} />
+              <Plus size={15} aria-hidden="true" />
               Notiz
             </button>
             <button
+              type="button"
               onClick={() => setShowChecklist(v => !v)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-full border text-[14px] font-medium transition-all ${
+              aria-pressed={showChecklist}
+              className={`flex items-center gap-1.5 px-4 py-2 min-h-11 rounded-full border text-[14px] font-medium transition-all ${
                 showChecklist
-                  ? 'border-primary/70 text-primary bg-primary/10'
+                  ? 'border-primary-border text-primary-text bg-primary-surface'
                   : 'border-edge-muted text-fg-secondary hover:border-primary/50 hover:text-fg'
               }`}
             >
-              <Plus size={15} />
+              <Plus size={15} aria-hidden="true" />
               Checkliste
             </button>
           </div>
@@ -195,19 +221,23 @@ const NewTaskModal = ({
             <div className="mb-5 bg-surface-alt rounded-2xl px-4 py-3 border border-edge/50 relative group">
               <textarea
                 rows={3}
+                id="task-notes"
+                aria-label="Notiz"
+                dir="auto"
                 placeholder="Notiz hinzufügen..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 autoFocus
-                className="w-full bg-transparent text-slate-300 placeholder:text-fg-secondary/50 focus:outline-none text-[15px] resize-none leading-relaxed pb-6"
+                className="w-full bg-transparent text-fg placeholder:text-fg-placeholder text-[15px] resize-none leading-relaxed pb-6"
               />
               <button
                 onClick={() => setShowVoiceNoteModal(true)}
-                className="absolute bottom-3 right-4 p-1.5 text-fg-secondary hover:text-primary bg-surface-inset hover:bg-surface-accent rounded-full transition-colors border border-transparent hover:border-primary/30"
+                className="tap-target-44 absolute bottom-3 right-4 p-1.5 text-fg-secondary hover:text-primary-text bg-surface-inset hover:bg-surface-accent rounded-full transition-colors border border-transparent hover:border-primary/30"
                 title="Sprachnotiz aufnehmen"
+                aria-label="Sprachnotiz aufnehmen"
                 type="button"
               >
-                <Mic size={16} />
+                <Mic size={16} aria-hidden="true" />
               </button>
             </div>
           )}
@@ -219,35 +249,40 @@ const NewTaskModal = ({
                 <div className="flex flex-col gap-2 mb-2">
                   {checklistItems.map(item => (
                     <div key={item.id} className="flex items-center gap-3 bg-surface-alt rounded-2xl px-4 py-3">
-                      <div className="flex-shrink-0 w-4 h-4 rounded border border-edge-strong flex items-center justify-center">
-                        {item.completed && <Check size={10} strokeWidth={3} className="text-primary" />}
+                      <div className="flex-shrink-0 w-4 h-4 rounded border border-edge-strong flex items-center justify-center" aria-hidden="true">
+                        {item.completed && <Check size={10} strokeWidth={3} className="text-primary-text" />}
                       </div>
-                      <span className="flex-1 text-[14px] text-slate-300">{item.text}</span>
+                      <span dir="auto" className="flex-1 text-[14px] text-fg">{item.text}</span>
                       <button
+                        type="button"
                         onClick={() => removeChecklistItem(item.id)}
-                        className="text-fg-secondary hover:text-red-400 transition-colors flex-shrink-0 p-0.5"
-                        aria-label="Remove item"
+                        className="tap-target-44 text-fg-secondary hover:text-danger transition-colors flex-shrink-0 p-0.5"
+                        aria-label={`Checklistenpunkt entfernen: ${item.text}`}
                       >
-                        <Trash2 size={15} />
+                        <Trash2 size={15} aria-hidden="true" />
                       </button>
                     </div>
                   ))}
                 </div>
               )}
               <div className="flex items-center gap-2 bg-surface-alt rounded-2xl px-4 py-3 border border-edge/50">
-                <Plus size={16} className="text-fg-secondary flex-shrink-0" />
+                <Plus size={16} className="text-fg-secondary flex-shrink-0" aria-hidden="true" />
                 <input
                   type="text"
+                  id="new-checklist-item"
+                  aria-label="Checklistenpunkt hinzufügen"
+                  dir="auto"
                   placeholder="Element hinzufügen..."
                   value={newChecklistText}
                   onChange={(e) => setNewChecklistText(e.target.value)}
                   onKeyDown={handleChecklistKeyDown}
-                  className="flex-1 bg-transparent text-[14px] text-fg placeholder:text-fg-secondary/60 focus:outline-none"
+                  className="flex-1 bg-transparent text-[14px] text-fg placeholder:text-fg-placeholder"
                 />
                 {newChecklistText.trim() && (
                   <button
+                    type="button"
                     onClick={addChecklistItem}
-                    className="text-primary text-[13px] font-semibold active:opacity-70 transition-opacity flex-shrink-0"
+                    className="text-primary-text text-[13px] font-semibold active:opacity-70 transition-opacity flex-shrink-0 min-h-11"
                   >
                     Hinzufügen
                   </button>
@@ -263,17 +298,21 @@ const NewTaskModal = ({
               <h3 className="text-fg font-bold text-[17px]">Zeitplan</h3>
               <input
                 type="time"
+                id="task-time"
+                aria-label="Startzeit"
                 value={selectedTime}
                 onChange={(e) => setSelectedTime(e.target.value)}
-                className="bg-surface-inset text-fg text-[24px] font-bold tabular-nums tracking-tight px-3 py-2 rounded-xl outline-none w-32 [&::-webkit-calendar-picker-indicator]:opacity-0 cursor-pointer text-center"
+                className="bg-surface-inset text-fg text-[24px] font-bold tabular-nums tracking-tight px-3 py-2 rounded-xl w-32 [&::-webkit-calendar-picker-indicator]:opacity-0 cursor-pointer text-center"
               />
             </div>
 
             {/* Collapsible Advanced Options */}
             <div className="mt-3 pt-4 border-t border-edge-accent">
               <button
+                type="button"
                 onClick={() => setIsAdvancedExpanded(!isAdvancedExpanded)}
-                className="w-full flex items-center justify-between text-left focus:outline-none group"
+                aria-expanded={isAdvancedExpanded}
+                className="w-full flex items-center justify-between text-left min-h-11 group"
               >
                 <div>
                   <span className="text-fg font-medium text-[15px] block">Aufgabendetails</span>
@@ -286,7 +325,7 @@ const NewTaskModal = ({
                   )}
                 </div>
                 <div className="w-8 h-8 rounded-full bg-edge-accent/50 flex items-center justify-center group-hover:bg-edge-accent transition-colors">
-                  <ChevronDown className={`text-fg-muted transition-transform duration-300 ${isAdvancedExpanded ? 'rotate-180' : ''}`} size={18} />
+                  <ChevronDown className={`text-fg-muted transition-transform duration-300 ${isAdvancedExpanded ? 'rotate-180' : ''}`} size={18} aria-hidden="true" />
                 </div>
               </button>
 
@@ -298,8 +337,11 @@ const NewTaskModal = ({
                     {['15m', '30m', '1h', '2h'].map((d) => (
                       <button
                         key={d}
+                        type="button"
                         onClick={() => setSelectedDuration(d)}
-                        className={`flex-1 py-2 rounded-full font-semibold text-[14px] border transition-all ${
+                        aria-pressed={d === selectedDuration}
+                        aria-label={`Dauer ${d}`}
+                        className={`flex-1 py-2 min-h-11 rounded-full font-semibold text-[14px] border transition-all ${
                           d === selectedDuration
                             ? 'bg-primary border-primary text-white shadow-[0_0_12px_rgba(19,91,236,0.4)]'
                             : 'border-edge-muted text-fg-secondary hover:border-primary/40'
@@ -316,15 +358,17 @@ const NewTaskModal = ({
                   <span className="text-fg text-[15px] font-medium">Wiederholen</span>
                   <div className="relative">
                     <select
+                      id="task-recurrence"
+                      aria-label="Wiederholung"
                       value={selectedRecurrence}
                       onChange={(e) => setSelectedRecurrence(e.target.value as Recurrence)}
-                      className="appearance-none bg-transparent text-fg-secondary text-[14px] pr-5 focus:outline-none cursor-pointer"
+                      className="appearance-none bg-transparent text-fg-secondary text-[14px] pr-5 min-h-11 cursor-pointer"
                     >
                       {(Object.entries(RECURRENCE_LABELS) as [Recurrence, string][]).map(([val, lbl]) => (
                         <option key={val} value={val} className="bg-surface-accent text-fg">{lbl}</option>
                       ))}
                     </select>
-                    <span className="absolute right-0 top-1/2 -translate-y-1/2 text-fg-secondary pointer-events-none text-[12px]">▾</span>
+                    <span className="absolute right-0 top-1/2 -translate-y-1/2 text-fg-secondary pointer-events-none text-[12px]" aria-hidden="true">▾</span>
                   </div>
                 </div>
 
@@ -334,14 +378,18 @@ const NewTaskModal = ({
                   <div className="flex items-center gap-3">
                     <span className="text-fg-secondary text-[13px]">{isReminderEnabled ? '10 Min vorher' : 'Aus'}</span>
                     <button
+                      type="button"
                       onClick={() => setIsReminderEnabled(v => !v)}
-                      className={`w-[46px] h-[26px] rounded-full relative transition-all duration-300 flex-shrink-0 ${
-                        isReminderEnabled ? 'bg-primary shadow-[0_0_10px_rgba(19,91,236,0.4)]' : 'bg-surface-control'
+                      role="switch"
+                      aria-checked={isReminderEnabled}
+                      aria-label="Erinnerung 10 Minuten vorher"
+                      className={`tap-target-44 w-[46px] h-[26px] rounded-full relative transition-all duration-300 flex-shrink-0 ${
+                        isReminderEnabled ? 'bg-primary shadow-[0_0_10px_rgba(19,91,236,0.4)]' : 'bg-surface-control border border-edge-strong'
                       }`}
                     >
                       <div className={`absolute top-[2px] w-[22px] h-[22px] bg-white rounded-full shadow transition-all duration-300 ${
                         isReminderEnabled ? 'left-[22px]' : 'left-[2px]'
-                      }`} />
+                      }`} aria-hidden="true" />
                     </button>
                   </div>
                 </div>
@@ -351,14 +399,17 @@ const NewTaskModal = ({
                   <p className="text-fg-muted text-[11px] font-semibold tracking-widest mb-3">PRIORITÄT</p>
                   <div className="flex gap-0 bg-surface-inset rounded-2xl p-1 shadow-inner border border-edge-accent/50">
                     {[
-                      { value: 'Low',    label: 'Niedrig', activeColor: 'text-emerald-400' },
-                      { value: 'Medium', label: 'Mittel',  activeColor: 'text-amber-400' },
-                      { value: 'High',   label: 'Hoch',    activeColor: 'text-red-400' },
+                      { value: 'Low',    label: 'Niedrig', activeColor: 'text-success' },
+                      { value: 'Medium', label: 'Mittel',  activeColor: 'text-warning' },
+                      { value: 'High',   label: 'Hoch',    activeColor: 'text-danger' },
                     ].map((p) => (
                       <button
                         key={p.value}
+                        type="button"
                         onClick={() => setSelectedPriority(p.value)}
-                        className={`flex-1 py-2.5 rounded-xl font-semibold text-[14px] transition-all ${
+                        aria-pressed={p.value === selectedPriority}
+                        aria-label={`Priorität ${p.label}`}
+                        className={`flex-1 py-2.5 min-h-11 rounded-xl font-semibold text-[14px] transition-all ${
                           p.value === selectedPriority
                             ? `bg-surface-control ${p.activeColor} shadow-sm`
                             : 'text-fg-secondary hover:text-fg'
@@ -378,10 +429,11 @@ const NewTaskModal = ({
         {/* ── Sticky Save button ── */}
         <div className="flex-none px-5 pb-8 pt-3 bg-surface-overlay">
           <button
+            type="button"
             onClick={handleSaveClick}
-            className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(19,91,236,0.45)] active:scale-[0.98] transition-all text-[16px]"
+            className="w-full bg-primary hover:brightness-110 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(19,91,236,0.45)] active:scale-[0.98] transition-all text-[16px]"
           >
-            <CheckCircle2 size={20} strokeWidth={2.5} />
+            <CheckCircle2 size={20} strokeWidth={2.5} aria-hidden="true" />
             <span>Speichern</span>
           </button>
         </div>

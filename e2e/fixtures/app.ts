@@ -81,13 +81,20 @@ export class AppHarness {
     return this.page.locator('main h3');
   }
 
+  /** The header button that opens the Settings sheet. */
+  settingsButton(): Locator {
+    return this.page.getByRole('button', { name: 'Einstellungen' });
+  }
+
   /** The Today-tab hero, identified by its gradient utility class. */
   hero(): Locator {
     return this.page.locator('.hero-gradient');
   }
 
   async openSettings(): Promise<void> {
-    await this.page.getByLabel('Settings').click();
+    // By role, not by label: PR3 named the Settings sheet "Einstellungen" too,
+    // so a bare getByLabel now matches both the trigger and the dialog.
+    await this.settingsButton().click();
     await expect(this.page.getByRole('button', { name: 'Exportieren' })).toBeVisible();
   }
 

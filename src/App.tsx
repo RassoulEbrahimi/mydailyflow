@@ -26,14 +26,16 @@ import ManageEssentialsModal from './components/ManageEssentialsModal';
 import VoiceTaskModal from './components/VoiceTaskModal';
 import { useTheme } from './hooks/useTheme';
 
-const TaskSection = ({ title, timeRange, colorClass, shadowClass, children }: { title: string, timeRange?: string, colorClass: string, shadowClass: string, children: React.ReactNode }) => {
+const TaskSection = ({ title, timeRange, accentClass, children }: { title: string, timeRange?: string, accentClass: string, children: React.ReactNode }) => {
   return (
-    <section>
+    <section aria-label={timeRange ? `${title} (${timeRange})` : title}>
       <div className="flex items-center gap-2.5 mb-3">
-        <div className={`h-7 w-[3px] rounded-full ${colorClass} ${shadowClass}`}></div>
+        {/* `bg-current` + `.accent-glow` so the bar and its glow both follow the
+            token, instead of a palette literal plus a hardcoded rgba() glow. */}
+        <div className={`h-7 w-[3px] rounded-full bg-current accent-glow ${accentClass}`} aria-hidden="true"></div>
         <div className="flex items-baseline gap-2.5">
           <h2 className="text-[16px] font-bold text-fg tracking-tight">{title}</h2>
-          {timeRange && <span className="text-[12px] font-medium text-slate-400">{timeRange}</span>}
+          {timeRange && <span className="text-[12px] font-medium text-fg-secondary">{timeRange}</span>}
         </div>
       </div>
       <div className="flex flex-col gap-2.5">
@@ -42,6 +44,16 @@ const TaskSection = ({ title, timeRange, colorClass, shadowClass, children }: { 
     </section>
   );
 };
+
+type TabId = 'today' | 'all' | 'done' | 'reminders';
+
+/** Bottom-navigation destinations, in visual order. */
+const NAV_ITEMS: { id: TabId; label: string; Icon: typeof Sun }[] = [
+  { id: 'today',     label: 'Heute',         Icon: Sun },
+  { id: 'all',       label: 'Alle Aufgaben', Icon: List },
+  { id: 'reminders', label: 'Erinnerungen',  Icon: Bell },
+  { id: 'done',      label: 'Erledigt',      Icon: CheckCircle2 },
+];
 
 function AppInner({ logout }: { logout: () => void }) {
   const { theme, setTheme } = useTheme();
@@ -155,7 +167,7 @@ function AppInner({ logout }: { logout: () => void }) {
     reorderEssentials
   } = useDailyEssentials();
 
-  const [activeTab, setActiveTab] = useState<'today' | 'all' | 'done' | 'reminders'>('today');
+  const [activeTab, setActiveTab] = useState<TabId>('today');
 
   // 'all' | 'today' | 'yesterday' | YYYY-MM-DD
   const [allDateFilter, setAllDateFilter] = useState<string>('all');
@@ -220,14 +232,14 @@ function AppInner({ logout }: { logout: () => void }) {
   const allTaskGroups = groupTasksByDate(allFilteredTasks, today);
 
   return (
-    <div className="bg-page font-display text-slate-100 h-screen flex flex-col overflow-hidden relative selection:bg-primary selection:text-white">
+    <div className="bg-page font-display text-fg h-screen flex flex-col overflow-hidden relative selection:bg-primary selection:text-white">
       {/* SW Update Banner */}
       {updateAvailable && (
         <div className="fixed top-0 left-0 right-0 z-[60] flex items-center justify-between gap-3 px-4 py-3 bg-surface-raised border-b border-primary/40 shadow-lg">
           <span className="text-sm font-medium text-fg">🚀 Neue Version verfügbar</span>
           <button
             onClick={handleRefresh}
-            className="text-sm font-semibold text-primary hover:text-blue-300 transition-colors flex-shrink-0 px-3 py-1 rounded-lg hover:bg-primary/10 active:scale-95"
+            className="text-sm font-semibold text-primary-text hover:opacity-80 transition-opacity flex-shrink-0 px-3 py-2 min-h-11 rounded-lg hover:bg-primary-surface active:scale-95"
           >
             Aktualisieren
           </button>
@@ -240,25 +252,29 @@ function AppInner({ logout }: { logout: () => void }) {
           {/* Left: logo or search */}
           {isSearchActive ? (
             <div className="flex-1 flex items-center bg-surface-raised rounded-full px-4 py-2 border border-edge/50 overflow-hidden">
-              <Search size={18} className="text-fg-secondary mr-2 flex-shrink-0" />
+              <Search size={18} className="text-fg-secondary mr-2 flex-shrink-0" aria-hidden="true" />
               <input
                 autoFocus
+                id="task-search"
                 type="text"
                 placeholder="Suche..."
-                className="bg-transparent border-none outline-none text-fg text-[15px] w-full placeholder:text-fg-secondary"
+                aria-label="Aufgaben durchsuchen"
+                className="bg-transparent border-none text-fg text-[15px] w-full placeholder:text-fg-placeholder"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
               <button
+                type="button"
                 onClick={() => { setIsSearchActive(false); setSearchQuery(''); }}
-                className="text-fg-secondary hover:text-fg ml-2 flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-fg/10"
+                className="text-fg-secondary hover:text-fg ml-1 flex-shrink-0 min-w-11 min-h-11 flex items-center justify-center rounded-full hover:bg-fg/10"
+                aria-label="Suche schließen"
               >
-                ✕
+                <span aria-hidden="true">✕</span>
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <Waves size={24} strokeWidth={2.5} className="text-primary" />
+              <Waves size={24} strokeWidth={2.5} className="text-primary-text" aria-hidden="true" />
               <span className="font-bold text-[17px] tracking-tight text-fg">My Daily Flow</span>
             </div>
           )}
@@ -267,22 +283,24 @@ function AppInner({ logout }: { logout: () => void }) {
           <div className="flex items-center gap-3 flex-shrink-0">
             {!isSearchActive && (
               <button
+                type="button"
                 onClick={() => setIsSearchActive(true)}
-                className="text-fg-faint hover:text-fg transition-colors"
-                aria-label="Search"
+                className="min-w-11 min-h-11 flex items-center justify-center rounded-full text-fg-faint hover:text-fg transition-colors"
+                aria-label="Aufgaben durchsuchen"
               >
-                <Search size={22} />
+                <Search size={22} aria-hidden="true" />
               </button>
             )}
             <button
+              type="button"
               onClick={() => {
                 setNotifPermission('Notification' in window ? Notification.permission : 'denied');
                 setIsSettingsOpen(true);
               }}
-              className="text-fg-faint hover:text-fg transition-colors"
-              aria-label="Settings"
+              className="min-w-11 min-h-11 flex items-center justify-center rounded-full text-fg-faint hover:text-fg transition-colors"
+              aria-label="Einstellungen"
             >
-              <Settings size={22} />
+              <Settings size={22} aria-hidden="true" />
             </button>
           </div>
         </header>
@@ -306,19 +324,19 @@ function AppInner({ logout }: { logout: () => void }) {
               onManageClick={() => setIsManageEssentialsOpen(true)}
             />
             <div className="flex flex-col gap-8 px-5 pt-2">
-            <TaskSection title="Morgen" timeRange="06:00 – 12:00" colorClass="bg-blue-400" shadowClass="shadow-[0_0_10px_rgba(96,165,250,0.5)]">
+            <TaskSection title="Morgen" timeRange="06:00 – 12:00" accentClass="text-block-morning">
               {morningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />)}
             </TaskSection>
-            <TaskSection title="Nachmittag" timeRange="12:00 – 18:00" colorClass="bg-orange-400" shadowClass="shadow-[0_0_10px_rgba(251,146,60,0.5)]">
+            <TaskSection title="Nachmittag" timeRange="12:00 – 18:00" accentClass="text-block-afternoon">
               {afternoonTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />)}
             </TaskSection>
-            <TaskSection title="Abend" timeRange="18:00 – 23:00" colorClass="bg-indigo-400" shadowClass="shadow-[0_0_10px_rgba(129,140,248,0.5)]">
+            <TaskSection title="Abend" timeRange="18:00 – 23:00" accentClass="text-block-evening">
               {eveningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />)}
             </TaskSection>
 
             {pendingTasks.length === 0 && (
-              <div className="text-center py-12 text-text-secondary mt-10">
-                <CheckCircle2 size={48} className="mx-auto mb-4 opacity-30" />
+              <div className="text-center py-12 text-fg-secondary mt-10">
+                <CheckCircle2 size={48} className="mx-auto mb-4 text-fg-faint" aria-hidden="true" />
               <p className="text-fg-secondary mt-10">Alle Aufgaben für heute erledigt!</p>
               </div>
             )}
@@ -356,7 +374,7 @@ function AppInner({ logout }: { logout: () => void }) {
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center text-center py-16 mt-6 gap-3">
-                <List size={44} className="text-text-secondary opacity-40" />
+                <List size={44} className="text-fg-faint" aria-hidden="true" />
                 {allDateFilter !== 'all' ? (
                   <>
                     <p className="text-fg font-semibold">Keine Aufgaben an diesem Datum</p>
@@ -385,12 +403,12 @@ function AppInner({ logout }: { logout: () => void }) {
         ) : (
           <div className="flex flex-col gap-8 px-5">
             {doneTasks.length > 0 ? (
-              <TaskSection title="Erledigte Aufgaben" colorClass="bg-emerald-400" shadowClass="shadow-[0_0_10px_rgba(52,211,153,0.5)]">
+              <TaskSection title="Erledigte Aufgaben" accentClass="text-block-done">
                 {doneTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />)}
               </TaskSection>
             ) : (
-              <div className="text-center py-12 text-text-secondary mt-10">
-                <List size={48} className="mx-auto mb-4 opacity-30" />
+              <div className="text-center py-12 text-fg-secondary mt-10">
+                <List size={48} className="mx-auto mb-4 text-fg-faint" aria-hidden="true" />
                 <p>Noch keine erledigten Aufgaben.</p>
               </div>
             )}
@@ -403,93 +421,66 @@ function AppInner({ logout }: { logout: () => void }) {
         {showPlusMenu && (
           <div className="mb-3 bg-surface-raised border border-edge-muted rounded-2xl shadow-xl flex flex-col overflow-hidden animate-fade-in origin-bottom-right">
             <button
+              type="button"
               onClick={openNewTaskModal}
-              className="px-5 py-3.5 text-fg font-semibold text-[15px] hover:bg-fg/5 transition-colors border-b border-edge-muted/50 text-left whitespace-nowrap"
+              className="px-5 py-3.5 min-h-11 text-fg font-semibold text-[15px] hover:bg-fg/5 transition-colors border-b border-edge-muted/50 text-left whitespace-nowrap"
             >
               Manuelle Aufgabe
             </button>
             <button
+              type="button"
               onClick={openVoiceTaskModal}
-              className="px-5 py-3.5 text-primary font-semibold text-[15px] hover:bg-fg/5 transition-colors text-left flex items-center gap-2 whitespace-nowrap"
+              className="px-5 py-3.5 min-h-11 text-primary-text font-semibold text-[15px] hover:bg-fg/5 transition-colors text-left flex items-center gap-2 whitespace-nowrap"
             >
-              <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+              <div className="w-2 h-2 rounded-full bg-primary animate-pulse" aria-hidden="true" />
               Sprachaufgabe
             </button>
           </div>
         )}
         <button
+          type="button"
           onClick={() => setShowPlusMenu(v => !v)}
           className={`h-14 w-14 bg-primary text-white rounded-full shadow-[0_4px_20px_rgba(19,91,236,0.55)] flex items-center justify-center active:scale-95 hover:scale-105 transition-transform ${showPlusMenu ? 'rotate-45 bg-surface-control shadow-none border border-edge-strong' : ''}`}
-          aria-label={showPlusMenu ? "Close menu" : "Add task menu"}
+          aria-expanded={showPlusMenu}
+          aria-label={showPlusMenu ? 'Menü schließen' : 'Aufgabe hinzufügen'}
         >
-          <div className="pointer-events-none p-1 rounded-full"><Plus size={28} strokeWidth={2.5} /></div>
+          <div className="pointer-events-none p-1 rounded-full" aria-hidden="true"><Plus size={28} strokeWidth={2.5} /></div>
         </button>
       </div>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 w-full bg-surface-inset/95 backdrop-blur-md border-t border-edge px-2 pb-safe pt-2 z-10" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}>
+      <nav
+        aria-label="Hauptnavigation"
+        className="fixed bottom-0 left-0 w-full bg-surface-inset/95 backdrop-blur-md border-t border-edge px-2 pb-safe pt-2 z-10"
+        style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
+      >
         <div className="flex justify-around items-center">
-
-          {/* Today */}
-          <button
-            onClick={() => setActiveTab('today')}
-            className="flex flex-col items-center gap-1 flex-1 py-1 transition-colors"
-          >
-            <div className={`flex items-center justify-center w-11 h-7 rounded-full transition-all ${
-              activeTab === 'today' ? 'bg-primary/15' : ''
-            }`}>
-              <Sun size={22} className={activeTab === 'today' ? 'text-primary' : 'text-fg-faint'} strokeWidth={activeTab === 'today' ? 2.5 : 2} />
-            </div>
-            <span className={`text-[11px] font-semibold tracking-tight ${
-              activeTab === 'today' ? 'text-primary' : 'text-fg-faint'
-            }`}>Heute</span>
-          </button>
-
-          {/* All Tasks */}
-          <button
-            onClick={() => setActiveTab('all')}
-            className="flex flex-col items-center gap-1 flex-1 py-1 transition-colors"
-          >
-            <div className={`flex items-center justify-center w-11 h-7 rounded-full transition-all ${
-              activeTab === 'all' ? 'bg-primary/15' : ''
-            }`}>
-              <List size={22} className={activeTab === 'all' ? 'text-primary' : 'text-fg-faint'} strokeWidth={activeTab === 'all' ? 2.5 : 2} />
-            </div>
-            <span className={`text-[11px] font-semibold tracking-tight ${
-              activeTab === 'all' ? 'text-primary' : 'text-fg-faint'
-            }`}>Alle Aufgaben</span>
-          </button>
-
-          {/* Reminders */}
-          <button
-            onClick={() => setActiveTab('reminders')}
-            className="flex flex-col items-center gap-1 flex-1 py-1 transition-colors"
-          >
-            <div className={`flex items-center justify-center w-11 h-7 rounded-full transition-all ${
-              activeTab === 'reminders' ? 'bg-primary/15' : ''
-            }`}>
-              <Bell size={22} className={activeTab === 'reminders' ? 'text-primary' : 'text-fg-faint'} strokeWidth={activeTab === 'reminders' ? 2.5 : 2} />
-            </div>
-            <span className={`text-[11px] font-semibold tracking-tight ${
-              activeTab === 'reminders' ? 'text-primary' : 'text-fg-faint'
-            }`}>Erinnerungen</span>
-          </button>
-
-          {/* Done */}
-          <button
-            onClick={() => setActiveTab('done')}
-            className="flex flex-col items-center gap-1 flex-1 py-1 transition-colors"
-          >
-            <div className={`flex items-center justify-center w-11 h-7 rounded-full transition-all ${
-              activeTab === 'done' ? 'bg-primary/15' : ''
-            }`}>
-              <CheckCircle2 size={22} className={activeTab === 'done' ? 'text-primary' : 'text-fg-faint'} strokeWidth={activeTab === 'done' ? 2.5 : 2} />
-            </div>
-            <span className={`text-[11px] font-semibold tracking-tight ${
-              activeTab === 'done' ? 'text-primary' : 'text-fg-faint'
-            }`}>Erledigt</span>
-          </button>
-
+          {NAV_ITEMS.map(({ id, label, Icon }) => {
+            const isActive = activeTab === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setActiveTab(id)}
+                aria-current={isActive ? 'page' : undefined}
+                className="flex flex-col items-center gap-1 flex-1 min-h-11 py-1 transition-colors"
+              >
+                <div className={`flex items-center justify-center w-11 h-7 rounded-full transition-all ${
+                  isActive ? 'bg-primary-surface' : ''
+                }`}>
+                  <Icon
+                    size={22}
+                    aria-hidden="true"
+                    className={isActive ? 'text-primary-text' : 'text-fg-faint'}
+                    strokeWidth={isActive ? 2.5 : 2}
+                  />
+                </div>
+                <span className={`text-[11px] font-semibold tracking-tight ${
+                  isActive ? 'text-primary-text' : 'text-fg-faint'
+                }`}>{label}</span>
+              </button>
+            );
+          })}
         </div>
       </nav>
 

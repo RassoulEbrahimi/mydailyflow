@@ -82,7 +82,7 @@ export default function RemindersView({
         <div className="flex flex-col gap-6 px-5 pb-4">
             <section aria-labelledby="reminders-heading" className="flex flex-col gap-3">
                 <div className="flex items-center gap-2.5">
-                    <div className="h-7 w-[3px] rounded-full bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.5)]" />
+                    <div className="h-7 w-[3px] rounded-full bg-current accent-glow text-warning" aria-hidden="true" />
                     <h2 id="reminders-heading" className="text-[16px] font-bold text-fg tracking-tight">
                         Erinnerungen
                     </h2>
@@ -90,7 +90,7 @@ export default function RemindersView({
 
                 {/* ── The truth statement. This is the point of the screen. ── */}
                 <div className="bg-surface-raised border border-edge/50 rounded-2xl p-4 flex gap-3">
-                    <Info size={18} strokeWidth={2.5} className="text-primary flex-shrink-0 mt-0.5" aria-hidden="true" />
+                    <Info size={18} strokeWidth={2.5} className="text-primary-text flex-shrink-0 mt-0.5" aria-hidden="true" />
                     <p className="text-fg-secondary text-[13.5px] leading-relaxed">
                         Erinnerungen werden nur ausgelöst, solange My Daily Flow geöffnet ist.
                         Wenn du die App oder den Browser schließt, können geplante Erinnerungen
@@ -99,20 +99,21 @@ export default function RemindersView({
                 </div>
 
                 {blocked && (
-                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
+                    <div className="bg-warning-surface border border-warning-border rounded-2xl p-4" role="status">
                         <p className="text-fg text-[13.5px] font-semibold mb-1">
                             {permission !== 'granted'
                                 ? 'Benachrichtigungen sind nicht erlaubt'
                                 : 'Erinnerungen sind ausgeschaltet'}
                         </p>
-                        <p className="text-fg text-[13px] leading-relaxed mb-3 opacity-90">
+                        <p className="text-fg text-[13px] leading-relaxed mb-3">
                             {permission !== 'granted'
                                 ? 'Solange die Berechtigung fehlt, wird nichts angezeigt — auch nicht bei geöffneter App.'
                                 : 'Die geplanten Zeiten unten werden derzeit nicht ausgelöst.'}
                         </p>
                         <button
+                            type="button"
                             onClick={onOpenSettings}
-                            className="bg-surface-inset border border-edge/50 text-fg font-semibold py-2.5 px-4 rounded-xl text-[14px] active:scale-[0.98] transition-transform"
+                            className="bg-surface-inset border border-edge/50 text-fg font-semibold py-2.5 px-4 min-h-11 rounded-xl text-[14px] active:scale-[0.98] transition-transform"
                         >
                             In den Einstellungen öffnen
                         </button>
@@ -122,7 +123,7 @@ export default function RemindersView({
 
             {totalTracked === 0 ? (
                 <div className="flex flex-col items-center justify-center text-center py-12 gap-3">
-                    <BellOff size={44} className="text-fg-faint opacity-50" aria-hidden="true" />
+                    <BellOff size={44} className="text-fg-faint" aria-hidden="true" />
                     <p className="text-fg font-semibold">Keine Erinnerungen geplant</p>
                     <p className="text-fg-secondary text-sm max-w-[36ch] leading-relaxed">
                         Aufgaben mit einer Uhrzeit erinnern dich {REMINDER_LEAD_MINUTES} Minuten
@@ -136,7 +137,7 @@ export default function RemindersView({
                         <ReminderGroup
                             title="Geplant"
                             count={planned.length}
-                            accent="bg-emerald-400"
+                            accent="text-success"
                             description={`Wird ${REMINDER_LEAD_MINUTES} Minuten vorher angezeigt, wenn die App dann geöffnet ist.`}
                         >
                             {planned.map(({ task, isToday }) => (
@@ -154,7 +155,7 @@ export default function RemindersView({
                         <ReminderGroup
                             title="Ohne Zeit — keine Erinnerung möglich"
                             count={untimed.length}
-                            accent="bg-slate-500"
+                            accent="text-fg-secondary"
                             description="Ohne Uhrzeit gibt es keinen Zeitpunkt, an dem erinnert werden könnte. Ergänze eine Uhrzeit, um eine Erinnerung zu planen."
                         >
                             {untimed.map(task => (
@@ -173,7 +174,7 @@ export default function RemindersView({
                         <ReminderGroup
                             title="Zeitpunkt vergangen"
                             count={past.length}
-                            accent="bg-slate-500"
+                            accent="text-fg-secondary"
                             description="Der geplante Zeitpunkt liegt in der Vergangenheit. Diese Erinnerungen werden nicht mehr ausgelöst."
                         >
                             {past.map(task => (
@@ -207,7 +208,7 @@ function ReminderGroup({ title, count, accent, description, children }: Reminder
     return (
         <section className="flex flex-col gap-2.5">
             <div className="flex items-center gap-2.5">
-                <div className={`h-7 w-[3px] rounded-full ${accent}`} />
+                <div className={`h-7 w-[3px] rounded-full bg-current ${accent}`} aria-hidden="true" />
                 <h3 className="text-[15px] font-bold text-fg tracking-tight">{title}</h3>
                 <span className="text-[12px] font-semibold text-fg-secondary bg-surface-raised px-2 py-0.5 rounded-full">
                     {count}
@@ -240,7 +241,7 @@ function ReminderRow({ task, detail, muted, onEditTask }: ReminderRowProps) {
                 onClick={() => onEditTask(task)}
                 aria-label={`${task.title} — ${detail}. Aufgabe bearbeiten.`}
                 className={`w-full min-h-[44px] flex items-center justify-between gap-3 text-left bg-surface border rounded-2xl px-4 py-3 transition-colors active:scale-[0.99] ${
-                    muted ? 'border-edge/60 opacity-80' : 'border-edge'
+                    muted ? 'border-edge/60' : 'border-edge'
                 }`}
             >
                 <span className="min-w-0 flex flex-col gap-0.5">
@@ -251,17 +252,17 @@ function ReminderRow({ task, detail, muted, onEditTask }: ReminderRowProps) {
                     </span>
                     <span className="flex items-center gap-1.5 text-[11.5px] text-fg-secondary font-medium">
                         {task.time ? (
-                            <Clock size={12} className="flex-shrink-0 opacity-70" aria-hidden="true" />
+                            <Clock size={12} className="flex-shrink-0" aria-hidden="true" />
                         ) : (
-                            <BellOff size={12} className="flex-shrink-0 opacity-70" aria-hidden="true" />
+                            <BellOff size={12} className="flex-shrink-0" aria-hidden="true" />
                         )}
                         {detail}
                     </span>
                 </span>
                 {muted ? (
-                    <AlertTriangle size={16} className="text-amber-400/80 flex-shrink-0" aria-hidden="true" />
+                    <AlertTriangle size={16} className="text-warning flex-shrink-0" aria-hidden="true" />
                 ) : (
-                    <BellRing size={16} className="text-emerald-400/80 flex-shrink-0" aria-hidden="true" />
+                    <BellRing size={16} className="text-success flex-shrink-0" aria-hidden="true" />
                 )}
             </button>
         </li>

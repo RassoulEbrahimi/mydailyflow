@@ -224,11 +224,15 @@ for (const theme of THEMES as AxeTheme[]) {
 
           for (const boundary of boundaries.filter((b) => !b.meets3)) {
             classified.push({
-              category: 'interactive boundary contrast below 3:1',
+              category: boundary.borderIsSoleAffordance
+                ? 'interactive boundary contrast below 3:1'
+                : 'container border below 3:1 (control also identified by its fill)',
               rule: 'measured:non-text-contrast',
-              impact: 'serious',
+              impact: boundary.borderIsSoleAffordance ? 'serious' : 'moderate',
               target: boundary.path,
-              detail: `"${boundary.label}" border ${boundary.borderColor} on ${boundary.background} = ${boundary.ratio}:1 (needs 3:1)`,
+              detail:
+                `"${boundary.label}" border ${boundary.borderColor} on ${boundary.background} = ${boundary.ratio}:1 (needs 3:1)` +
+                (boundary.fillColor ? `; own fill ${boundary.fillColor} = ${boundary.fillRatio}:1` : '; no fill of its own'),
             });
           }
 
@@ -311,17 +315,34 @@ for (const theme of THEMES as AxeTheme[]) {
               'never drifts from the code.',
           ).toEqual(expected);
 
-          // The harness's own measurements are recorded rather than pinned, so
-          // these assertions only prove the probes still find something. The
-          // exact sets live in the JSON evidence and the baseline document.
+          // ── The harness's own measurements ──────────────────────────────────
+          // PR0 asserted only that these probes *found* something, which proved
+          // they still worked while the defects were open. PR3 closed two of
+          // them, so those two now assert the fixed invariant, and the probes
+          // are proved live by asserting they still inspected controls.
+
+          // Liveness: the page really was inspected. Deliberately *not* asserted
+          // for `boundaries` — a surface can legitimately have no bordered
+          // control at all (the Done tab is one), and asserting a non-empty
+          // result there would fail for the wrong reason.
+          expect(measured.hitTargets.length, 'the target-size probe inspected controls').toBeGreaterThan(0);
+
+          // Every control has an accessible name — closed in PR3.
           expect(
-            byCategory['unnamed buttons'] ?? 0,
-            'the unnamed-control probe still reports findings',
-          ).toBeGreaterThan(0);
+            classified.filter((f) => f.category === 'unnamed buttons').map((f) => f.target),
+            `${key}: every control must have an accessible name`,
+          ).toEqual([]);
+
+          // A control whose *only* visual affordance is its border must reach
+          // 3:1 — the unchecked task checkbox class. Container borders on
+          // controls that also paint a fill are recorded separately; see
+          // docs/a11y-baseline-1a.md §3.3.
           expect(
-            byCategory['hit area below 44x44 CSS px'] ?? 0,
-            'the target-size probe still reports findings',
-          ).toBeGreaterThan(0);
+            classified
+              .filter((f) => f.category === 'interactive boundary contrast below 3:1')
+              .map((f) => f.detail),
+            `${key}: a control identified only by its border must reach 3:1`,
+          ).toEqual([]);
         });
       }
     });

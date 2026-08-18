@@ -18,6 +18,26 @@ import { measurePage, measureSticky } from './utils/measure';
 
 const TABS: Tab[] = ['today', 'all', 'done', 'reminders'];
 
+/**
+ * On-screen controls that are still below 44x44 CSS px after PR3, each with a
+ * reason and an owner. Matched against the measured element's DOM path.
+ *
+ * Nothing here is suppressed: every one of these is still measured, still
+ * written to `test-results/baseline/matrix-*.json`, and still annotated. The
+ * list exists so that a *new* small control fails the run.
+ */
+const TARGET_SIZE_EXCEPTIONS: RegExp[] = [
+  /* Daily Essentials counter chips are 32x32 in a horizontal row inside the
+     card. Growing them to 44 widens the row past the card at 360px, which is
+     exactly the containment problem PR4 owns; enlarging them here would make
+     that worse. Owner: PR4. */
+  /button\.w-8\.h-8/,
+  /* The inline checklist preview rows on a task card are 28px tall. Four of
+     them at 44px would roughly double the card height and restructure the
+     Today list. Owner: PR4 (card layout). */
+  /div\.mt-2\.5\.ml-\[34px\][^>]*> button/,
+];
+
 for (const theme of THEMES) {
   for (const viewport of VIEWPORTS) {
     test.describe(`${viewport.name} · ${theme}`, () => {
@@ -44,6 +64,9 @@ for (const theme of THEMES) {
             appFontFamily: measured.appFontFamily,
             contrast: measured.contrast,
             contrastFailures: failingContrast,
+            /* Text the probe saw but deliberately did not judge, with the
+               reason attached — never silently dropped. */
+            contrastExcluded: measured.excludedContrast,
             hitTargets: measured.hitTargets,
             subFortyFourTargets: subFortyFour,
             /* Split out, because a small control inside a closed modal is a
@@ -64,16 +87,33 @@ for (const theme of THEMES) {
             `${tab} @ ${viewport.name}/${theme}: document must not bleed horizontally`,
           ).toBeLessThanOrEqual(1);
 
-          // ── Baseline facts, asserted so they cannot silently change ──────
+          // ── Contrast: closed by PR3, and now a hard invariant ────────────
+          // PR0 recorded this as "failures exist"; PR3 fixed every measured
+          // pair, so the assertion is inverted. The message names the offending
+          // pairs so a regression is diagnosable from the failure alone.
           expect(
-            subFortyFour.length,
-            `${tab} @ ${viewport.name}/${theme}: sub-44px targets exist (baseline)`,
-          ).toBeGreaterThan(0);
+            failingContrast.map(
+              (c) =>
+                `${c.foreground} on ${c.background} = ${c.ratio}:1 (needs ${c.threshold}) ` +
+                `${c.fontSizePx}px/${c.fontWeight} — ${c.path}`,
+            ),
+            `${tab} @ ${viewport.name}/${theme}: every measured text pair must meet its WCAG threshold`,
+          ).toEqual([]);
+
+          // ── Touch targets: still measured, still asserted ────────────────
+          // PR3 raised every control it touches to 44x44. What is left below
+          // that bar is enumerated in TARGET_SIZE_EXCEPTIONS with an owner, so
+          // a *new* small target fails even though known ones do not.
+          const unexpectedSmall = subFortyFour
+            .filter((t) => t.inViewport)
+            .filter((t) => !TARGET_SIZE_EXCEPTIONS.some((rx) => rx.test(t.path)));
 
           expect(
-            failingContrast.length,
-            `${tab} @ ${viewport.name}/${theme}: contrast failures exist (baseline)`,
-          ).toBeGreaterThan(0);
+            unexpectedSmall.map(
+              (t) => `${t.path} — ${t.effectiveWidth}x${t.effectiveHeight} (painted ${t.width}x${t.height})`,
+            ),
+            `${tab} @ ${viewport.name}/${theme}: no un-owned control below 44x44`,
+          ).toEqual([]);
         }
 
         // ── Sticky hero + fixed nav geometry (Today only) ──────────────────

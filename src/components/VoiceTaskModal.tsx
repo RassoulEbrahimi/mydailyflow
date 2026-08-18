@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, X, Loader2 } from 'lucide-react';
 import type { Task } from '../types/task';
 import { transcribeAudio, isVoiceBackendConfigured } from '../services/voiceApi';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 
 interface VoiceTaskModalProps {
   isOpen: boolean;
@@ -11,6 +12,9 @@ interface VoiceTaskModalProps {
 }
 
 export default function VoiceTaskModal({ isOpen, onClose, onSuccess, mode = 'task' }: VoiceTaskModalProps) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(isOpen, sheetRef);
+
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -119,9 +123,16 @@ export default function VoiceTaskModal({ isOpen, onClose, onSuccess, mode = 'tas
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={handleCancel}
+        aria-hidden="true"
       />
 
       <div
+        ref={sheetRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-label={mode === 'note' ? 'Sprachnotiz' : 'Sprachaufgabe'}
+        inert={!isOpen}
         className={`fixed bottom-0 left-0 w-full bg-surface-overlay rounded-t-[2rem] z-50 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] flex flex-col p-6 pb-safe border-t border-edge/50 shadow-2xl ${
           isOpen ? 'translate-y-0' : 'translate-y-full'
         }`}
@@ -133,22 +144,28 @@ export default function VoiceTaskModal({ isOpen, onClose, onSuccess, mode = 'tas
           <h2 className="text-fg font-bold text-[18px]">
             {mode === 'note' ? 'Sprachnotiz' : 'Sprachaufgabe'}
           </h2>
-          <button onClick={handleCancel} className="text-fg-muted hover:text-fg p-1" disabled={isProcessing}>
-            <X size={22} />
+          <button
+            type="button"
+            onClick={handleCancel}
+            aria-label="Schließen"
+            className="tap-target-44 text-fg-muted hover:text-fg p-1"
+            disabled={isProcessing}
+          >
+            <X size={22} aria-hidden="true" />
           </button>
         </div>
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-6">
-            <p className="text-red-400 text-[13px] text-center">{error}</p>
+          <div className="bg-danger-surface border border-danger-border rounded-xl p-3 mb-6" role="alert">
+            <p className="text-danger text-[13px] text-center">{error}</p>
           </div>
         )}
 
         <div className="flex flex-col items-center justify-center py-6 h-40">
           {!isVoiceBackendConfigured() ? (
             <div className="flex flex-col items-center gap-3 text-center">
-              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-1">
-                <Mic size={24} className="text-red-400 opacity-50" />
+              <div className="w-12 h-12 rounded-full bg-danger-surface flex items-center justify-center mb-1" aria-hidden="true">
+                <Mic size={24} className="text-danger" />
               </div>
               <div>
                 <p className="text-fg font-semibold text-[15px] mb-1">Spracheinrichtung unvollständig</p>
@@ -159,7 +176,7 @@ export default function VoiceTaskModal({ isOpen, onClose, onSuccess, mode = 'tas
             </div>
           ) : isProcessing ? (
             <div className="flex flex-col items-center gap-4 animate-pulse">
-              <Loader2 size={40} className="text-primary animate-spin" />
+              <Loader2 size={40} className="text-primary-text animate-spin" aria-hidden="true" />
               <p className="text-fg-muted text-[15px] font-medium">
                 {mode === 'note' ? 'Notiz wird verarbeitet...' : 'Aufgabe wird vorbereitet...'}
               </p>
@@ -167,16 +184,19 @@ export default function VoiceTaskModal({ isOpen, onClose, onSuccess, mode = 'tas
           ) : (
             <div className="flex flex-col items-center gap-6">
               <button
+                type="button"
                 onClick={isRecording ? stopRecording : startRecording}
+                aria-pressed={isRecording}
+                aria-label={isRecording ? 'Aufnahme stoppen' : 'Aufnahme starten'}
                 className={`relative w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 ${
-                  isRecording 
-                    ? 'bg-red-500/20 text-red-500 scale-110 shadow-[0_0_20px_rgba(239,68,68,0.4)]' 
-                    : 'bg-primary text-white shadow-[0_0_20px_rgba(19,91,236,0.4)] hover:bg-blue-600'
+                  isRecording
+                    ? 'bg-danger-surface text-danger scale-110'
+                    : 'bg-primary text-white shadow-[0_0_20px_rgba(19,91,236,0.4)] hover:brightness-110'
                 }`}
               >
-                {isRecording ? <Square size={28} fill="currentColor" /> : <Mic size={32} />}
+                {isRecording ? <Square size={28} fill="currentColor" aria-hidden="true" /> : <Mic size={32} aria-hidden="true" />}
                 {isRecording && (
-                  <div className="absolute inset-0 rounded-full border-2 border-red-500 animate-ping opacity-75" />
+                  <div className="absolute inset-0 rounded-full border-2 border-danger animate-ping opacity-75" aria-hidden="true" />
                 )}
               </button>
               
@@ -187,7 +207,7 @@ export default function VoiceTaskModal({ isOpen, onClose, onSuccess, mode = 'tas
                 <p className="text-fg-muted text-[13px] mb-2">
                   {mode === 'note' ? 'z.B. "Details zur Aufgabe..."' : 'z.B. "Morgen Proteinshake kaufen"'}
                 </p>
-                <span className="text-[11px] text-fg-muted/80 bg-handle/50 px-2 py-0.5 rounded-md font-medium">
+                <span className="text-[11px] text-fg-secondary bg-surface-raised px-2 py-0.5 rounded-md font-medium">
                   Optimiert für Deutsch
                 </span>
               </div>

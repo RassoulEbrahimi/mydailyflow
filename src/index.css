@@ -36,8 +36,56 @@
   --color-fg-disabled:      var(--_fg-disabled);
   --color-fg-placeholder:   var(--_fg-placeholder);
 
-  /* ── Accent (unchanged across themes) ────────────────────────────────── */
+  /* ── Accent ──────────────────────────────────────────────────────────
+     `primary` is the brand fill and stays constant: white on #135bec is
+     5.62:1, which clears 4.5:1 in both palettes. `primary-text` is the
+     variant used for *text and icons on page surfaces* — the flat brand
+     blue only reaches 3.27:1 there in Dark and needs a palette-specific
+     value to pass. */
   --color-primary: #135bec;
+  --color-primary-text:    var(--_primary-text);
+  --color-primary-surface: var(--_primary-surface);
+  --color-primary-border:  var(--_primary-border);
+
+  /* ── Status ──────────────────────────────────────────────────────────
+     Four meanings, each with a text colour (≥4.5:1 on its own tinted
+     surface *and* on the page/card surfaces), a tinted surface, a border,
+     and a saturated `-solid` fill that carries white text (≥4.5:1).
+     `accent` is the recurrence/violet meaning. */
+  --color-danger:           var(--_danger);
+  --color-danger-surface:   var(--_danger-surface);
+  --color-danger-border:    var(--_danger-border);
+  --color-danger-solid:     var(--_danger-solid);
+
+  --color-warning:          var(--_warning);
+  --color-warning-surface:  var(--_warning-surface);
+  --color-warning-border:   var(--_warning-border);
+  --color-warning-solid:    var(--_warning-solid);
+
+  --color-success:          var(--_success);
+  --color-success-surface:  var(--_success-surface);
+  --color-success-border:   var(--_success-border);
+  --color-success-solid:    var(--_success-solid);
+
+  --color-accent:           var(--_accent);
+  --color-accent-surface:   var(--_accent-surface);
+  --color-accent-border:    var(--_accent-border);
+
+  --color-neutral-solid:    var(--_neutral-solid);
+
+  /* Focus indicator — also used by the global :focus-visible rule below. */
+  --color-focus:            var(--_focus);
+
+  /* ── Time-block and priority accents ─────────────────────────────────
+     Used for the 3px section bars and the priority dot. */
+  --color-block-morning:    var(--_block-morning);
+  --color-block-afternoon:  var(--_block-afternoon);
+  --color-block-evening:    var(--_block-evening);
+  --color-block-done:       var(--_block-done);
+
+  --color-priority-high:    var(--_priority-high);
+  --color-priority-medium:  var(--_priority-medium);
+  --color-priority-low:     var(--_priority-low);
 
   /* ── Special surfaces ────────────────────────────────────────────────── */
   --color-handle:           var(--_handle);
@@ -79,16 +127,56 @@
   --_edge:             #232f48;
   --_edge-subtle:      #2a364d;
   --_edge-muted:       #2e3d58;
-  --_edge-strong:      #384666;
+  /* Boundary of an unchecked control — needs 3:1, so it cannot stay #384666
+     (1.70:1 on --_surface). */
+  --_edge-strong:      #64769e;
   --_edge-accent:      #243356;
 
+  /* Text ramp. Every step clears 4.5:1 against the surfaces it is used on;
+     hierarchy is preserved by the remaining spread (6.88 → 4.46 on
+     --_surface) plus size and weight. */
   --_fg:               #ffffff;
-  --_fg-secondary:     #92a4c9;
-  --_fg-muted:         #6f89b0;
-  --_fg-meta:          #7a8ba8;
-  --_fg-faint:         #4e6285;
-  --_fg-disabled:      #4a5a78;
-  --_fg-placeholder:   #384666;
+  --_fg-secondary:     #9aabcc;
+  --_fg-muted:         #90a2c5;
+  --_fg-meta:          #8698bd;
+  --_fg-faint:         #7d90b3;
+  --_fg-disabled:      #7a8caf;
+  --_fg-placeholder:   #7688ab;
+
+  --_primary-text:     #7fb0ff;
+  --_primary-surface:  #1b2b4d;
+  --_primary-border:   #2f4a7d;
+
+  --_danger:           #ff9fae;
+  --_danger-surface:   #3a1c25;
+  --_danger-border:    #6e3140;
+  --_danger-solid:     #dc2626;
+
+  --_warning:          #f3c169;
+  --_warning-surface:  #3a2c14;
+  --_warning-border:   #6b5220;
+  --_warning-solid:    #b45309;
+
+  --_success:          #6ee7a8;
+  --_success-surface:  #123328;
+  --_success-border:   #1f5c45;
+  --_success-solid:    #047857;
+
+  --_accent:           #c4b0ff;
+  --_accent-surface:   #2a2450;
+  --_accent-border:    #4a3f80;
+
+  --_neutral-solid:    #475569;
+  --_focus:            #7fb0ff;
+
+  --_block-morning:    #60a5fa;
+  --_block-afternoon:  #fb923c;
+  --_block-evening:    #818cf8;
+  --_block-done:       #34d399;
+
+  --_priority-high:    #f87171;
+  --_priority-medium:  #fbbf24;
+  --_priority-low:     #34d399;
 
   --_handle:           #2a364f;
   --_ring-track:       rgba(255,255,255,0.08);
@@ -118,16 +206,51 @@
   --_edge:             #c8d0e0;
   --_edge-subtle:      #d5dbe8;
   --_edge-muted:       #bec8da;
-  --_edge-strong:      #9babc4;
+  --_edge-strong:      #71839b;
   --_edge-accent:      #b0bdd6;
 
   --_fg:               #1a1f36;
-  --_fg-secondary:     #5a6b8a;
-  --_fg-muted:         #6b7d9c;
-  --_fg-meta:          #7a8ba8;
-  --_fg-faint:         #8797b0;
-  --_fg-disabled:      #a0aec0;
-  --_fg-placeholder:   #b0bdcf;
+  --_fg-secondary:     #414e68;
+  --_fg-muted:         #475570;
+  --_fg-meta:          #4c5a76;
+  --_fg-faint:         #52607d;
+  --_fg-disabled:      #54627f;
+  --_fg-placeholder:   #566484;
+
+  --_primary-text:     #0f4fbe;
+  --_primary-surface:  #e4edfd;
+  --_primary-border:   #b6cdf7;
+
+  --_danger:           #a81f31;
+  --_danger-surface:   #fdeaed;
+  --_danger-border:    #f2bcc4;
+  --_danger-solid:     #dc2626;
+
+  --_warning:          #7d5100;
+  --_warning-surface:  #fdf1dc;
+  --_warning-border:   #e8c98a;
+  --_warning-solid:    #b45309;
+
+  --_success:          #136044;
+  --_success-surface:  #e2f5ec;
+  --_success-border:   #a8dcc5;
+  --_success-solid:    #047857;
+
+  --_accent:           #5b3fd0;
+  --_accent-surface:   #eee9fd;
+  --_accent-border:    #c9bcf5;
+
+  --_neutral-solid:    #475569;
+  --_focus:            #0f4fbe;
+
+  --_block-morning:    #2563eb;
+  --_block-afternoon:  #c2410c;
+  --_block-evening:    #4f46e5;
+  --_block-done:       #047857;
+
+  --_priority-high:    #dc2626;
+  --_priority-medium:  #b45309;
+  --_priority-low:     #047857;
 
   --_handle:           #c8d0e0;
   --_ring-track:       rgba(0,0,0,0.08);
@@ -140,6 +263,11 @@
 
 /* ═══════════════════════════════════════════════════════════════════════════
    SYSTEM preference (used when data-theme is absent or "system")
+
+   These declarations must stay byte-for-byte equivalent to the
+   [data-theme="light"] block above — CSS has no mixins, so the duplication
+   is guarded by a unit test (src/utils/__tests__/theme-tokens.test.ts) that
+   fails if the two blocks ever drift apart.
    ═══════════════════════════════════════════════════════════════════════════ */
 @media (prefers-color-scheme: light) {
   [data-theme="system"] {
@@ -158,16 +286,51 @@
     --_edge:             #c8d0e0;
     --_edge-subtle:      #d5dbe8;
     --_edge-muted:       #bec8da;
-    --_edge-strong:      #9babc4;
+    --_edge-strong:      #71839b;
     --_edge-accent:      #b0bdd6;
 
     --_fg:               #1a1f36;
-    --_fg-secondary:     #5a6b8a;
-    --_fg-muted:         #6b7d9c;
-    --_fg-meta:          #7a8ba8;
-    --_fg-faint:         #8797b0;
-    --_fg-disabled:      #a0aec0;
-    --_fg-placeholder:   #b0bdcf;
+    --_fg-secondary:     #414e68;
+    --_fg-muted:         #475570;
+    --_fg-meta:          #4c5a76;
+    --_fg-faint:         #52607d;
+    --_fg-disabled:      #54627f;
+    --_fg-placeholder:   #566484;
+
+    --_primary-text:     #0f4fbe;
+    --_primary-surface:  #e4edfd;
+    --_primary-border:   #b6cdf7;
+
+    --_danger:           #a81f31;
+    --_danger-surface:   #fdeaed;
+    --_danger-border:    #f2bcc4;
+    --_danger-solid:     #dc2626;
+
+    --_warning:          #7d5100;
+    --_warning-surface:  #fdf1dc;
+    --_warning-border:   #e8c98a;
+    --_warning-solid:    #b45309;
+
+    --_success:          #136044;
+    --_success-surface:  #e2f5ec;
+    --_success-border:   #a8dcc5;
+    --_success-solid:    #047857;
+
+    --_accent:           #5b3fd0;
+    --_accent-surface:   #eee9fd;
+    --_accent-border:    #c9bcf5;
+
+    --_neutral-solid:    #475569;
+    --_focus:            #0f4fbe;
+
+    --_block-morning:    #2563eb;
+    --_block-afternoon:  #c2410c;
+    --_block-evening:    #4f46e5;
+    --_block-done:       #047857;
+
+    --_priority-high:    #dc2626;
+    --_priority-medium:  #b45309;
+    --_priority-low:     #047857;
 
     --_handle:           #c8d0e0;
     --_ring-track:       rgba(0,0,0,0.08);
@@ -192,6 +355,35 @@
     background: radial-gradient(circle, var(--_hero-glow) 0%, transparent 70%);
   }
 
+  /* Decorative glows for the time-block bars and priority dots. They take
+     their hue from `currentColor`, so a single class works for every accent
+     and follows the palette instead of a hardcoded rgba() literal. */
+  .accent-glow {
+    box-shadow: 0 0 10px color-mix(in srgb, currentColor 50%, transparent);
+  }
+
+  .dot-glow {
+    box-shadow: 0 0 6px color-mix(in srgb, currentColor 70%, transparent);
+  }
+
+  /* Expands a control's touch target to 44×44 CSS px without changing its
+     painted size or the surrounding layout: the hit area is an absolutely
+     positioned, transparent overlay centred on the control. */
+  .tap-target-44 {
+    position: relative;
+  }
+  .tap-target-44::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    min-width: 100%;
+    min-height: 100%;
+    transform: translate(-50%, -50%);
+  }
+
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
   }
@@ -209,6 +401,20 @@
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
+  }
+
+  /* Visible focus indicator.
+     Before this, keyboard focus fell back to the UA ring, which measured
+     1.04–1.19:1 against the app's surfaces. `--_focus` clears 3:1 in both
+     palettes.
+
+     `transition: none` is deliberate: several controls carry `transition-all`,
+     which animates `outline-width` from 0 and leaves the ring invisible for
+     the first frames after focus moves — and unmeasurable. */
+  :focus-visible {
+    outline: 2px solid var(--_focus);
+    outline-offset: 2px;
+    transition: none;
   }
 
   input,
