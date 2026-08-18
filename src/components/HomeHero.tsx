@@ -70,6 +70,12 @@ interface HomeHeroProps {
   /** Whether to pin the hero with CSS sticky while content scrolls */
   stickyEnabled: boolean;
   userName?: string;
+  /**
+   * Attached to the outermost element so the shell can measure the pinned
+   * height. The shell owns the layout contract (`--mdf-pinned-top`); the hero
+   * only reports its own box, and never hard-codes an offset.
+   */
+  panelRef?: React.Ref<HTMLDivElement>;
 }
 
 const HomeHero = ({
@@ -78,6 +84,7 @@ const HomeHero = ({
   percentage,
   stickyEnabled,
   userName = 'SolariuS',
+  panelRef,
 }: HomeHeroProps) => {
   const greeting = useMemo(() => getGreeting(), []);
   const dateLabel = useMemo(() =>
@@ -108,20 +115,28 @@ const HomeHero = ({
   );
 
   if (stickyEnabled) {
-    // Sticky container: sticks to top: -1px once the header above it has scrolled out of view.
-    // This removes any sub-pixel gap lines above the hero while scrolling.
+    // Sticky container.
+    //
+    // `top` is -1px so no sub-pixel gap line appears above the hero while
+    // scrolling, and it is offset by the top safe-area inset so the pinned
+    // surface clears a notch or status bar instead of sliding under it.
+    //
+    // The wrapper — not just the gradient panel — carries an opaque page
+    // background: the panel is `rounded-b-[2rem]`, so without it, content
+    // scrolling underneath shows through the two bottom corner arcs.
     return (
       <div
-        className="left-0 right-0 z-20"
-        style={{ position: 'sticky', top: '-1px' }}
+        ref={panelRef}
+        className="left-0 right-0 z-20 bg-page"
+        style={{ position: 'sticky', top: 'calc(env(safe-area-inset-top, 0px) - 1px)' }}
       >
         {panel}
       </div>
     );
   }
 
-  // Non-sticky: normal flow
-  return <div>{panel}</div>;
+  // Non-sticky: normal flow, and no pinned height for the shell to reserve.
+  return <div ref={panelRef}>{panel}</div>;
 };
 
 export default HomeHero;

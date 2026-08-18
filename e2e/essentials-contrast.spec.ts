@@ -50,8 +50,16 @@ const TITLE_SELECTOR = '.bg-surface-dim .text-\\[15px\\]';
 const PROGRESS_SELECTOR = '.bg-surface-dim .text-\\[12px\\]';
 /** The "x/y" completion badge in the section header. */
 const BADGE_SELECTOR = '.text-\\[13px\\].rounded-full';
-/** Numbered counter chips. */
-const CHIP_SELECTOR = '.bg-surface-dim button.w-8.h-8';
+/**
+ * Numbered counter chips.
+ *
+ * Selected by `aria-pressed` rather than by their size classes. The original
+ * `button.w-8.h-8` silently stopped matching anything when PR4 raised the chips
+ * to 44x44 — a contrast test that matches nothing passes for the wrong reason,
+ * so the selector now keys on the semantic attribute, which does not change when
+ * the control is resized.
+ */
+const CHIP_SELECTOR = '.bg-surface-dim button[aria-pressed]';
 
 async function seedEssentials(app: { page: import('@playwright/test').Page }) {
   await app.page.evaluate(

@@ -118,6 +118,25 @@ const TaskCard = ({
     ? dragX - ACTION_WIDTH   // dragging from open position
     : dragX;                 // dragging from closed position
 
+  /**
+   * Whether any part of the action strip is actually exposed.
+   *
+   * This is the containment fix, and it is deliberately not a colour trick.
+   * At rest the strip used to paint at full opacity directly underneath the
+   * card body. The body is a separately rasterised layer (it carries a
+   * `transform` and `will-change: transform`), so its antialiased 16px corner
+   * arcs never coincide exactly with the wrapper's own rounded clip. The
+   * measured result was 31–47 strip-coloured pixels bleeding around each card's
+   * right-hand corners at every device pixel ratio from 1 to 3 — the
+   * blue/green/red sliver.
+   *
+   * Nothing that paints underneath a rounded, composited layer can be relied on
+   * to stay hidden, so the strip simply does not paint until it is being
+   * revealed. Its buttons stay in the DOM and in the tab ring, and focusing one
+   * still opens the strip (PR3), so keyboard access is unchanged.
+   */
+  const isStripRevealed = isSwipeOpen || translateX !== 0;
+
   const closeSwipe = () => {
     setOpenSwipeId(null);
     setDragX(0);
@@ -161,7 +180,9 @@ const TaskCard = ({
 
       {/* ── Action strip (revealed behind card by swipe) ────────────────────*/}
       <div
-        className="absolute inset-y-0 right-0 flex items-stretch"
+        className={`absolute inset-y-0 right-0 flex items-stretch rounded-2xl overflow-hidden transition-opacity duration-150 ${
+          isStripRevealed ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
         style={{ width: ACTION_WIDTH }}
         onFocus={handleStripFocus}
         onBlur={handleStripBlur}
@@ -359,7 +380,10 @@ const TaskCard = ({
                 type="button"
                 onPointerDown={e => e.stopPropagation()}
                 onClick={e => { e.stopPropagation(); if (isSwipeOpen) { closeSwipe(); return; } onToggleChecklistItem(id, item.id); }}
-                className="flex items-center gap-2 text-left group/ci min-h-[28px] py-0.5"
+                // 44px activation height, full row width. Rows are stacked with a
+                // 2px gap, so the enlarged areas sit next to each other rather
+                // than overlapping, and no pseudo-element is involved.
+                className="flex w-full items-center gap-2 text-left group/ci min-h-11 py-1"
                 role="checkbox"
                 aria-checked={item.completed}
               >
