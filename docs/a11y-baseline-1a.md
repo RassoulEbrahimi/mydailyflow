@@ -2,10 +2,11 @@
 
 **Status:** living document. It began as a measured baseline (PR0, no product
 code changed) and is updated by each Phase 1A PR that closes part of it. PR2
-resolved §7; **PR3 resolved §3, §4 (except two enumerated classes), §5 and
-reduced the §9.2 axe baseline to zero**. Sections carry a status banner where
-they have been closed, and the original PR0 measurements are preserved beneath
-each one.
+resolved §7; **PR3 resolved §3, §5 and reduced the §9.2 axe baseline to zero**;
+**PR4 resolved §6.1, §6.3, §6.4 and the last two entries in §4**. Sections carry
+a status banner where they have been closed, and the original PR0 measurements
+are preserved beneath each one — including where a PR0 conclusion later turned
+out to be wrong (§6.4).
 
 This document records what My Daily Flow does *today*, as measured by the browser
 suite added in the same PR. Nothing here is a fix, and nothing here was made to
@@ -339,17 +340,24 @@ by the harness instead and appear in §3.1/§3.2.
 > controls (the snapshot export/delete pair, the Essentials edit/delete pair, the
 > search-clear button next to the search field) were grown for real instead.
 >
-> **Two classes remain below 44 × 44, both with an owner:**
+> **Two classes remained below 44 × 44 after PR3 — both closed in PR4:**
 >
-> | Control | Size | Why it was not changed here | Owner |
+> | Control | PR3 | PR4 | How |
 > |---|---|---|---|
-> | Daily Essentials counter chips | 32 × 32 | A row of up to 10 chips at 44 px widens past the card at 360 px — the same containment problem §6.3 records. Enlarging them here would make it worse. | PR4 |
-> | Inline checklist preview rows on a task card | 28 px tall | Four rows at 44 px would roughly double the card height and restructure the Today list. | PR4 |
+> | Daily Essentials counter chips | 32 × 32 | **44 × 44** | The counter row was side-by-side with the title, where five 44 px chips need 244 px plus padding against ~272 px of usable width at 360 — leaving nothing for the title. The row now **stacks**: title and progress on one line, counters full-width beneath, `flex-wrap` for targets above five. |
+> | Inline checklist preview rows on a task card | 282 × 28 | **252 × 44** | Raised to a 44 px activation height across the full row width. Rows are stacked with a 2 px gap, so the enlarged areas abut rather than overlap, and no pseudo-element is involved. |
 >
-> These are enumerated in `TARGET_SIZE_EXCEPTIONS` in `e2e/viewports.spec.ts`,
-> with the reason and owner next to each entry. Nothing is suppressed: they are
-> still measured, still written to the evidence JSON, and any *new* control below
-> 44 × 44 fails the run.
+> `TARGET_SIZE_EXCEPTIONS` in `e2e/viewports.spec.ts` is now **empty**: every
+> on-screen control must meet 44 × 44. The constant is kept rather than deleted,
+> so a future deferral has to be written down with a reason and an owner instead
+> of quietly weakening the assertion.
+>
+> Size alone was not the requirement. `e2e/touch-targets.spec.ts` also asserts
+> pairwise non-overlap of every counter chip and every checklist row, no
+> horizontal overflow of the page or the Essentials card, and that the enlarged
+> controls kept their semantics — `aria-pressed` on the counters, `aria-checked`
+> and Enter activation on the rows — using German, Persian and mixed content at
+> 360/390/430 × Dark/Light, including a 10-counter Essential.
 
 Totals per tab are **35 (Today) / 34 (All) / 24 (Done)** at every viewport and in
 both themes — these are fixed-size controls, so width and theme change nothing.
@@ -592,6 +600,37 @@ four unrelated buttons with no indication of which view is open.
 
 The hero pins correctly at `top: -1px` and does **not** clip its own content.
 
+> **Corrected in PR4 — it clipped *other* content.** The PR0 measurement only
+> asked whether the hero clipped itself. What it never checked is whether
+> anything could still be reached underneath it: the scroll container had
+> `scroll-padding-top: auto`, so every programmatic scroll — focus,
+> `scrollIntoView`, an anchor — parked content behind the pinned surface. Measured
+> at 390 × 812 after scrolling: a time-block heading sat at y = 71 while the hero
+> occupied y = 0 → 100.
+>
+> PR4 gives the shell a measured layout contract. `App.tsx` observes the pinned
+> element and publishes its height as **`--mdf-pinned-top`** on the scroll
+> container; `scroll-padding-top` is derived from it, and the sticky date headers
+> read the same property for their own `top`. Nothing hard-codes an offset — the
+> hero's height changes with the German greeting, the viewport width, the font
+> that actually loaded, and whether the user pinned it at all, so a constant is
+> wrong most of the time. When nothing is pinned the property is `0px`, so the
+> non-sticky case falls out of the same contract rather than needing a second
+> code path.
+>
+> Two smaller corrections in the same place: the sticky *wrapper* now carries an
+> opaque `bg-page` (the panel is `rounded-b-[2rem]`, so content scrolling
+> underneath previously showed through the two bottom corner arcs), and `top` is
+> `calc(env(safe-area-inset-top, 0px) - 1px)` so the pinned surface clears a
+> notch instead of sliding under it.
+>
+> Asserted in `e2e/sticky-layout.spec.ts` at 360/390/430 × Dark/Light: the
+> contract equals the pinned element's height, `scroll-padding-top` equals the
+> contract, and scrolling to **every** section heading, Essentials row and task
+> title lands it clear of the pinned surface. Disabling the setting is asserted
+> too — `position: static`, contract `0px`, no reserved gap, and the hero
+> genuinely scrolls out of view.
+
 ### 6.2 Fixed bottom navigation
 
 | | Value |
@@ -603,6 +642,12 @@ The hero pins correctly at `top: -1px` and does **not** clip its own content.
 `<main>` carries `pb-24` (96 px) of bottom padding, which covers the 85.5 px nav,
 so no content is permanently unreachable. Recorded so PR4 can verify the margin
 survives a taller safe-area inset on a real device (§10).
+
+> **PR4 status: unchanged and still adequate.** PR4 made the top inset explicit
+> (`env(safe-area-inset-top)` on the app bar and the pinned offset); the bottom
+> margin already used `max(1.25rem, env(safe-area-inset-bottom))` on the nav
+> against `pb-24`. Verifying the *real* bottom inset still needs hardware and
+> stays with PR8.
 
 ### 6.3 Horizontal bleed — the Daily Essentials chip row
 
@@ -625,11 +670,15 @@ this is pure layout.
 > the fix. The *existence* of the overflow at 360 is not in doubt — the chips
 > alone are 6 × 32 px + 5 gaps + padding — but the exact px is provisional.
 >
-> **Still open. Owner: PR4.** PR3 deliberately did *not* enlarge the chips to
-> 44 × 44, because that would add another 72 px to a row that already overflows
-> by 45 px at 360. The 32 × 32 size is recorded in `TARGET_SIZE_EXCEPTIONS`
-> (§4) so the two decisions stay tied together: whoever reflows this row should
-> raise the chips to 44 in the same change.
+> **Closed in PR4, together with the chip size.** The two were always the same
+> problem: the row overflowed because a title and a horizontal run of counters
+> were competing for one line. PR4 stacks them — title and progress on one line,
+> counters full-width beneath with `flex-wrap` — which both removes the overflow
+> and makes room for 44 × 44 counters.
+>
+> Re-measured after the change at 360 × 812 with a 10-counter Essential and
+> Persian, German and mixed titles: **page overflow 0 px, Essentials card
+> overflow 0 px**, every counter 44 × 44, no two counters intersecting.
 
 ### 6.4 Cards and action strips
 
@@ -638,6 +687,44 @@ widths: the strip is `absolute inset-y-0 right-0` inside an
 `overflow-hidden rounded-2xl` wrapper, and `documentBleedPx` is 0 everywhere.
 The 4 px overflow observed on the All tab's group containers is the same
 `overflow-hidden` wrapper measuring its own clipped child; nothing is visible.
+
+> **This conclusion was wrong, and PR4 corrected it.** The measurement was
+> geometric — box overflow — and geometry was never the problem. A real device
+> showed a blue/green/red line at the edge of resting cards ("F8").
+>
+> **Root cause.** The strip painted at full opacity directly underneath the card
+> body. The body is a *separately rasterised layer* — it carries a `transform`
+> and `will-change: transform` — so its antialiased 16 px corner arcs never
+> coincide exactly with the wrapper's own rounded clip. The two rounded rects are
+> composited independently, and the seam between them shows whatever is beneath.
+>
+> **Measured, before the fix**, by screenshotting a resting card, hiding the
+> strip, screenshotting again and comparing the decoded rasters — so the finding
+> is the strip's own contribution, not a guess about colours:
+>
+> | Device pixel ratio | Strip-coloured pixels per card | Worst per-channel delta |
+> |---|---|---|
+> | 1 | 31–47 | 68 |
+> | 1.25 | 31–47 | 68 |
+> | 1.5 | 33–47 | 80 |
+> | 2 | 33–47 | 80 |
+> | 3 | 33–47 | 80 |
+>
+> Concentrated at x ≈ 334 of a 350 px card — the right-hand 16 px corner arcs.
+>
+> **Fix.** Nothing painted underneath a rounded, composited layer can be relied
+> on to stay hidden, so the strip does not paint until it is actually being
+> revealed: `opacity-0 pointer-events-none` at rest, full opacity as soon as a
+> drag exposes it or focus enters it. Its buttons stay in the DOM and in the tab
+> ring, so PR3's focus-reveals-the-actions behaviour is unchanged. This is
+> deliberately not a matching background colour, which would only hide the seam
+> against one palette.
+>
+> **After the fix: 0 pixels, delta 0, at every ratio above, in both themes.**
+> Asserted in `e2e/card-containment.spec.ts`, along with the strip being inert to
+> pointers while hidden, the swipe still revealing it, keyboard focus still
+> revealing and operating it, and a Persian task title not moving the actions to
+> the wrong edge.
 
 ---
 
@@ -931,12 +1018,24 @@ done carry the reason and, where one exists, the owner.
   This is layout containment, which the queue assigns to PR4, and enlarging the
   chips here would have made it worse. Owner: PR4.
 
-### PR4 — sticky-surface clipping and F8 / action-strip containment
+### PR4 — sticky-surface clipping and F8 / action-strip containment — **delivered**
 
-* Re-verify the 85.5 px nav / 96 px `pb-24` margin against a real safe-area
-  inset, and confirm the sticky hero never clips content beneath it (§6.1, §6.2).
-* Keep the F8 / task action strip contained within its rounded wrapper at every
-  supported width (§6.4).
+* ✅ **Sticky clipping.** Replaced by a measured, shell-owned layout contract
+  (`--mdf-pinned-top`) driving `scroll-padding-top` and the date headers' `top`.
+  See §6.1.
+* ✅ **Sticky date headers.** They now pin *below* the contract instead of at
+  `top: 0`, and are opaque — `bg-page/95` let task titles smear through as they
+  scrolled underneath. Asserted at all three widths in both themes.
+* ✅ **F8 / action-strip containment.** Root-caused and fixed; see §6.4.
+* ✅ **The two 44 × 44 exceptions PR3 deferred.** Both closed; see §4.
+  `TARGET_SIZE_EXCEPTIONS` is now empty.
+* ✅ **Deployment pruning.** `gh-pages` defaults `remove` to `'.'`, and globby
+  runs that pattern with `dot: false` — so dotfiles on the branch were never
+  matched and `.env.example` / `.gitignore` survived every deploy. The `deploy`
+  script now passes `--remove "{**/*,**/.*}"`, a supported option; no force, no
+  history rewrite, no dependency change.
+* ⬜ **Still with PR8.** Re-verifying the 85.5 px nav / 96 px `pb-24` margin
+  against a *real* safe-area inset needs hardware (§6.2).
 
 ### PR5 — RTL/bidi hardening
 
@@ -998,6 +1097,7 @@ emulated viewports. The following can only be verified on real hardware:
 | `test-results/baseline/axe-<viewport>-<theme>-<tab>.json` | node fingerprints, axe rule ids, classified findings, category counts |
 | `test-results/baseline/keyboard-focus-order-today-<theme>.json` | the full traversal with focus styles and ring contrast, per theme |
 | `test-results/baseline/essentials-contrast-<viewport>-<theme>.json` | composited Daily Essentials text contrast (DE/FA/emoji/mixed) |
+| `test-results/artifacts/**` | Playwright traces and failure screenshots, including the card rasters the F8 containment test compares |
 | `test-results/baseline/modal-new-task-<theme>.json` / `modal-settings-<theme>.json` | the sheets measured while **open**, with the NewTaskModal disclosure expanded |
 | `test-results/baseline/backup-*.json` | export contents and round-trip results |
 | `test-results/baseline/reminders-tab-state.json` | the inert-tab evidence |

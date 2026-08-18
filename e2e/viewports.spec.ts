@@ -19,24 +19,19 @@ import { measurePage, measureSticky } from './utils/measure';
 const TABS: Tab[] = ['today', 'all', 'done', 'reminders'];
 
 /**
- * On-screen controls that are still below 44x44 CSS px after PR3, each with a
- * reason and an owner. Matched against the measured element's DOM path.
+ * On-screen controls allowed below 44x44 CSS px.
  *
- * Nothing here is suppressed: every one of these is still measured, still
- * written to `test-results/baseline/matrix-*.json`, and still annotated. The
- * list exists so that a *new* small control fails the run.
+ * **Empty since PR4.** PR3 left two entries here — the Daily Essentials counter
+ * chips and the inline checklist rows — both deferred because raising them
+ * needed the layout work PR4 owns. PR4 did that work (the counter row stacks,
+ * the checklist rows are 44px tall), so the list is now empty and *every*
+ * on-screen control must meet 44x44.
+ *
+ * The constant is kept rather than deleted: a future deferral has to be written
+ * down here, with a reason and an owner, instead of quietly weakening the
+ * assertion.
  */
-const TARGET_SIZE_EXCEPTIONS: RegExp[] = [
-  /* Daily Essentials counter chips are 32x32 in a horizontal row inside the
-     card. Growing them to 44 widens the row past the card at 360px, which is
-     exactly the containment problem PR4 owns; enlarging them here would make
-     that worse. Owner: PR4. */
-  /button\.w-8\.h-8/,
-  /* The inline checklist preview rows on a task card are 28px tall. Four of
-     them at 44px would roughly double the card height and restructure the
-     Today list. Owner: PR4 (card layout). */
-  /div\.mt-2\.5\.ml-\[34px\][^>]*> button/,
-];
+const TARGET_SIZE_EXCEPTIONS: RegExp[] = [];
 
 for (const theme of THEMES) {
   for (const viewport of VIEWPORTS) {
@@ -132,7 +127,16 @@ for (const theme of THEMES) {
 
         expect(stickyAtTop.present, 'the Today hero renders').toBe(true);
         expect(stickyAtTop.position).toBe('sticky');
-        expect(stickyAtTop.top).toBe('-1px');
+        // PR4 made the offset safe-area aware —
+        // `calc(env(safe-area-inset-top, 0px) - 1px)` — so the string is no
+        // longer a fixed literal. What matters is the resolved value: the hero
+        // pins flush with the scroll port (the -1px kills a sub-pixel gap line),
+        // plus whatever inset the device reports. Assert the number, not the
+        // spelling, or this breaks on the first notched device.
+        const resolvedTop = parseFloat(stickyAtTop.top);
+        expect(Number.isNaN(resolvedTop), `sticky top resolves to a length (got "${stickyAtTop.top}")`).toBe(false);
+        expect(resolvedTop).toBeGreaterThanOrEqual(-1);
+        expect(resolvedTop).toBeLessThanOrEqual(0);
 
         // Pinned: after scrolling, the hero's top edge sits at or above the
         // viewport top rather than scrolling away.

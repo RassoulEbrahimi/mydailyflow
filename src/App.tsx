@@ -55,6 +55,67 @@ const NAV_ITEMS: { id: TabId; label: string; Icon: typeof Sun }[] = [
   { id: 'done',      label: 'Erledigt',      Icon: CheckCircle2 },
 ];
 
+/**
+ * The layout contract for everything pinned at the top of the scroll container.
+ *
+ * Two values are published on the scroller:
+ *
+ *   `--mdf-pinned-top`    height of the pinned hero, or 0px when it is not pinned
+ *   `--mdf-sticky-group`  height of a sticky group header, or 0px when there is none
+ *
+ * `scroll-padding-top` is the **sum**, because on the All Tasks tab both can be
+ * stacked: a date header pins directly below the hero, and a scroll that only
+ * cleared the hero would still park a task title behind the date header. The
+ * date header itself offsets by `--mdf-pinned-top` alone, since that is what
+ * sits above it.
+ *
+ * Why measured rather than constants: the hero's height depends on the German
+ * greeting ("Guten Morgen" wraps differently from "Guten Tag"), the viewport
+ * width, the font that actually loaded, and whether the user pinned it at all;
+ * the group header's depends on the date label. Every one of those changes the
+ * offset, so hard-coded numbers are wrong most of the time. The shell owns both
+ * values; no component repeats them.
+ */
+function usePinnedTopContract(
+  scrollerRef: React.RefObject<HTMLElement | null>,
+  pinnedRef: React.RefObject<HTMLElement | null>,
+  isPinned: boolean,
+  /** Re-measure when the view changes what it renders. */
+  viewKey: string,
+) {
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+
+    /**
+     * Rounded **up** from the fractional border-box height.
+     *
+     * `offsetHeight` is an integer, so it rounds a 40.4px header down to 40 and
+     * the reservation ends up a fraction short — measured as a title landing at
+     * y = 39.6 under a header whose bottom edge was at y = 40. Reserving a
+     * fraction too much is invisible; reserving too little parks content behind
+     * the pinned surface, which is the whole defect.
+     */
+    const reservedHeight = (el: HTMLElement) => Math.ceil(el.getBoundingClientRect().height);
+
+    const publish = () => {
+      const hero = isPinned && pinnedRef.current ? reservedHeight(pinnedRef.current) : 0;
+      const group = scroller.querySelector<HTMLElement>('[data-sticky-group]');
+      scroller.style.setProperty('--mdf-pinned-top', `${hero}px`);
+      scroller.style.setProperty('--mdf-sticky-group', `${group ? reservedHeight(group) : 0}px`);
+    };
+
+    publish();
+
+    const observer = new ResizeObserver(publish);
+    if (isPinned && pinnedRef.current) observer.observe(pinnedRef.current);
+    const group = scroller.querySelector<HTMLElement>('[data-sticky-group]');
+    if (group) observer.observe(group);
+
+    return () => observer.disconnect();
+  }, [scrollerRef, pinnedRef, isPinned, viewKey]);
+}
+
 function AppInner({ logout }: { logout: () => void }) {
   const { theme, setTheme } = useTheme();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -70,6 +131,10 @@ function AppInner({ logout }: { logout: () => void }) {
   const [stickyHeroEnabled, setStickyHeroEnabled] = useState<boolean>(
     () => localStorage.getItem('stickyHeroEnabled') !== 'false'
   );
+
+  /** The single scroll container, and the surface pinned at its top. */
+  const scrollerRef = useRef<HTMLElement>(null);
+  const pinnedRef = useRef<HTMLDivElement>(null);
 
   // ─── Service Worker update banner ──────────────────────────────────────────
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -180,6 +245,16 @@ function AppInner({ logout }: { logout: () => void }) {
     localStorage.setItem('remindersEnabled', String(remindersEnabled));
   }, [remindersEnabled]);
 
+  // Only the Today tab renders the hero, so only Today has a pinned hero. The
+  // All tab is what contributes a sticky group header, so the contract is
+  // re-measured whenever the visible view changes.
+  usePinnedTopContract(
+    scrollerRef,
+    pinnedRef,
+    stickyHeroEnabled && activeTab === 'today',
+    `${activeTab}|${allDateFilter}|${searchQuery}`,
+  );
+
   const handleSaveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed' | 'date' | 'rolledOverFrom'>) => {
     const saved = saveTask(taskData, taskToEdit);
     // If we have a voice draft meant for tomorrow, move it immediately
@@ -247,8 +322,17 @@ function AppInner({ logout }: { logout: () => void }) {
       )}
 
       {/* ── Single scrollable container — header + hero scroll with content ── */}
-      <main className="flex-1 overflow-y-auto pb-24 custom-scrollbar">        {/* ── Top app bar — scrolls away naturally ─────────────────────────── */}
-        <header className="px-5 pt-5 pb-2 flex items-center justify-between gap-3">
+      {/* The single scroll container. `scroll-padding-top` keeps any programmatic
+          scroll — focus, scrollIntoView, anchor — clear of the pinned hero and
+          of the sticky date headers, which read the same custom property. */}
+      <main
+        ref={scrollerRef}
+        className="flex-1 overflow-y-auto pb-24 custom-scrollbar scroll-pt-[calc(var(--mdf-pinned-top,0px)+var(--mdf-sticky-group,0px))]"
+      >        {/* ── Top app bar — scrolls away naturally ─────────────────────────── */}
+        <header
+          className="px-5 pb-2 flex items-center justify-between gap-3"
+          style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}
+        >
           {/* Left: logo or search */}
           {isSearchActive ? (
             <div className="flex-1 flex items-center bg-surface-raised rounded-full px-4 py-2 border border-edge/50 overflow-hidden">
@@ -312,6 +396,7 @@ function AppInner({ logout }: { logout: () => void }) {
             total={totalTasksCount}
             percentage={progressPercentage}
             stickyEnabled={stickyHeroEnabled}
+            panelRef={pinnedRef}
           />
         )}
 

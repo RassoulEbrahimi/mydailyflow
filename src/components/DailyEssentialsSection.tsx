@@ -116,29 +116,35 @@ export default function DailyEssentialsSection({
             }
 
             return (
-              <div 
+              // Stacked, not side-by-side. Five 44x44 counters need 244px plus
+              // their container padding; at 360 the row only offers ~272px
+              // inside the card, which leaves nothing for the title. Putting the
+              // counters on their own full-width line below the title is what
+              // makes 44x44 fit at the narrowest supported width, and `flex-wrap`
+              // covers targets above five without ever overflowing the card.
+              <div
                 key={essential.id}
-                className={`flex items-center justify-between p-3 rounded-xl transition-all ${
+                className={`flex flex-col gap-2 p-3 rounded-xl transition-all ${
                     isDone 
                       ? 'bg-primary-surface border border-primary-border'
                       : 'bg-surface-raised border border-transparent'
                 }`}
               >
-                <div className="flex flex-col gap-1 min-w-0">
+                <div className="flex items-baseline justify-between gap-3 min-w-0">
                   <span
                     dir="auto"
-                    className={`text-[15px] font-medium transition-colors ${
+                    className={`text-[15px] font-medium transition-colors min-w-0 break-words ${
                       isDone ? 'text-fg line-through opacity-70' : 'text-fg'
                     }`}
                   >
                     {essential.title}
                   </span>
-                  <span className="text-[12px] font-medium text-fg-secondary">
+                  <span className="text-[12px] font-medium text-fg-secondary flex-shrink-0 tabular-nums">
                     {progress} / {essential.targetCount}
                   </span>
                 </div>
-                
-                <div className="flex items-center gap-1.5 bg-surface-dim p-1 rounded-lg border border-edge-subtle">
+
+                <div className="flex flex-wrap items-center gap-1.5 bg-surface-dim p-1 rounded-lg border border-edge-subtle">
                   {Array.from({ length: essential.targetCount }).map((_, i) => {
                     const chipValue = i + 1;
                     const isActive = progress >= chipValue;
@@ -157,7 +163,7 @@ export default function DailyEssentialsSection({
                         }}
                         aria-pressed={isActive}
                         aria-label={`${essential.title}: ${chipValue} von ${essential.targetCount}`}
-                        className={`w-8 h-8 rounded-md flex items-center justify-center text-[14px] font-bold transition-all active:scale-90 ${
+                        className={`w-11 h-11 rounded-md flex items-center justify-center text-[14px] font-bold transition-all active:scale-90 ${
                           isActive
                             ? 'bg-primary text-white shadow-[0_0_10px_rgba(19,91,236,0.3)]'
                             : 'bg-transparent text-fg-secondary hover:bg-surface-control'
