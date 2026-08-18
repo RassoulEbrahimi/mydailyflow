@@ -716,7 +716,7 @@ test.describe('input direction follows the typed value', () => {
     const dialog = await openNewTaskModal(page);
 
     await dialog.getByRole('button', { name: 'Notiz' }).click();
-    const notes = dialog.getByLabel('Notiz');
+    const notes = dialog.getByLabel('Notiz', { exact: true });
     await notes.fill('Kurze deutsche Notiz');
     expect(await app.direction(notes)).toBe('ltr');
     await notes.fill(FA_NOTES);
@@ -755,7 +755,10 @@ test.describe('input direction follows the typed value', () => {
   test('editing a Persian essential keeps the field and the stored value intact', async ({ app }) => {
     const page = app.page;
     await page.getByRole('button', { name: 'Essentials verwalten' }).click();
-    const dialog = page.getByRole('dialog');
+    // Named, not bare: every sheet in the app stays mounted, and `inert` does
+    // not remove an element from Playwright's role engine, so a bare
+    // getByRole('dialog') matches all five at once.
+    const dialog = page.getByRole('dialog', { name: 'Essentials verwalten' });
     await expect(dialog).toBeVisible();
 
     await dialog.getByLabel(`Bearbeiten: ${BIDI_ESSENTIALS[0].title}`).click();
