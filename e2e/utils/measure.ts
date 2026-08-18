@@ -133,9 +133,19 @@ export interface HitTarget {
   path: string;
   label: string;
   role: string;
+  /** The control's own painted border box. */
   width: number;
   height: number;
-  /** True when both dimensions reach 44 CSS px. */
+  /**
+   * The box a finger actually hits. A control may carry a transparent,
+   * absolutely positioned `::before`/`::after` overlay (the app's
+   * `.tap-target-44` utility) that enlarges the hit area without changing the
+   * painted size or the surrounding layout — `getBoundingClientRect()` does not
+   * see it, so measuring only the border box would under-report.
+   */
+  effectiveWidth: number;
+  effectiveHeight: number;
+  /** True when the *effective* hit area reaches 44 CSS px in both dimensions. */
   meets44: boolean;
   /**
    * False for controls that are mounted but parked off-screen — the modals stay
@@ -198,8 +208,23 @@ export interface StickyMeasurement {
 // against the DOM lib, but it must stay self-contained: nothing outside its own
 // body is in scope inside the browser.
 
+/**
+ * A text node the contrast probe deliberately did not judge, and why.
+ *
+ * Recorded rather than dropped: "we saw this and decided it is out of scope" is
+ * a different statement from "we never looked", and only the first is reviewable.
+ */
+export interface ExcludedContrast {
+  path: string;
+  label: string;
+  reason: 'not-rendered' | 'disabled-control';
+  detail: string;
+}
+
 interface PageMeasurements {
   contrast: ContrastPair[];
+  /** Text the probe saw but did not judge — see `ExcludedContrast`. */
+  excludedContrast: ExcludedContrast[];
   hitTargets: HitTarget[];
   namelessControls: NamelessControl[];
   horizontalOverflow: { path: string; label: string; overflowPx: number; scrollWidth: number; clientWidth: number }[];
@@ -331,7 +356,20 @@ function collectMeasurements(): PageMeasurements {
 
   // ── contrast over every element that paints its own text ──────────────────
   const contrastPairs: ContrastPair[] = [];
+  const excludedContrast: ExcludedContrast[] = [];
   const seenContrast = new Set<string>();
+
+  /** Product of `opacity` on the element and every ancestor. */
+  const effectiveOpacity = (el: Element): number => {
+    let acc = 1;
+    let node: Element | null = el;
+    while (node) {
+      const o = Number(getComputedStyle(node).opacity);
+      if (!Number.isNaN(o)) acc *= o;
+      node = node.parentElement;
+    }
+    return acc;
+  };
 
   document.querySelectorAll<HTMLElement>('main *, nav *, header *, [role="dialog"] *').forEach((el) => {
     const text = ownText(el);
@@ -340,21 +378,45 @@ function collectMeasurements(): PageMeasurements {
     const cs = getComputedStyle(el);
     if (!color.rgba(cs.color)) return;
 
+    const opacity = effectiveOpacity(el);
+
+    // Fully transparent text is not displayed at all — a collapsed disclosure
+    // panel (`opacity-0` + `max-h-0`) is the case here. Folding that opacity in
+    // would composite the foreground exactly onto its background and report a
+    // 1:1 "failure" for text nobody can see. WCAG 1.4.3 applies to text that is
+    // *displayed*.
+    if (opacity <= 0.005) {
+      excludedContrast.push({
+        path: describe(el),
+        label: text.slice(0, 60),
+        reason: 'not-rendered',
+        detail: `effective opacity ${opacity} — text is not displayed`,
+      });
+      return;
+    }
+
+    // WCAG 1.4.3 exempts "text that is part of an inactive user interface
+    // component". Honoured only for controls that are *programmatically*
+    // disabled, never for something that merely looks faded.
+    const inactive = el.closest('[disabled], [aria-disabled="true"]');
+    if (inactive) {
+      excludedContrast.push({
+        path: describe(el),
+        label: text.slice(0, 60),
+        reason: 'disabled-control',
+        detail: `inside <${inactive.tagName.toLowerCase()}> marked ${
+          inactive.hasAttribute('disabled') ? 'disabled' : 'aria-disabled="true"'
+        }`,
+      });
+      return;
+    }
+
     const bg = backgroundStack(el);
     const bgColor = color.flatten(bg.layers, canvasBase);
 
     // `opacity` on an ancestor fades the text toward its backdrop; folding it in
     // keeps the ratio honest for the many `opacity-50` / `opacity-70` rows.
-    const inheritedOpacity = (() => {
-      let acc = 1;
-      let node: Element | null = el;
-      while (node) {
-        const o = Number(getComputedStyle(node).opacity);
-        if (!Number.isNaN(o)) acc *= o;
-        node = node.parentElement;
-      }
-      return acc;
-    })();
+    const inheritedOpacity = opacity;
 
     // Text is painted over the flattened background; the canvas does the blend,
     // so an alpha-carrying foreground such as `text-fg/50` resolves exactly.
@@ -402,11 +464,41 @@ function collectMeasurements(): PageMeasurements {
   const hitTargets: HitTarget[] = [];
   const namelessControls: NamelessControl[] = [];
 
+  /**
+   * Widens `[w, h]` to include a rendered, absolutely positioned pseudo-element
+   * overlay. Only pseudos that actually generate a box (`content` is not
+   * `none`), are positioned out of flow, and do not opt out of hit-testing
+   * count — anything else cannot enlarge the hit area.
+   */
+  const withPseudoOverlay = (el: HTMLElement, w: number, h: number): [number, number] => {
+    let width = w;
+    let height = h;
+    for (const pseudo of ['::before', '::after']) {
+      const style = window.getComputedStyle(el, pseudo);
+      if (!style.content || style.content === 'none' || style.content === 'normal') continue;
+      if (style.position !== 'absolute' && style.position !== 'fixed') continue;
+      if (style.pointerEvents === 'none') continue;
+      if (style.display === 'none' || style.visibility === 'hidden') continue;
+      const pw = parseFloat(style.width);
+      const ph = parseFloat(style.height);
+      if (Number.isFinite(pw)) width = Math.max(width, pw);
+      if (Number.isFinite(ph)) height = Math.max(height, ph);
+    }
+    return [width, height];
+  };
+
   document.querySelectorAll<HTMLElement>(INTERACTIVE).forEach((el) => {
     if (!isVisible(el)) return;
+    // A control inside an `inert` subtree is not interactive: it takes no
+    // pointer events, it is out of the tab ring, and it is out of the
+    // accessibility tree. Measuring it as an undersized or unnamed control
+    // would report a defect the user cannot reach. The closed bottom sheets are
+    // exactly this case — mounted, translated off-screen, and inert.
+    if (el.closest('[inert]')) return;
     const r = el.getBoundingClientRect();
     const label = accessibleName(el);
     const role = roleOf(el);
+    const [effectiveWidth, effectiveHeight] = withPseudoOverlay(el, r.width, r.height);
 
     hitTargets.push({
       path: describe(el),
@@ -414,7 +506,9 @@ function collectMeasurements(): PageMeasurements {
       role,
       width: Math.round(r.width * 100) / 100,
       height: Math.round(r.height * 100) / 100,
-      meets44: r.width >= 44 && r.height >= 44,
+      effectiveWidth: Math.round(effectiveWidth * 100) / 100,
+      effectiveHeight: Math.round(effectiveHeight * 100) / 100,
+      meets44: effectiveWidth >= 44 && effectiveHeight >= 44,
       inViewport:
         r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth,
     });
@@ -449,6 +543,7 @@ function collectMeasurements(): PageMeasurements {
 
   return {
     contrast: contrastPairs,
+    excludedContrast,
     hitTargets,
     namelessControls,
     horizontalOverflow,
@@ -585,6 +680,20 @@ export interface BoundaryContrast {
   ratio: number;
   /** WCAG 1.4.11 requires 3:1 for the visual boundary of a control. */
   meets3: boolean;
+  /**
+   * The control's own background, composited, and its contrast against the
+   * surface behind it. A control can be identified by its fill instead of its
+   * border, and 1.4.11 asks for 3:1 on *whichever* affordance identifies it —
+   * so the border ratio alone is not the whole picture.
+   */
+  fillColor: string | null;
+  fillRatio: number | null;
+  /**
+   * True when the control paints no background of its own, so the border is the
+   * only thing that can mark it. This is the strict case: the unchecked task
+   * checkbox, where nothing but the 2px ring says a control is there.
+   */
+  borderIsSoleAffordance: boolean;
 }
 
 /**
@@ -626,6 +735,15 @@ export async function measureBoundaries(page: Page): Promise<BoundaryContrast[]>
       const solidBorder = color.flatten([cs.borderTopColor], color.hex(surface));
       const ratio = Math.round(color.contrast(solidBorder, surface) * 100) / 100;
 
+      const ownBackground = color.rgba(cs.backgroundColor);
+      const hasOwnFill = !!ownBackground && ownBackground[3] > 0;
+      const solidFill = hasOwnFill
+        ? color.flatten([cs.backgroundColor], color.hex(surface))
+        : null;
+      const fillRatio = solidFill
+        ? Math.round(color.contrast(solidFill, surface) * 100) / 100
+        : null;
+
       out.push({
         path: `${el.tagName.toLowerCase()}.${(el.getAttribute('class') || '')
           .split(/\s+/)
@@ -640,6 +758,9 @@ export async function measureBoundaries(page: Page): Promise<BoundaryContrast[]>
         background: color.hex(surface),
         ratio,
         meets3: ratio >= 3,
+        fillColor: solidFill ? color.hex(solidFill) : null,
+        fillRatio,
+        borderIsSoleAffordance: !hasOwnFill,
       });
     });
 

@@ -123,12 +123,38 @@ const TaskCard = ({
     setDragX(0);
   };
 
+  /**
+   * The action strip is the only route to Bearbeiten / Erledigt / Löschen, and
+   * by pointer it is reached with a horizontal swipe that has no keyboard
+   * equivalent. The buttons are therefore kept in the tab ring — but focusing an
+   * invisible control is its own defect, so focus opens the strip, exactly as a
+   * swipe would, and blurring out of the card closes it again.
+   */
+  const handleStripFocus = () => setOpenSwipeId(id);
+
+  const handleStripBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    // relatedTarget is the element focus is moving *to*; staying inside the
+    // strip must not close it.
+    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+    closeSwipe();
+  };
+
   // ─── Priority colour ──────────────────────────────────────────────────────
+  // `text-*` + `bg-current` so the glow (.dot-glow) can inherit the hue from
+  // currentColor instead of a hardcoded rgba() literal that ignores the theme.
   const priorityDot = priority === 'high'
-    ? 'bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.7)]'
+    ? 'text-priority-high bg-current dot-glow'
     : priority === 'medium'
-    ? 'bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.7)]'
-    : 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]';
+    ? 'text-priority-medium bg-current dot-glow'
+    : 'text-priority-low bg-current dot-glow';
+
+  // The dot is the only *visual* carrier of priority, so the meaning has to be
+  // available non-visually too — hence role="img" plus a real name.
+  const priorityLabel = priority === 'high'
+    ? 'Priorität: hoch'
+    : priority === 'medium'
+    ? 'Priorität: mittel'
+    : 'Priorität: niedrig';
 
   return (
     <div className="relative overflow-hidden rounded-2xl" style={{ touchAction: 'pan-y' }}>
@@ -137,12 +163,15 @@ const TaskCard = ({
       <div
         className="absolute inset-y-0 right-0 flex items-stretch"
         style={{ width: ACTION_WIDTH }}
+        onFocus={handleStripFocus}
+        onBlur={handleStripBlur}
       >
         {/* Edit */}
         <button
+          type="button"
           onPointerDown={e => e.stopPropagation()}
           onClick={e => { e.stopPropagation(); closeSwipe(); onEdit(task); }}
-          className="flex flex-1 flex-col items-center justify-center bg-[#1d4aba] active:brightness-90 transition-all"
+          className="flex flex-1 flex-col items-center justify-center bg-primary active:brightness-90 transition-all"
           style={{ minWidth: 0 }}
           aria-label="Bearbeiten"
         >
@@ -153,9 +182,10 @@ const TaskCard = ({
           <>
             {/* Tomorrow */}
             <button
+              type="button"
               onPointerDown={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); closeSwipe(); onMoveTomorrow(id); }}
-              className="flex flex-1 flex-col items-center justify-center bg-[#475569] active:brightness-90 transition-all"
+              className="flex flex-1 flex-col items-center justify-center bg-neutral-solid active:brightness-90 transition-all"
               style={{ minWidth: 0 }}
               aria-label="Morgen"
             >
@@ -164,9 +194,10 @@ const TaskCard = ({
 
             {/* Done */}
             <button
+              type="button"
               onPointerDown={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); closeSwipe(); onToggleComplete(id); }}
-              className="flex flex-1 flex-col items-center justify-center bg-emerald-600 active:brightness-90 transition-all rounded-r-2xl"
+              className="flex flex-1 flex-col items-center justify-center bg-success-solid active:brightness-90 transition-all rounded-r-2xl"
               style={{ minWidth: 0 }}
               aria-label="Erledigt"
             >
@@ -177,10 +208,11 @@ const TaskCard = ({
           <>
             {/* Done / Undo */}
             <button
+              type="button"
               onPointerDown={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); closeSwipe(); onToggleComplete(id); }}
               className={`flex flex-1 flex-col items-center justify-center active:brightness-90 transition-all ${
-                completed ? 'bg-amber-600' : 'bg-emerald-600'
+                completed ? 'bg-warning-solid' : 'bg-success-solid'
               }`}
               style={{ minWidth: 0 }}
               aria-label={completed ? 'Rückgängig' : 'Erledigt'}
@@ -193,9 +225,10 @@ const TaskCard = ({
 
             {/* Delete */}
             <button
+              type="button"
               onPointerDown={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); closeSwipe(); onDelete(id); }}
-              className="flex flex-1 flex-col items-center justify-center bg-red-600 active:brightness-90 transition-all rounded-r-2xl"
+              className="flex flex-1 flex-col items-center justify-center bg-danger-solid active:brightness-90 transition-all rounded-r-2xl"
               style={{ minWidth: 0 }}
               aria-label="Löschen"
             >
@@ -224,34 +257,50 @@ const TaskCard = ({
       >
         {/* ── Top row: checkbox · title · priority dot ──────────────────── */}
         <div className="flex items-start gap-3">
-          {/* Checkbox — always directly tappable */}
+          {/* Checkbox — always directly tappable.
+              `tap-target-44` grows the hit area to 44×44 without changing the
+              painted 22px circle or the row's layout. */}
           <button
+            type="button"
             onPointerDown={e => e.stopPropagation()}
             onClick={e => { e.stopPropagation(); if (isSwipeOpen) { closeSwipe(); return; } onToggleComplete(id); }}
-            className={`flex-shrink-0 mt-[2px] w-[22px] h-[22px] rounded-full flex items-center justify-center transition-all ${
+            className={`tap-target-44 flex-shrink-0 mt-[2px] w-[22px] h-[22px] rounded-full flex items-center justify-center transition-all ${
               completed
                 ? 'bg-primary border-primary'
                 : 'border-2 border-edge-strong hover:border-primary/70'
             }`}
             style={{ border: completed ? 'none' : undefined }}
+            role="checkbox"
+            aria-checked={completed}
+            aria-label={`${title} als erledigt markieren`}
           >
-            {completed && <Check size={13} strokeWidth={3} className="text-white" />}
+            {completed && <Check size={13} strokeWidth={3} className="text-white" aria-hidden="true" />}
           </button>
 
-          {/* Title + meta */}
-          <div className={`flex-1 min-w-0 ${completed ? 'opacity-50' : ''}`}>
+          {/* Title + meta.
+              De-emphasis for a completed task is expressed with tokens, not a
+              wrapper `opacity-50`: opacity composites the text toward the card
+              and dropped the measured contrast to 1.56:1 in Light and 2.64:1 in
+              Dark. */}
+          <div className="flex-1 min-w-0">
             <div className="flex items-start gap-2">
               {/* Title — dir="auto" so Persian renders RTL */}
               <h3
                 dir="auto"
                 className={`flex-1 min-w-0 font-semibold text-[15px] leading-relaxed break-words py-0.5 ${
-                  completed ? 'line-through text-slate-400 decoration-slate-500' : 'text-fg'
+                  completed ? 'line-through text-fg-secondary decoration-fg-faint' : 'text-fg'
                 }`}
               >
                 {title}
               </h3>
-              {/* Priority dot */}
-              <div className={`flex-shrink-0 mt-[5px] w-2 h-2 rounded-full ${priorityDot}`} title={`${priority} priority`} />
+              {/* Priority dot — colour alone is not the only cue; the dot
+                  carries an accessible name and a tooltip. */}
+              <div
+                className={`flex-shrink-0 mt-[5px] w-2 h-2 rounded-full ${priorityDot}`}
+                role="img"
+                aria-label={priorityLabel}
+                title={priorityLabel}
+              />
             </div>
 
             {/* Meta row */}
@@ -260,35 +309,40 @@ const TaskCard = ({
                   bullet is part of the time segment, so an untimed task shows
                   "Ohne Zeit • 30m" rather than a leading " • 30m". */}
               <span className="flex items-center gap-1.5 text-[11.5px] text-fg-meta font-medium">
-                <Clock size={12} className="flex-shrink-0 opacity-70" />
+                <Clock size={12} className="flex-shrink-0 opacity-70" aria-hidden="true" />
                 {untimed ? 'Ohne Zeit' : time}
                 {duration ? ` • ${duration}` : ''}
               </span>
 
-              {/* Recurrence badge */}
+              {/* Recurrence badge — icon-only, so it needs a name of its own. */}
               {task.recurrence && task.recurrence !== 'none' && (
-                <span className="flex items-center gap-1 text-[10px] font-medium text-violet-300 bg-violet-400/10 px-1.5 py-0.5 rounded-md leading-tight flex-shrink-0">
-                  <RepeatIcon size={9} />
+                <span
+                  className="flex items-center gap-1 text-[10px] font-medium text-accent bg-accent-surface px-1.5 py-0.5 rounded-md leading-tight flex-shrink-0"
+                  role="img"
+                  aria-label="Wiederholende Aufgabe"
+                  title="Wiederholende Aufgabe"
+                >
+                  <RepeatIcon size={9} aria-hidden="true" />
                 </span>
               )}
 
               {/* Rollover badge */}
               {task.rolledOverFrom && !completed && (
-                <span className="flex items-center gap-1 text-[10px] font-medium text-amber-300/90 bg-amber-400/10 px-1.5 py-0.5 rounded-md leading-tight flex-shrink-0">
+                <span className="flex items-center gap-1 text-[10px] font-medium text-warning bg-warning-surface px-1.5 py-0.5 rounded-md leading-tight flex-shrink-0">
                   ↩ {getRolloverLabel(task.rolledOverFrom)}
                 </span>
               )}
 
               {/* Overdue badge */}
               {overdue && (
-                <span className="flex items-center gap-1 text-[10px] font-medium text-rose-300/90 bg-rose-500/10 px-1.5 py-0.5 rounded-md leading-tight flex-shrink-0">
+                <span className="flex items-center gap-1 text-[10px] font-medium text-danger bg-danger-surface px-1.5 py-0.5 rounded-md leading-tight flex-shrink-0">
                   Überfällig
                 </span>
               )}
 
               {/* Checklist progress badge */}
               {hasChecklist && (
-                <span className="flex items-center gap-1 text-[10px] font-medium text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded-md leading-tight flex-shrink-0">
+                <span className="flex items-center gap-1 text-[10px] font-medium text-primary-text bg-primary-surface px-1.5 py-0.5 rounded-md leading-tight flex-shrink-0">
                   ☑ {checklistDone}/{checklistTotal}
                 </span>
               )}
@@ -298,20 +352,23 @@ const TaskCard = ({
 
         {/* ── Checklist items preview (inline, tappable) ─────────────────── */}
         {hasChecklist && (
-          <div className={`mt-2.5 ml-[34px] flex flex-col gap-0.5 ${completed ? 'opacity-40' : ''}`}>
+          <div className="mt-2.5 ml-[34px] flex flex-col gap-0.5">
             {task.checklistItems!.slice(0, 4).map(item => (
               <button
                 key={item.id}
+                type="button"
                 onPointerDown={e => e.stopPropagation()}
                 onClick={e => { e.stopPropagation(); if (isSwipeOpen) { closeSwipe(); return; } onToggleChecklistItem(id, item.id); }}
-                className="flex items-center gap-2 text-left group/ci"
+                className="flex items-center gap-2 text-left group/ci min-h-[28px] py-0.5"
+                role="checkbox"
+                aria-checked={item.completed}
               >
                 <div className={`flex-shrink-0 w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${
                   item.completed
-                    ? 'bg-primary/80 border-primary'
+                    ? 'bg-primary border-primary'
                     : 'border-edge-strong group-hover/ci:border-primary/60'
                 }`}>
-                  {item.completed && <Check size={8} strokeWidth={3} className="text-white" />}
+                  {item.completed && <Check size={8} strokeWidth={3} className="text-white" aria-hidden="true" />}
                 </div>
                 <span
                   dir="auto"
@@ -335,7 +392,7 @@ const TaskCard = ({
         {hasNotes && (
           <p
             dir="auto"
-            className={`mt-2 ml-[34px] text-[11.5px] leading-relaxed text-fg-meta line-clamp-2 ${completed ? 'opacity-40' : ''}`}
+            className="mt-2 ml-[34px] text-[11.5px] leading-relaxed text-fg-meta line-clamp-2"
           >
             {task.notes}
           </p>

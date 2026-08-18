@@ -1,6 +1,11 @@
 # Phase 1A — Accessibility & Browser Baseline
 
-**Status:** measured baseline only. **No product code was changed in PR0.**
+**Status:** living document. It began as a measured baseline (PR0, no product
+code changed) and is updated by each Phase 1A PR that closes part of it. PR2
+resolved §7; **PR3 resolved §3, §4 (except two enumerated classes), §5 and
+reduced the §9.2 axe baseline to zero**. Sections carry a status banner where
+they have been closed, and the original PR0 measurements are preserved beneath
+each one.
 
 This document records what My Daily Flow does *today*, as measured by the browser
 suite added in the same PR. Nothing here is a fix, and nothing here was made to
@@ -13,8 +18,8 @@ the number attached and an owner assigned to a later PR.
 
 | | |
 |---|---|
-| Commit under test | `98ddf67a15a9ea91cfc9c452c911553100f8e575` (`origin/main`) |
-| Branch | `claude/pr0-a11y-baseline-jvnh44` |
+| Commit under test (PR0 baseline) | `98ddf67a15a9ea91cfc9c452c911553100f8e575` (`origin/main`) |
+| Branch (PR0) | `claude/pr0-a11y-baseline-jvnh44` |
 | Node | v22.22.2 |
 | npm | 10.9.7 |
 | Browser | Chromium 141.0.7390.37 (Playwright build 1194) — **Chromium only** |
@@ -29,7 +34,7 @@ the number attached and an owner assigned to a later PR.
 ```bash
 npm ci                # install, including the two new dev dependencies
 npm run lint          # tsc --noEmit (now also type-checks e2e/**)
-npm test              # existing node suite — unchanged
+npm test              # node suite — pure logic, storage, notify, theme tokens
 npm run build         # production build
 npm run test:browser  # the Phase 1A browser suite (this document's source)
 npm run test:browser:report   # open the HTML report
@@ -147,17 +152,62 @@ Three widths × two themes. All three tabs are measured in every cell.
 Tabs measured per cell: **Heute**, **Alle Aufgaben**, **Erledigt**, and — since
 PR2 — **Erinnerungen** (§7).
 
-47 tests total: 24 axe scans (3 viewports × 2 themes × 4 tabs), 6 layout/contrast
-matrix runs, and 17 behavioural/keyboard/backup tests.
+Test counts by suite: 24 axe scans (3 viewports × 2 themes × 4 tabs), 6
+layout/contrast matrix runs, 24 Daily Essentials contrast tests (3 viewports × 2
+themes × 4 assertions), the keyboard/focus suite in both themes, plus the
+navigation and backup round-trip tests.
 
-> **Measured-at note.** Everything below §3–§6 is the PR0 baseline, measured on
+> **Measured-at note.** The tables in §3–§6 are the PR0 baseline, measured on
 > `98ddf67` before the Reminders screen existed. PR2 added a fourth surface and
-> changed no pre-existing fingerprint (§9.2); the PR0 numbers therefore still
-> describe Heute / Alle Aufgaben / Erledigt as measured.
+> changed no pre-existing fingerprint (§9.2). **PR3 changed many of these
+> numbers**; each affected section carries a status banner saying what the
+> current invariant is and where it is asserted, and the PR0 tables are kept
+> beneath so the before/after is visible in one place.
 
 ---
 
-## 3. Contrast pairs measured
+## 3. Contrast pairs measured — resolved in PR3
+
+> **Status: every failing pair below was fixed in PR3.**
+> `e2e/viewports.spec.ts` no longer asserts "failures exist"; it asserts the
+> opposite — the set of failing pairs must be **empty** for all 24 cells of the
+> matrix, and the failure message names the offending pair. Verified green at
+> 360/390/430 × Dark/Light on all four tabs.
+>
+> How it was fixed, by root cause:
+>
+> | Root cause | Fix |
+> |---|---|
+> | `--_fg-meta` / `--_fg-faint` / `--_fg-disabled` / `--_fg-placeholder` too pale | The whole foreground ramp was re-tuned in both palettes so every step clears 4.5:1 against the surfaces it is used on. Hierarchy is preserved by the remaining spread (Dark 6.88 → 4.46 on `--_surface`; Light 7.6 → 5.9 on `--_surface`) plus size and weight. |
+> | Opacity fades compositing text into the card (`opacity-50` on a completed task's title block, `opacity-40` on its checklist and notes) | Removed. De-emphasis for a completed task is now expressed with tokens (`text-fg-secondary` + `line-through` + `decoration-fg-faint`), which reads the same and measures 4.5:1+. |
+> | `text-primary` (#135bec) used as *text* on page surfaces — 3.27:1 in Dark on the nav inset | New `--color-primary-text` token, palette-specific (`#7fb0ff` Dark, `#0f4fbe` Light). `--color-primary` stays #135bec and is still the fill behind white text (5.62:1). |
+> | Status badges built from literal palette classes plus alpha tints (`text-rose-300/90 bg-rose-500/10`, `text-amber-300/90`, `text-violet-300`, `text-primary/80 bg-primary/10`) | Replaced by `danger` / `warning` / `success` / `accent` / `primary` token families, each with a text colour, an opaque tinted surface, a border and a saturated `-solid` fill that carries white text. |
+> | Theme-blind literal classes (`text-slate-200/300/400/500`, `bg-slate-700/800`, `bg-blue-*`, `bg-red-*`, `bg-emerald-*`, `bg-amber-*`, `bg-[#1d4aba]`, `bg-[#475569]`, `[color-scheme:dark]`) | All removed across the 11 components that carried them. |
+>
+> The original PR0 measurements are preserved below for the record.
+
+Two exclusions the probe applies, both recorded rather than dropped (they land
+in the evidence JSON as `contrastExcluded`, with the reason attached):
+
+* **Text that is not displayed** — effective `opacity` of 0, from the element or
+  any ancestor. The collapsed *Aufgabendetails* panel in `NewTaskModal` is the
+  case: folding a zero opacity into the composite reports the foreground exactly
+  on top of its own background, a 1:1 "failure" for text nobody can see. WCAG
+  1.4.3 applies to text that is displayed.
+* **Text inside a programmatically disabled control** — `[disabled]` or
+  `[aria-disabled="true"]`. 1.4.3 exempts "text that is part of an inactive user
+  interface component"; the exemption is honoured only for a control that says
+  it is inactive, never for one that merely looks faded.
+
+Both were latent at the PR0 baseline. They surfaced in PR3 only because the
+assertion flipped from *"failures exist"* to *"the failure set is empty"* — the
+old assertion could not tell a real defect from a measurement artefact, because
+it only ever needed one of either.
+
+Sheets are measured while closed by the matrix (their colours are real whether
+open or not), and `e2e/modals.spec.ts` opens `NewTaskModal` — with the
+disclosure expanded — and `SettingsModal` in both themes, so the controls hidden
+behind that `opacity-0` panel are judged too.
 
 Ratios are computed by resolving each colour through a canvas (Tailwind v4 emits
 `oklch()`, which Chromium serialises back as `oklch()` — a regex-based reader
@@ -168,7 +218,7 @@ layers, and folding in inherited `opacity`. Rows are deduplicated by
 Thresholds: **4.5:1** for normal text, **3:1** for large text (≥24px, or ≥18.66px
 at weight ≥700).
 
-### 3.1 Dark theme — failing pairs
+### 3.1 Dark theme — failing pairs *(PR0 measurement; all now pass)*
 
 | Surface | Foreground | Background | Ratio | Threshold | Size / weight | Element |
 |---|---|---|---|---|---|---|
@@ -185,7 +235,7 @@ at weight ≥700).
 
 Failing pairs per tab (dark): Today 8, All 6, Done 4.
 
-### 3.2 Light theme — failing pairs
+### 3.2 Light theme — failing pairs *(PR0 measurement; all now pass)*
 
 | Surface | Foreground | Background | Ratio | Threshold | Size / weight | Element |
 |---|---|---|---|---|---|---|
@@ -229,6 +279,34 @@ and attached to the HTML report.
 That 2px ring is the *only* thing marking the checkbox, so at 1.70:1 the primary
 control on every task card has no perceivable boundary in dark mode.
 
+> **Resolved in PR3.** `--_edge-strong` was re-tuned to `#64769e` (Dark) and
+> `#71839b` (Light), giving the unchecked checkbox 3.51:1 and 3.87:1 against
+> `--_surface`. The switch tracks in `SettingsModal` and `NewTaskModal` gained
+> the same `border-edge-strong` in their off state, so "off" is no longer marked
+> by fill alone.
+>
+> The probe was sharpened in the same PR. It previously compared a control's
+> border against the surface behind it and stopped there; it now also composites
+> the control's **own fill** and reports `borderIsSoleAffordance`. WCAG 1.4.11
+> asks for 3:1 on whichever affordance identifies the component, so the two
+> cases are no longer conflated:
+>
+> * **Border is the sole affordance** (transparent control — the unchecked
+>   checkbox). Asserted at 3:1 in `e2e/axe.spec.ts`; currently empty in all 24
+>   cells.
+> * **Control also paints a fill** (filter pills, reminder rows, the
+>   "In den Einstellungen öffnen" button). Recorded under a separate category,
+>   not asserted.
+>
+> **Open — needs a design decision, not assigned to a PR.** In the second class
+> neither the container border (`--_edge`, 1.35:1 on the page in Dark) nor the
+> fill (`--_surface-raised`, 1.21:1) reaches 3:1, so under the strict reading of
+> 1.4.11 those controls have no 3:1 affordance. Closing it means making every
+> card and pill outline substantially heavier across the whole app, which is a
+> visual redesign rather than a token fix — outside what PR3 was asked to do, and
+> outside the stated scope of PR4–PR8. It is recorded here so the choice is
+> explicit rather than silently inherited.
+
 ### 3.4 axe `incomplete` results
 
 axe additionally reports `color-contrast` as **incomplete** for 9 nodes (dark) /
@@ -238,7 +316,40 @@ by the harness instead and appear in §3.1/§3.2.
 
 ---
 
-## 4. Interactive targets below 44 × 44 CSS px
+## 4. Interactive targets below 44 × 44 CSS px — mostly resolved in PR3
+
+> **Status: closed in PR3 except two enumerated classes.**
+>
+> Controls that could grow were given `min-w-11 min-h-11` (or a real `w-11 h-11`
+> where an expanded box had to push a neighbour aside). Controls whose painted
+> size is part of the design — the 22 px task checkbox, the "remember me" box,
+> the 46 × 26 reminder switch, the small icon buttons in the modals — carry the
+> new `.tap-target-44` utility instead: a transparent, absolutely positioned
+> `::after` overlay that grows the *hit* area to 44 × 44 without changing the
+> painted size or the surrounding layout.
+>
+> `getBoundingClientRect()` cannot see that overlay, so the harness was taught
+> about it: `HitTarget` now reports `effectiveWidth`/`effectiveHeight` alongside
+> the painted box, and `meets44` is computed from the effective one. Only
+> pseudo-elements that actually generate a box, are positioned out of flow and
+> do not set `pointer-events: none` count.
+>
+> The overlay is deliberately *not* used where controls sit in a tight cluster —
+> a 44 px overlay would sit on top of its neighbour and steal its taps. Those
+> controls (the snapshot export/delete pair, the Essentials edit/delete pair, the
+> search-clear button next to the search field) were grown for real instead.
+>
+> **Two classes remain below 44 × 44, both with an owner:**
+>
+> | Control | Size | Why it was not changed here | Owner |
+> |---|---|---|---|
+> | Daily Essentials counter chips | 32 × 32 | A row of up to 10 chips at 44 px widens past the card at 360 px — the same containment problem §6.3 records. Enlarging them here would make it worse. | PR4 |
+> | Inline checklist preview rows on a task card | 28 px tall | Four rows at 44 px would roughly double the card height and restructure the Today list. | PR4 |
+>
+> These are enumerated in `TARGET_SIZE_EXCEPTIONS` in `e2e/viewports.spec.ts`,
+> with the reason and owner next to each entry. Nothing is suppressed: they are
+> still measured, still written to the evidence JSON, and any *new* control below
+> 44 × 44 fails the run.
 
 Totals per tab are **35 (Today) / 34 (All) / 24 (Done)** at every viewport and in
 both themes — these are fixed-size controls, so width and theme change nothing.
@@ -248,19 +359,21 @@ Values below are from 390 × 812; the full list is in
 
 ### 4.1 On the visible screen
 
+*(PR0 measurement. Post-PR3 outcome in the rightmost column.)*
+
 Distinct undersized controls, with the tabs they appear on. Sizes are fixed and
 identical at all three widths.
 
-| Accessible name | Selector | Measured | Appears on |
-|---|---|---|---|
-| `Search` | `header button[aria-label="Search"]` | **22 × 22** | all tabs |
-| `Settings` | `header button[aria-label="Settings"]` | **22 × 22** | all tabs |
-| `Verwalten` | `section button[aria-label="Verwalten"]` | **30 × 30** | Today |
-| *(none)* | `button.flex-shrink-0.mt-\[2px\].w-\[22px\]` — task completion checkbox, one per card | **22 × 22** | all tabs |
-| `1` … `6` | `button.w-8.h-8.rounded-md` — Essentials multi-target chips | **32 × 32** each | Today |
-| `Alle Daten` / `Heute` / `Gestern` | `AllTasksFilterBar` pills | **84.7 × 30**, **59.3 × 30**, **71.4 × 30** | All |
-| *(none)* | `input[type="date"]` in the filter bar | **131 × 30** | All |
-| checklist item row | `button.flex.items-center.gap-2` | **282 × 18.69** | Today, All |
+| Accessible name | Selector | Measured | Appears on | After PR3 |
+|---|---|---|---|---|
+| `Search` | `header button[aria-label="Search"]` | **22 × 22** | all tabs | ✅ 44 × 44 (`min-w-11 min-h-11`), renamed "Aufgaben durchsuchen" |
+| `Settings` | `header button[aria-label="Settings"]` | **22 × 22** | all tabs | ✅ 44 × 44, renamed "Einstellungen" |
+| `Verwalten` | `section button[aria-label="Verwalten"]` | **30 × 30** | Today | ✅ 44 × 44, renamed "Essentials verwalten" |
+| *(none)* | `button.flex-shrink-0.mt-\[2px\].w-\[22px\]` — task completion checkbox, one per card | **22 × 22** | all tabs | ✅ 44 × 44 hit area via `.tap-target-44`; painted size unchanged; now named and `role="checkbox"` |
+| `1` … `6` | `button.w-8.h-8.rounded-md` — Essentials multi-target chips | **32 × 32** each | Today | ⬜ unchanged — deferred to PR4 with the row overflow (§6.3) |
+| `Alle Daten` / `Heute` / `Gestern` | `AllTasksFilterBar` pills | **84.7 × 30**, **59.3 × 30**, **71.4 × 30** | All | ✅ `min-h-11` |
+| *(none)* | `input[type="date"]` in the filter bar | **131 × 30** | All | ✅ `min-h-11`, named "Nach Datum filtern" |
+| checklist item row | `button.flex.items-center.gap-2` | **282 × 18.69** | Today, All | ⬜ raised to 28 px; 44 deferred to PR4 |
 
 Counted per tab at 390 × 812 (in-viewport only, so cards below the fold are not
 double-counted): **Today 12 · Alle Aufgaben 13 · Erledigt 4.** The totals differ
@@ -270,7 +383,7 @@ controls, not because any control changes size.
 Bottom-nav buttons (**93.5 × 56.5**) and the FAB (**56 × 56**) **do** meet
 44 × 44 and are not listed.
 
-### 4.2 Inside closed overlays (22–23 more per tab)
+### 4.2 Inside closed overlays (22–23 more per tab) *(PR0 measurement)*
 
 `NewTaskModal`, `SettingsModal`, `VoiceTaskModal` and `ManageEssentialsModal`
 stay mounted when closed and are merely translated off-screen
@@ -281,14 +394,56 @@ duration pills (**73 × 39**), priority pills (**102 × 41**), the recurrence
 
 This is itself a finding, not just a counting artefact — see §5.4.
 
+> **Resolved in PR3.** The four sheets now carry `inert` while closed, so their
+> controls leave the tab ring, the accessibility tree and pointer hit-testing
+> until the sheet opens.
+>
+> The harness follows suit: `measurePage` skips any control inside an `[inert]`
+> subtree, because reporting it as undersized or unnamed would describe a defect
+> the user cannot reach. Text contrast inside the sheets is still measured — the
+> colours are real whether the sheet is open or not — and the sheets are still
+> exercised directly when a test opens one.
+
 ---
 
-## 5. Keyboard and focus findings
+## 5. Keyboard and focus findings — resolved in PR3
+
+> **Status: §5.1, §5.3, §5.4, §5.5 and §5.6 were all closed in PR3.**
+> `e2e/keyboard.spec.ts` was rewritten to assert the fixed invariants instead of
+> the recorded defects, and now runs in **both** themes:
+>
+> * **Focus indicator.** A single base rule — `:focus-visible { outline: 2px
+>   solid var(--_focus); outline-offset: 2px; transition: none }` — replaces the
+>   UA ring everywhere and removes every `focus:outline-none`. `transition: none`
+>   is deliberate: several controls carry `transition-all`, which animates
+>   `outline-width` up from 0 and left the ring invisible for the first frames
+>   after focus moved (and unmeasurable — this was the PR0 "0 px ring" artefact).
+>   The spec asserts every stop draws an indicator and every indicator clears
+>   3:1.
+> * **Accessible names.** Every keyboard-reachable control now has one; the spec
+>   asserts the set of unnamed stops is empty.
+> * **Focus never leaves the screen.** The four sheets are `inert` while closed.
+> * **Swipe actions.** They stay in the tab ring — they are the *only* keyboard
+>   route to Bearbeiten / Erledigt / Löschen — but focusing one now opens the
+>   action strip, exactly as a swipe would, and blurring out of the card closes
+>   it. The spec hit-tests the focused button to prove it is no longer covered by
+>   the card body.
+> * **Daily Essentials.** The collapse header is a `<button aria-expanded>`; a
+>   simple essential row is a `<button role="checkbox" aria-checked>`; counter
+>   chips carry `aria-pressed` and a name that says what they do rather than a
+>   bare digit. A spec toggles a row with Enter alone.
+> * **Bottom navigation.** `<nav aria-label="Hauptnavigation">` with
+>   `aria-current="page"` on the active destination — the active state is no
+>   longer colour-only.
+>
+> The original PR0 measurements are preserved below for the record.
 
 Measured on the Today tab at 390 × 812, dark. **38 tab stops** before the ring
 repeats.
 
-### 5.1 Focus indicator — 38 / 38 stops are effectively invisible
+### 5.1 Focus indicator — 38 / 38 stops were effectively invisible
+
+*(PR0 measurement. Closed in PR3 — see the banner at the top of §5.)*
 
 | Measurement | Value |
 |---|---|
@@ -327,7 +482,15 @@ inputs.
 
 `*` = invisible swipe action · `†` = inside the closed NewTaskModal
 
-**Findings:**
+> **PR3 changed three of these, and deliberately left one.**
+> Findings 2 and 3 are closed: the Essentials collapse header and simple rows are
+> real controls and now appear in the ring, and stops 32+ are gone because the
+> closed modal is `inert`. Every stop is named. Finding 1 — hidden actions before
+> visible ones — is **unchanged on purpose**: the swipe actions are the only
+> keyboard route to Bearbeiten / Erledigt / Löschen, and focusing one now reveals
+> the strip, so the order is coherent rather than confusing. See §10, PR3.
+
+**Findings (PR0 baseline):**
 
 1. **Hidden actions are tabbed before visible ones.** The first swipe action is
    stop **#9**; the first visible task checkbox is stop **#12**. Within every
@@ -338,18 +501,18 @@ inputs.
    in the ring at all** — they are `<div onClick>` (§5.3).
 3. **Focus leaves the viewport at stop #32** into a closed modal (§5.4).
 
-### 5.3 Controls that are not keyboard operable, and wrong semantics
+### 5.3 Controls that were not keyboard operable, and wrong semantics
 
-| Element | Actual markup | Missing |
-|---|---|---|
-| Daily Essentials collapse header | `<div class="cursor-pointer" onClick>` | not focusable; no `role`, no `tabindex`, no `aria-expanded` |
-| Simple Essential row (a checkbox in behaviour) | `<div class="cursor-pointer" onClick>` | not focusable; no `role="checkbox"`, no `aria-checked` |
-| "Hinzufügen" link in the empty Essentials state | `<span onClick>` | not focusable, no role |
-| Multi-target Essential chips | real `<button>` | no `aria-pressed`; accessible name is only the digit ("1", "2", …) |
-| Task completion checkbox | `<button>` with no text and no icon when unchecked | **no accessible name at all**; no `role="checkbox"` / `aria-checked` |
-| Task card body | `<div onClick>` (closes an open swipe) | not focusable — acceptable, but the swipe gesture it belongs to has no keyboard equivalent |
+| Element | Actual markup | Missing | After PR3 |
+|---|---|---|---|
+| Daily Essentials collapse header | `<div class="cursor-pointer" onClick>` | not focusable; no `role`, no `tabindex`, no `aria-expanded` | ✅ `<button aria-expanded>` with a name that includes the x/y count |
+| Simple Essential row (a checkbox in behaviour) | `<div class="cursor-pointer" onClick>` | not focusable; no `role="checkbox"`, no `aria-checked` | ✅ `<button role="checkbox" aria-checked>`; toggling with Enter is asserted |
+| "Hinzufügen" link in the empty Essentials state | `<span onClick>` | not focusable, no role | ✅ real `<button>` |
+| Multi-target Essential chips | real `<button>` | no `aria-pressed`; accessible name is only the digit ("1", "2", …) | ✅ `aria-pressed` + "«Titel»: n von m" |
+| Task completion checkbox | `<button>` with no text and no icon when unchecked | **no accessible name at all**; no `role="checkbox"` / `aria-checked` | ✅ `role="checkbox"` + `aria-checked` + "«Titel» als erledigt markieren" |
+| Task card body | `<div onClick>` (closes an open swipe) | not focusable — acceptable, but the swipe gesture it belongs to has no keyboard equivalent | ✅ the swipe gesture now has one: focusing an action opens the strip (§5.4) |
 
-### 5.4 Swipe actions are focusable while completely hidden
+### 5.4 Swipe actions were focusable while completely hidden
 
 Measured by hit-testing each action button's own centre point with
 `document.elementFromPoint`:
@@ -367,7 +530,18 @@ They are reachable by pointer **only** through a horizontal swipe, which has no
 keyboard or screen-reader equivalent. So the same buttons are simultaneously
 unreachable by mouse/keyboard-without-swipe and unavoidable by Tab.
 
+> **Resolved in PR3 — by revealing them, not by hiding them.** The obvious fix
+> (take them out of the tab ring) would have removed the only keyboard route to
+> Bearbeiten / Erledigt / Löschen. Instead the strip's container listens for
+> `focus`/`blur`: focusing any action opens the card exactly as a swipe would,
+> and moving focus out of the strip closes it. The regression test focuses the
+> first `Bearbeiten` and hit-tests its centre point — the same probe used above —
+> and asserts the button is no longer covered by the card body.
+
 ### 5.5 Unnamed controls (axe `button-name`, `label`, `select-name`)
+
+*(PR0 measurement. Every entry closed in PR3; the suite now asserts the set of
+unnamed controls is empty in all 24 cells.)*
 
 | Control | Why |
 |---|---|
@@ -381,7 +555,7 @@ unreachable by mouse/keyboard-without-swipe and unavoidable by Tab.
 
 **6 of 38 tab stops on Today have no accessible name.**
 
-### 5.6 Bottom navigation semantics
+### 5.6 Bottom navigation semantics *(PR0 measurement; resolved in PR3)*
 
 All four buttons are plain `<button>` elements:
 
@@ -395,6 +569,14 @@ All four buttons are plain `<button>` elements:
 There is no `role="tablist"`/`role="tab"`, and the active tab is signalled by
 **colour alone** (`text-primary` + `bg-primary/15`). A screen reader announces
 four unrelated buttons with no indication of which view is open.
+
+> **Resolved in PR3**, with a deliberate deviation from the suggestion above.
+> The nav is now `<nav aria-label="Hauptnavigation">` and the active destination
+> carries `aria-current="page"`. `role="tablist"`/`role="tab"` was **not** used:
+> these buttons swap whole views, not panels inside a composite widget, and tab
+> semantics would promise arrow-key navigation within a tab list that the app
+> does not implement. `aria-current` is the accurate mapping and needs no extra
+> keyboard contract.
 
 ---
 
@@ -439,9 +621,15 @@ The chips are clipped rather than wrapped. **Both themes behave identically**;
 this is pure layout.
 
 > ⚠️ These three numbers depend on the width of the title text, which was
-> measured in the fallback font (§1). Re-measure with Inter loaded before PR3
-> sizes the fix. The *existence* of the overflow at 360 is not in doubt — the
-> chips alone are 6 × 32 px + 5 gaps + padding — but the exact px is provisional.
+> measured in the fallback font (§1). Re-measure with Inter loaded before sizing
+> the fix. The *existence* of the overflow at 360 is not in doubt — the chips
+> alone are 6 × 32 px + 5 gaps + padding — but the exact px is provisional.
+>
+> **Still open. Owner: PR4.** PR3 deliberately did *not* enlarge the chips to
+> 44 × 44, because that would add another 72 px to a row that already overflows
+> by 45 px at 360. The 32 × 32 size is recorded in `TARGET_SIZE_EXCEPTIONS`
+> (§4) so the two decisions stay tied together: whoever reflows this row should
+> raise the chips to 44 in the same change.
 
 ### 6.4 Cards and action strips
 
@@ -531,9 +719,47 @@ Authentication data is excluded from the file **and** untouched by the import.
 
 ### 9.2 axe baseline — a node-level, two-directional ratchet
 
-**What is pinned.** `e2e/baseline/axe-fingerprints.ts` commits **401
-fingerprints across all 24 cells** of the matrix (`viewport|theme|tab`). Each
-fingerprint is one violating node:
+> **Updated in PR3: the committed baseline is now empty.** axe reports **0
+> violating nodes in all 24 cells**. The ratchet itself is unchanged and is now
+> doing the more valuable job — with an empty expected set, *any* new violating
+> node in any cell fails the run immediately.
+>
+> **Fingerprint delta, inspected node by node** (committed set before PR3 → after):
+>
+> | Rule | Removed | Added | Re-spelled |
+> |---|---|---|---|
+> | `color-contrast` | 173 | 0 | 0 |
+> | `button-name` | 144 | 0 | 0 |
+> | `label` | 30 | 0 | 0 |
+> | `select-name` | 24 | 0 | 0 |
+> | **Total** | **371** | **0** | **0** |
+>
+> Every removal is a fix, not a re-spelling: each corresponds to a change in this
+> PR (a token, an `aria-label`, a `<label for>`). No fingerprint changed target
+> while keeping its rule, and no new fingerprint appeared in any cell. Per-cell
+> removals ranged from 8 (`*|*|reminders`) to 27 (`430x812|light|all`); the light
+> palette carried the larger share, as §3.2 predicted.
+>
+> *(The PR0 document quoted 401 here. The committed file at the PR3 base commit
+> held 371 — PR2 rebuilt the matrix when it added the Reminders surface and fixed
+> the contrast violations it would otherwise have introduced. 371 is the number
+> that was actually pinned and is the number this delta is measured against.)*
+>
+> Two of the harness's own probes graduated from "recorded only" to asserted in
+> the same PR, because PR3 closed them:
+>
+> * **Unnamed controls** — asserted empty per cell.
+> * **Boundary contrast where the border is the sole affordance** — asserted
+>   empty per cell (see §3.3 for the sharpened probe and the one class that is
+>   recorded but not asserted).
+>
+> The remaining probes stay recorded-only, and the "still returns findings"
+> assertions were replaced with "still inspected controls", which is what those
+> assertions were actually for.
+
+**What was pinned before PR3.** `e2e/baseline/axe-fingerprints.ts` committed
+**371 fingerprints across all 24 cells** of the matrix (`viewport|theme|tab`).
+Each fingerprint is one violating node:
 
 ```
 <rule id> :: <normalized axe target selector>
@@ -552,7 +778,7 @@ comparison cannot see a newly unnamed button appearing under the already-known
 `button-name` rule.
 
 **The matrix key set is pinned as well.** Before any fingerprint is compared,
-the run asserts that the keys of `AXE_FINGERPRINTS` are exactly the 18 cells
+the run asserts that the keys of `AXE_FINGERPRINTS` are exactly the 24 cells
 derived from `VIEWPORTS × THEMES × TABS` (3 × 2 × 4 = 24). Without that, a *missing* cell would
 merely leave `AXE_FINGERPRINTS[key]` undefined and a *stale* cell — left behind
 after a viewport or tab is renamed — would never be compared against at all.
@@ -590,17 +816,22 @@ MDF_AXE_BASELINE_WRITE=1 npm run test:browser
 node e2e/baseline/regenerate.mjs > e2e/baseline/axe-fingerprints.ts
 ```
 
-**What is *not* pinned.** The harness's own measurements — sub-44px targets,
-unnamed controls, boundary contrast, and the full contrast table — are
-**measured, attached and annotated, but not pinned node by node**. The suite
-asserts only that each probe still returns findings, which proves the probe
-works, not that the exact set is unchanged. Their numbers live in this document
-and in `test-results/baseline/*.json`. Two exceptions are genuinely pinned,
-because they are single scalars with a clear meaning: every drawn focus ring is
-below 3:1 (§5.1), and hidden swipe actions precede the visible checkbox in tab
-order (§5.2).
+**What is *not* pinned.** The harness's own measurements — sub-44px targets and
+the full contrast table — are **measured, attached and annotated, but not pinned
+node by node**. Their numbers live in this document and in
+`test-results/baseline/*.json`. What *is* asserted, after PR3:
 
-Violating nodes per scan (390 × 812, Today):
+| Measurement | Assertion | Where |
+|---|---|---|
+| Text contrast | the set of failing pairs is empty, per cell | `viewports.spec.ts` |
+| Target size | no on-screen control below 44 × 44 outside `TARGET_SIZE_EXCEPTIONS` | `viewports.spec.ts` |
+| Accessible names | the set of unnamed controls is empty, per cell | `axe.spec.ts` |
+| Boundary contrast (border is the sole affordance) | the set of failures is empty, per cell | `axe.spec.ts` |
+| Focus indicator | every stop draws one, and every one clears 3:1 | `keyboard.spec.ts` |
+| Focus scope | no focus stop is outside the viewport | `keyboard.spec.ts` |
+| Theme tokens | the two Light palette blocks are identical; no `@theme` token points at an undeclared value | `tests/themeTokens.test.ts` |
+
+Violating nodes per scan at the **PR0 baseline** (390 × 812, Today) — all now 0:
 
 | Category | Dark | Light |
 |---|---|---|
@@ -622,53 +853,83 @@ Violating nodes per scan (390 × 812, Today):
 * Give the bottom nav a real fourth destination so `activeTab` is no longer typed
   `'today' | 'all' | 'done'` while four buttons are rendered.
 
-### PR3 — tokens/contrast, names and semantics, focus/keyboard, 44 px targets
+### PR3 — tokens/contrast, names and semantics, focus/keyboard, 44 px targets — **delivered**
+
+Every item below is checked against what actually landed. Items that were *not*
+done carry the reason and, where one exists, the owner.
 
 *Colour and tokens*
 
-* Raise every pair in §3.1 and §3.2 to its threshold. The light palette is the
-  bigger job.
-* Remove hard-coded dark-palette Tailwind classes that never switch with the
-  theme: `text-slate-200`, `text-slate-400`, `text-slate-500`, `bg-slate-800`
-  (DailyEssentialsSection, App.tsx `TaskSection`, TaskCard) and
-  `[color-scheme:dark]` on the All-tab date input.
-* Fix `--ring-track`: `HomeHero` reads `var(--ring-track)`, but the token is
-  defined as `--_ring-track` / `--color-ring-track`, so the progress ring's track
-  currently resolves to nothing.
-* Consider self-hosting Inter instead of a render-blocking Google Fonts link
-  (§1, §11).
+* ✅ Every pair in §3.1 and §3.2 now meets its threshold, asserted as an empty
+  failure set across all 24 cells.
+* ✅ All theme-blind literal palette classes removed across 11 components —
+  `text-slate-*`, `bg-slate-*`, `bg-blue-*`, `bg-red-*`, `bg-rose-*`,
+  `bg-amber-*`, `bg-emerald-*`, `text-violet-*`, `bg-[#1d4aba]`, `bg-[#475569]`,
+  and `[color-scheme:dark]` on the All-tab date input.
+* ✅ `--ring-track` fixed — `HomeHero` now reads `var(--color-ring-track)`, so
+  the progress ring has a visible track again.
+* ✅ New token families: `primary-text` / `primary-surface` / `primary-border`,
+  `danger` / `warning` / `success` / `accent` (each with text, surface, border
+  and a `-solid` fill), `neutral-solid`, `focus`, four `block-*` time-block
+  accents and three `priority-*` values — declared in both palettes.
+* ✅ The two hardcoded `rgba()` glows (time-block bars, priority dots) replaced
+  with `.accent-glow` / `.dot-glow`, which take their hue from `currentColor`
+  and therefore follow the palette.
+* ⬜ **Not done — self-hosting Inter.** This was a "consider", and it is a
+  network and build change rather than an accessibility one. The render-blocking
+  Google Fonts link and its ~13 s stall in a no-egress environment are unchanged;
+  the measurement caveat in §1 still applies. No owner assigned.
 
 *Names and semantics*
 
-* Give the task completion checkbox an accessible name and `role="checkbox"` +
-  `aria-checked` (or a real `<input type="checkbox">`).
-* Name the search input, the search close button, the date filter input, the
-  NewTaskModal title/time/duration inputs, the recurrence `<select>`, and the
-  reminder toggle.
-* Turn the Essentials collapse header and simple-essential rows into real
-  controls (`<button>` / `role="checkbox"`, `aria-expanded` / `aria-checked`).
-  Give the chips `aria-pressed` and a name beyond the bare digit.
-* Give the bottom nav tab semantics (`role="tablist"`/`tab` + `aria-selected`, or
-  at minimum `aria-current`), so the active view is not colour-only.
+* ✅ Task completion checkbox: `role="checkbox"` + `aria-checked` + a name that
+  includes the task title.
+* ✅ Named: search input and its close button, the date filter input, the
+  NewTaskModal title / notes / time / duration / checklist inputs, the recurrence
+  `<select>`, both reminder toggles, every modal close button, and the swipe
+  actions. Zero unnamed controls in all 24 cells.
+* ✅ Essentials collapse header is a `<button aria-expanded>`; simple rows are
+  `<button role="checkbox" aria-checked>`; chips carry `aria-pressed` and a name
+  that says what they do.
+* ✅ Bottom nav: `<nav aria-label>` + `aria-current="page"` on the active
+  destination. `role="tablist"`/`tab` was **not** used — these buttons swap whole
+  views rather than panels within a composite widget, and `aria-current` is the
+  accurate mapping.
+* ✅ Colour-only state removed elsewhere too: the priority dot carries
+  `role="img"` and a German name ("Priorität: hoch/mittel/niedrig"); the
+  recurrence badge, which renders only an icon, is named "Wiederholende
+  Aufgabe"; overdue and rollover badges already carried text.
 
 *Focus and keyboard*
 
-* Author a real `:focus-visible` style meeting 3:1 (§5.1), and stop removing the
-  ring with `focus:outline-none`.
-* Unmount closed modals, or make them `inert` + `aria-hidden`, so Tab does not
-  walk into off-screen dialogs (§5.4, §4.2).
-* Take the hidden swipe actions out of the tab ring until revealed, **and** give
-  those actions a non-swipe path (they are otherwise keyboard-unreachable).
-* Fix the focus order so visible controls precede invisible ones (§5.2).
+* ✅ A single base rule authors the focus indicator; every `focus:outline-none`
+  is gone. Asserted: every stop draws one, every one clears 3:1, in both themes.
+* ✅ Closed modals are `inert`, so Tab no longer walks off-screen. Asserted: no
+  focus stop is outside the viewport.
+* ⚠️ **Deliberately not done — removing the swipe actions from the tab ring.**
+  The baseline suggested taking them out *and* adding a non-swipe path. They are
+  already the only keyboard route to Bearbeiten / Erledigt / Löschen, so removing
+  them would have deleted keyboard access rather than fixed it. Instead, focusing
+  one now opens the action strip exactly as a swipe would, and blurring out of
+  the card closes it — the control is visible while focused. The spec hit-tests
+  the focused button to prove it is no longer covered by the card body.
+* ⚠️ **Focus order unchanged.** The action strip still precedes the card body in
+  the DOM, so a card's actions are tabbed before its checkbox. With the strip now
+  revealing itself on focus this is coherent rather than confusing, and
+  reordering the DOM would move the swipe layer above the card body. Left as-is
+  deliberately; revisit with PR4's action-strip containment work.
 
 *Target sizes and related accessibility layout*
 
-* Bring the controls in §4.1 to 44 × 44 (Search 22×22, Settings 22×22, Verwalten
-  30×30, task checkbox 22×22, Essentials chips 32×32, filter pills ×30, date
-  input ×30, checklist rows ×18.69).
-* Fix the Daily Essentials chip-row overflow at 360 px (§6.3) — wrap the chips or
-  reflow the row.
-* Size the modal controls in §4.2 once the closed-modal decision above is made.
+* ✅ Search, Settings, Verwalten, the task checkbox, filter pills, the date
+  input, the modal buttons and the icon buttons in the sheets all reach 44 × 44,
+  by real sizing or by the `.tap-target-44` overlay (§4).
+* ⬜ **Deferred to PR4 with reasons recorded** — Essentials chips (32 × 32) and
+  inline checklist rows (28 px tall). Both are enumerated in
+  `TARGET_SIZE_EXCEPTIONS`; see §4.
+* ⬜ **Not done — the Daily Essentials chip-row overflow at 360 px (§6.3).**
+  This is layout containment, which the queue assigns to PR4, and enlarging the
+  chips here would have made it worse. Owner: PR4.
 
 ### PR4 — sticky-surface clipping and F8 / action-strip containment
 
@@ -717,8 +978,15 @@ emulated viewports. The following can only be verified on real hardware:
 * Real notification permission prompt and delivery for the reminders feature.
 * **Re-measurement of every font-width-dependent number with Inter actually
   loaded** (§1, §6.3) — the Daily Essentials chip-row overflow at 360 px and
-  390 px is the concrete item. This is a PR8 deliverable: PR3 should not size its
-  fix from the provisional numbers alone.
+  390 px is the concrete item.
+* **Whether the `.tap-target-44` overlay behaves on a real touchscreen.** The
+  suite measures the pseudo-element's box and Chromium's hit-testing; a finger
+  has a contact patch and Android applies its own touch-slop and fuzzing on top.
+  Worth confirming that the enlarged areas help and that none of them steals a
+  tap from a neighbour (§4).
+* **TalkBack announcement of the new roles** — `role="checkbox"` on a `<button>`
+  for task completion and simple Essentials, `role="switch"` on the two settings
+  toggles, and `aria-current="page"` on the bottom nav (§5).
 
 ---
 
@@ -728,7 +996,9 @@ emulated viewports. The following can only be verified on real hardware:
 |---|---|
 | `test-results/baseline/matrix-<viewport>-<theme>.json` | every contrast pair, every hit target, overflow, sticky geometry |
 | `test-results/baseline/axe-<viewport>-<theme>-<tab>.json` | node fingerprints, axe rule ids, classified findings, category counts |
-| `test-results/baseline/keyboard-focus-order-today.json` | the full 38-stop traversal with focus styles and ring contrast |
+| `test-results/baseline/keyboard-focus-order-today-<theme>.json` | the full traversal with focus styles and ring contrast, per theme |
+| `test-results/baseline/essentials-contrast-<viewport>-<theme>.json` | composited Daily Essentials text contrast (DE/FA/emoji/mixed) |
+| `test-results/baseline/modal-new-task-<theme>.json` / `modal-settings-<theme>.json` | the sheets measured while **open**, with the NewTaskModal disclosure expanded |
 | `test-results/baseline/backup-*.json` | export contents and round-trip results |
 | `test-results/baseline/reminders-tab-state.json` | the inert-tab evidence |
 | `playwright-report/` | HTML report with the same payloads attached per test |
@@ -739,7 +1009,14 @@ The committed baseline is three files:
 
 | File | Role |
 |---|---|
-| `e2e/baseline/axe-fingerprints.ts` | generated; the 401 pinned node fingerprints (§9.2) |
+| `e2e/baseline/axe-fingerprints.ts` | generated; the pinned node fingerprints — **0 across all 24 cells after PR3** (§9.2) |
 | `e2e/baseline/known-violations.ts` | hand-written; rule meanings and PR ownership |
 | `e2e/baseline/regenerate.mjs` | rebuilds the fingerprints file from a recording run |
 | `docs/a11y-baseline-1a.md` | this document |
+
+Two guards live outside the browser suite:
+
+| File | Role |
+|---|---|
+| `tests/themeTokens.test.ts` | parses `src/index.css`: the two Light palette blocks must stay identical, no `@theme` token may point at an undeclared private value, and the Dark palette must define everything the Light one does |
+| `e2e/viewports.spec.ts` `TARGET_SIZE_EXCEPTIONS` | the two control classes still below 44 × 44, each with a reason and an owner |

@@ -12,7 +12,7 @@
  *
  * Refuses to emit anything but a complete matrix. Duplicate evidence for a cell,
  * a missing cell, a stale cell outside the matrix, or a cell count other than
- * the expected 18 are all hard errors — a partial run must never be mistaken for
+ * the expected 24 are all hard errors — a partial run must never be mistaken for
  * a baseline.
  */
 
@@ -112,7 +112,11 @@ const q = (s) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 const body = [...cells.keys()]
   .sort()
   .map((key) => {
-    const entries = cells.get(key).map((f) => `    ${q(f)},`).join('\n');
+    const fingerprints = cells.get(key);
+    // An empty cell is the goal state, not an anomaly — emit `[]` rather than a
+    // bracket pair wrapped around a blank line.
+    if (fingerprints.length === 0) return `  ${q(key)}: [],`;
+    const entries = fingerprints.map((f) => `    ${q(f)},`).join('\n');
     return `  ${q(key)}: [\n${entries}\n  ],`;
   })
   .join('\n');
@@ -136,6 +140,9 @@ process.stdout.write(`/**
  * The key set is pinned too, not just the fingerprints: axe.spec.ts asserts that
  * these keys are exactly the measured matrix, so a missing cell and a stale
  * leftover cell both fail the run.
+ *
+ * Since PR3 every cell is empty. That is the strongest form of this ratchet:
+ * with nothing expected, any violating node anywhere fails the run.
  *
  * See known-violations.ts for what each rule means and which PR owns it.
  */

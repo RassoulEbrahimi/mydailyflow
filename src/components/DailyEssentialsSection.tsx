@@ -33,11 +33,14 @@ export default function DailyEssentialsSection({
     <section className="px-5 pt-3 pb-5">
       {/* Header */}
       <div className="flex items-center justify-between mb-3 gap-2">
-        <div 
-          className="flex items-center gap-2 cursor-pointer select-none min-w-0"
+        <button
+          type="button"
+          className="flex items-center gap-2 select-none min-w-0 min-h-11 text-left"
           onClick={() => setIsCollapsed(!isCollapsed)}
+          aria-expanded={!isCollapsed}
+          aria-label={`Tägliche Essentials, ${completedCount} von ${totalCount} erledigt`}
         >
-          <div className="flex items-center justify-center flex-shrink-0 w-7 h-7 rounded-full bg-blue-500/15 text-blue-400">
+          <div className="flex items-center justify-center flex-shrink-0 w-7 h-7 rounded-full bg-primary-surface text-primary-text" aria-hidden="true">
             <Droplets size={16} strokeWidth={2.5} />
           </div>
           <h2 className="text-[16px] font-bold text-fg tracking-tight truncate">Tägliche Essentials</h2>
@@ -45,18 +48,19 @@ export default function DailyEssentialsSection({
             {completedCount}/{totalCount}
           </span>
           {isCollapsed ? (
-            <ChevronDown size={18} className="text-fg-secondary flex-shrink-0" />
+            <ChevronDown size={18} className="text-fg-secondary flex-shrink-0" aria-hidden="true" />
           ) : (
-            <ChevronUp size={18} className="text-fg-secondary flex-shrink-0" />
+            <ChevronUp size={18} className="text-fg-secondary flex-shrink-0" aria-hidden="true" />
           )}
-        </div>
-        
+        </button>
+
         <button
+          type="button"
           onClick={onManageClick}
-          className="text-blue-400 hover:text-blue-300 p-1.5 rounded-md hover:bg-blue-500/10 transition-colors flex items-center justify-center flex-shrink-0"
-          aria-label="Verwalten"
+          className="text-primary-text hover:opacity-80 min-w-11 min-h-11 rounded-md hover:bg-primary-surface transition-colors flex items-center justify-center flex-shrink-0"
+          aria-label="Essentials verwalten"
         >
-          <Settings size={18} />
+          <Settings size={18} aria-hidden="true" />
         </button>
       </div>
 
@@ -65,7 +69,14 @@ export default function DailyEssentialsSection({
         <div className="flex flex-col gap-2.5 bg-surface-dim p-3 rounded-[16px] border border-edge/50 shadow-sm">
           {essentials.length === 0 ? (
             <div className="text-center py-4 text-fg-secondary text-[14px]">
-              Noch keine Essentials. <span className="text-primary cursor-pointer" onClick={onManageClick}>Hinzufügen</span>
+              Noch keine Essentials.{' '}
+              <button
+                type="button"
+                onClick={onManageClick}
+                className="text-primary-text font-semibold underline underline-offset-2 min-h-11 px-1"
+              >
+                Hinzufügen
+              </button>
             </div>
           ) : (
             essentials.map(essential => {
@@ -75,26 +86,32 @@ export default function DailyEssentialsSection({
 
               if (isSimple) {
               return (
-                <div 
+                <button
+                  type="button"
                   key={essential.id}
                   onClick={() => onUpdateProgress(essential.id, isDone ? 0 : 1)}
-                  className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all active:scale-[0.98] ${
+                  role="checkbox"
+                  aria-checked={isDone}
+                  className={`w-full text-left flex items-center justify-between gap-3 p-3 min-h-11 rounded-xl transition-all active:scale-[0.98] ${
                     isDone 
-                      ? 'bg-blue-500/10 border border-blue-500/20'
+                      ? 'bg-primary-surface border border-primary-border'
                       : 'bg-surface-raised border border-transparent hover:border-edge-subtle'
                   }`}
                 >
-                  <span className={`text-[15px] font-medium transition-colors ${
-                    isDone ? 'text-fg line-through opacity-70' : 'text-fg'
-                  }`}>
+                  <span
+                    dir="auto"
+                    className={`text-[15px] font-medium transition-colors ${
+                      isDone ? 'text-fg line-through opacity-70' : 'text-fg'
+                    }`}
+                  >
                     {essential.title}
                   </span>
-                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                  <div className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
                     isDone ? 'bg-primary border-primary text-white' : 'border-edge-strong text-transparent'
-                  }`}>
+                  }`} aria-hidden="true">
                     <Check size={14} strokeWidth={3} />
                   </div>
-                </div>
+                </button>
               );
             }
 
@@ -103,14 +120,17 @@ export default function DailyEssentialsSection({
                 key={essential.id}
                 className={`flex items-center justify-between p-3 rounded-xl transition-all ${
                     isDone 
-                      ? 'bg-blue-500/10 border border-blue-500/20'
+                      ? 'bg-primary-surface border border-primary-border'
                       : 'bg-surface-raised border border-transparent'
                 }`}
               >
-                <div className="flex flex-col gap-1">
-                  <span className={`text-[15px] font-medium transition-colors ${
-                    isDone ? 'text-fg line-through opacity-70' : 'text-fg'
-                  }`}>
+                <div className="flex flex-col gap-1 min-w-0">
+                  <span
+                    dir="auto"
+                    className={`text-[15px] font-medium transition-colors ${
+                      isDone ? 'text-fg line-through opacity-70' : 'text-fg'
+                    }`}
+                  >
                     {essential.title}
                   </span>
                   <span className="text-[12px] font-medium text-fg-secondary">
@@ -125,6 +145,7 @@ export default function DailyEssentialsSection({
                     return (
                       <button
                         key={i}
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           // If clicking the current exact progress, toggle it down by 1
@@ -134,6 +155,8 @@ export default function DailyEssentialsSection({
                             onUpdateProgress(essential.id, chipValue);
                           }
                         }}
+                        aria-pressed={isActive}
+                        aria-label={`${essential.title}: ${chipValue} von ${essential.targetCount}`}
                         className={`w-8 h-8 rounded-md flex items-center justify-center text-[14px] font-bold transition-all active:scale-90 ${
                           isActive
                             ? 'bg-primary text-white shadow-[0_0_10px_rgba(19,91,236,0.3)]'

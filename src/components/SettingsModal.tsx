@@ -1,4 +1,5 @@
 import React from 'react';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 import { Bell, LogOut, Monitor, Moon, Sun as SunIcon } from 'lucide-react';
 import type { Theme } from '../hooks/useTheme';
 import BackupRestoreSection from './BackupRestoreSection';
@@ -34,6 +35,9 @@ const SettingsModal = ({
 }: SettingsModalProps) => {
   const [requesting, setRequesting] = React.useState(false);
 
+  const sheetRef = React.useRef<HTMLDivElement>(null);
+  useDialogFocus(isOpen, sheetRef);
+
   const handleEnableClick = async () => {
     if (!('Notification' in window)) return;
     setRequesting(true);
@@ -52,9 +56,9 @@ const SettingsModal = ({
   };
 
   const permissionColor: Record<NotificationPermission, string> = {
-    granted: 'text-emerald-400',
-    denied: 'text-red-400',
-    default: 'text-amber-400',
+    granted: 'text-success',
+    denied: 'text-danger',
+    default: 'text-warning',
   };
 
   return (
@@ -62,14 +66,25 @@ const SettingsModal = ({
       <div
         className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={onClose}
+        aria-hidden="true"
       />
 
       {/* Scrollable: the sheet now holds enough sections to exceed short viewports. */}
-      <div className={`fixed bottom-0 left-0 w-full max-h-[92vh] overflow-y-auto overscroll-contain bg-surface-overlay rounded-t-[2.5rem] z-50 p-6 pb-10 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${isOpen ? 'translate-y-0' : 'translate-y-full'}`}>
+      {/* `inert` while closed — the sheet stays mounted off-screen, and without
+          it every control inside sits in the Tab ring of the page behind. */}
+      <div
+        ref={sheetRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Einstellungen"
+        inert={!isOpen}
+        className={`fixed bottom-0 left-0 w-full max-h-[92vh] overflow-y-auto overscroll-contain bg-surface-overlay rounded-t-[2.5rem] z-50 p-6 pb-10 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${isOpen ? 'translate-y-0' : 'translate-y-full'}`}
+      >
         <div className="w-12 h-1.5 bg-handle rounded-full mx-auto mb-6" />
 
         <div className="flex justify-between items-center mb-8 relative">
-          <button onClick={onClose} className="text-fg-secondary active:opacity-70 transition-opacity absolute left-0 text-[15px]">Schließen</button>
+          <button type="button" onClick={onClose} className="text-fg-secondary active:opacity-70 transition-opacity absolute left-0 text-[15px] min-h-11">Schließen</button>
           <h2 className="text-fg font-bold text-lg w-full text-center">Einstellungen</h2>
         </div>
 
@@ -84,14 +99,16 @@ const SettingsModal = ({
             ]).map(({ value, label, Icon }) => (
               <button
                 key={value}
+                type="button"
                 onClick={() => onThemeChange(value)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-semibold text-[14px] transition-all ${
+                aria-pressed={value === theme}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 min-h-11 rounded-xl font-semibold text-[14px] transition-all ${
                   value === theme
-                    ? 'bg-surface-raised text-primary shadow-sm'
+                    ? 'bg-surface-raised text-primary-text shadow-sm'
                     : 'text-fg-secondary hover:text-fg'
                 }`}
               >
-                <Icon size={16} strokeWidth={2.5} />
+                <Icon size={16} strokeWidth={2.5} aria-hidden="true" />
                 {label}
               </button>
             ))}
@@ -102,7 +119,10 @@ const SettingsModal = ({
         <div className="mb-6">
           <h3 className="text-fg-secondary text-xs font-semibold tracking-wider mb-3">STARTBILDSCHIRM</h3>
           <button
+            type="button"
             onClick={() => onStickyHeroChange(!stickyHeroEnabled)}
+            role="switch"
+            aria-checked={stickyHeroEnabled}
             className="w-full bg-surface-raised p-4 px-5 rounded-[1.5rem] flex items-center justify-between border border-edge/50 active:scale-[0.98] transition-transform"
           >
             <div>
@@ -110,8 +130,8 @@ const SettingsModal = ({
               <p className="text-fg-secondary text-[12px] mt-0.5">Fortschritt beim Scrollen sichtbar</p>
             </div>
             <div className={`w-[52px] h-[30px] rounded-full relative transition-all duration-300 flex-shrink-0 ml-3 ${
-              stickyHeroEnabled ? 'bg-primary shadow-[0_0_12px_rgba(19,91,236,0.4)]' : 'bg-edge'
-            }`}>
+              stickyHeroEnabled ? 'bg-primary shadow-[0_0_12px_rgba(19,91,236,0.4)]' : 'bg-surface-control border border-edge-strong'
+            }`} aria-hidden="true">
               <div className={`absolute top-[2px] w-[26px] h-[26px] bg-white rounded-full shadow-sm transition-transform duration-300 ${
                 stickyHeroEnabled ? 'right-1' : 'left-1'
               }`} />
@@ -124,7 +144,7 @@ const SettingsModal = ({
           <h3 className="text-fg-secondary text-xs font-semibold tracking-wider mb-3">BENACHRICHTIGUNGEN</h3>
           <div className="bg-surface-raised rounded-[1.5rem] p-4 px-5 border border-edge/50 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="text-orange-500 opacity-90 drop-shadow-[0_0_4px_rgba(249,115,22,0.4)]">
+              <div className="text-warning" aria-hidden="true">
                 <Bell size={22} strokeWidth={2.5} className="fill-current" />
               </div>
               <span className="text-fg font-semibold text-[16px]">Benachrichtigungen</span>
@@ -137,8 +157,8 @@ const SettingsModal = ({
 
         {/* Denied warning */}
         {permission === 'denied' && (
-          <div className="mb-6 bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
-            <p className="text-amber-400 text-sm font-semibold mb-1">Benachrichtigungen sind blockiert</p>
+          <div className="mb-6 bg-warning-surface border border-warning-border rounded-2xl p-4" role="status">
+            <p className="text-warning text-sm font-semibold mb-1">Benachrichtigungen sind blockiert</p>
             <p className="text-fg-secondary text-sm">Um Erinnerungen zu aktivieren, öffne die Website-Einstellungen deines Browsers und erlaube Benachrichtigungen für diese Seite, lade dann neu.</p>
           </div>
         )}
@@ -160,11 +180,14 @@ const SettingsModal = ({
             </div>
             {/* Reminders on/off toggle */}
             <button
+              type="button"
               onClick={() => onRemindersEnabledChange(!remindersEnabled)}
+              role="switch"
+              aria-checked={remindersEnabled}
               className="w-full bg-surface-raised p-4 px-5 rounded-[1.5rem] flex items-center justify-between border border-edge/50 active:scale-[0.98] transition-transform"
             >
               <span className="text-fg font-semibold text-[16px]">Erinnerungen planen</span>
-              <div className={`w-[52px] h-[30px] rounded-full relative transition-all duration-300 ${remindersEnabled ? 'bg-primary shadow-[0_0_12px_rgba(19,91,236,0.4)]' : 'bg-edge'}`}>
+              <div className={`w-[52px] h-[30px] rounded-full relative transition-all duration-300 ${remindersEnabled ? 'bg-primary shadow-[0_0_12px_rgba(19,91,236,0.4)]' : 'bg-surface-control border border-edge-strong'}`} aria-hidden="true">
                 <div className={`absolute top-[2px] w-[26px] h-[26px] bg-white rounded-full shadow-sm transition-transform duration-300 ${remindersEnabled ? 'right-1 translate-x-0' : 'left-1 translate-x-0'}`} />
               </div>
             </button>
@@ -174,11 +197,12 @@ const SettingsModal = ({
         {/* Enable button (shown for default or denied) */}
         {permission !== 'granted' && (
           <button
+            type="button"
             onClick={handleEnableClick}
             disabled={requesting || permission === 'denied'}
-            className="w-full bg-primary hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-[1.5rem] flex items-center justify-center gap-2 shadow-[0_8px_25px_rgba(19,91,236,0.4)] active:scale-[0.98] transition-all text-[17px]"
+            className="w-full bg-primary hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-[1.5rem] flex items-center justify-center gap-2 shadow-[0_8px_25px_rgba(19,91,236,0.4)] active:scale-[0.98] transition-all text-[17px]"
           >
-            <Bell size={22} strokeWidth={2.5} />
+            <Bell size={22} strokeWidth={2.5} aria-hidden="true" />
             {requesting ? 'Wird angefragt…' : 'Erinnerungen aktivieren'}
           </button>
         )}
@@ -189,10 +213,11 @@ const SettingsModal = ({
         {/* ── Logout ── */}
         <div className="mt-8 pt-6 border-t border-surface-raised">
           <button
+            type="button"
             onClick={() => { onClose(); onLogout(); }}
-            className="w-full bg-surface-raised hover:bg-red-500/10 border border-edge/50 hover:border-red-500/30 text-fg-secondary hover:text-red-400 font-semibold py-4 rounded-[1.5rem] flex items-center justify-center gap-2 transition-all active:scale-[0.98] text-[16px]"
+            className="w-full bg-surface-raised hover:bg-danger-surface border border-edge/50 hover:border-danger-border text-fg-secondary hover:text-danger font-semibold py-4 rounded-[1.5rem] flex items-center justify-center gap-2 transition-all active:scale-[0.98] text-[16px]"
           >
-            <LogOut size={20} strokeWidth={2.5} />
+            <LogOut size={20} strokeWidth={2.5} aria-hidden="true" />
             Abmelden
           </button>
           <p className="text-center text-[11px] text-fg-placeholder mt-3">Demo-Umgebung · Nicht sicher</p>

@@ -20,8 +20,10 @@ const AllTasksFilterBar = ({
             {(['all', 'today', 'yesterday'] as const).map(f => (
                 <button
                     key={f}
+                    type="button"
                     onClick={() => { setAllDateFilter(f); setAllDatePicker(''); }}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${allDateFilter === f
+                    aria-pressed={allDateFilter === f}
+                    className={`px-3 py-1.5 min-h-11 rounded-full text-xs font-semibold transition-all border ${allDateFilter === f
                             ? 'bg-primary text-white border-primary shadow-[0_0_10px_rgba(19,91,236,0.35)]'
                             : 'bg-surface-raised text-fg-secondary border-edge hover:border-primary/50'
                         }`}
@@ -34,18 +36,22 @@ const AllTasksFilterBar = ({
         <div className="flex items-center gap-2">
             <input
                 type="date"
+                id="all-tasks-date-filter"
+                aria-label="Nach Datum filtern"
                 value={allDatePicker}
                 onChange={e => {
                     const v = e.target.value;
                     setAllDatePicker(v);
                     setAllDateFilter(v || 'all');
                 }}
-                className="bg-surface-raised text-fg-secondary border border-edge hover:border-primary/50 rounded-full px-3 py-1.5 text-xs font-semibold outline-none [color-scheme:dark] cursor-pointer transition-all"
+                className="bg-surface-raised text-fg-secondary border border-edge hover:border-primary/50 rounded-full px-3 py-1.5 min-h-11 text-xs font-semibold cursor-pointer transition-all"
             />
             {allDateFilter !== 'all' && (
                 <button
+                    type="button"
                     onClick={() => { setAllDateFilter('all'); setAllDatePicker(''); }}
-                    className="px-3 py-1.5 rounded-full text-xs font-semibold bg-surface-raised text-fg-secondary border border-edge hover:border-red-400/50 hover:text-red-400 transition-all"
+                    aria-label="Datumsfilter löschen"
+                    className="px-3 py-1.5 min-h-11 rounded-full text-xs font-semibold bg-surface-raised text-fg-secondary border border-edge hover:border-danger hover:text-danger transition-all"
                 >
                     Löschen
                 </button>
