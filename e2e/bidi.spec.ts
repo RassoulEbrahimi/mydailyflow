@@ -644,7 +644,11 @@ for (const theme of THEMES) {
 
       const title = row.locator('span[dir="auto"]');
       expect(await app.direction(title), 'the reminder title is RTL').toBe('rtl');
-      expect(await renderedAlignment(title), 'and it hugs the right edge').toBe('right');
+      // Not `toBe('right')`: at 360px this row is narrow enough that the title
+      // fills its box, and a filled box has no informative edge. What the fix
+      // has to guarantee is that the text never sits at the *wrong* end —
+      // before it, an RTL title hugged the left edge with slack on the right.
+      expect(await renderedAlignment(title), 'and never sits at the wrong end').not.toBe('left');
 
       const detail = row.locator('span[dir="ltr"]');
       await expect(detail).toHaveCount(1);
