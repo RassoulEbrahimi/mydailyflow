@@ -306,12 +306,14 @@ const TaskCard = ({
           <div className="flex-1 min-w-0">
             <div className="flex items-start gap-2">
               {/* Title — the user's own string decides its own direction.
-                  `dir="auto"` picks it from the first strong character (so a
-                  leading emoji or digit does not decide), and the HTML UA sheet
-                  gives any `[dir]` element `unicode-bidi: isolate`, which is what
-                  keeps the title out of the surrounding German bidi context.
-                  `text-start` resolves the alignment against the title's *own*
-                  direction rather than an inherited physical `left`. */}
+                  `dir="auto"` gives this element its own `direction`, resolved
+                  from the first *strong* character, so a leading emoji, digit or
+                  bracket never decides. Because the direction lives on the
+                  element (and Chromium isolates elements by default), it stays
+                  here: it does not reorder the German metadata below or the
+                  priority dot beside it. `text-start` then resolves the
+                  alignment against the title's own direction rather than an
+                  inherited physical `left`. */}
               <h3
                 dir="auto"
                 className={`flex-1 min-w-0 text-start font-semibold text-[15px] leading-relaxed break-words py-0.5 ${

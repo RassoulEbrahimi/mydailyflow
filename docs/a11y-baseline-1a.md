@@ -1139,11 +1139,16 @@ what the app now guarantees about it.
    titles, notes, checklist item text and Essential titles each carry
    `dir="auto"` on the smallest content-only element that holds them.
 3. **Isolation is standards-based.** `dir="auto"` resolves direction from the
-   string's *first strong character*, and the HTML rendering spec gives every
-   `[dir]` element `unicode-bidi: isolate`. That isolation — not a wrapper class
-   and not a stored control character — is what keeps a Persian title out of the
-   German bidi context beside it. The suite asserts the **computed**
-   `unicode-bidi` and `direction`, never the attribute or the class name.
+   string's *first strong character* and sets it on that element, so a leading
+   emoji, digit or bracket never decides. Because the direction lives on the
+   element itself, it does not propagate outward.
+
+   The suite does **not** assert `unicode-bidi: isolate` as evidence of this.
+   That was measured and rejected: Chromium's UA stylesheet computes `isolate`
+   for essentially every element, including a bare `<div>` with no `dir` at all,
+   so such an assertion passes even with the attribute removed. What is asserted
+   instead is the property that actually has to hold — **containment**: for every
+   element resolving to RTL, every ancestor up to `<main>` is still LTR.
 4. **No Unicode directional controls are ever stored.** U+200E/U+200F,
    U+202A–U+202E and U+2066–U+2069 appear in neither the app nor the fixture,
    and the suite fails if one shows up in a persisted string.
@@ -1168,6 +1173,12 @@ what the app now guarantees about it.
 * `index.html` — `<html lang="de" dir="ltr">`.
 * `TaskCard.tsx` — `text-start` on the title and the notes; `min-w-0 flex-1
   text-start break-words` on checklist item text; `dir="ltr"` on the meta row.
+
+Note on alignment assertions: `getComputedStyle().textAlign` cannot verify this
+fix. `text-align: start` is a computed value in its own right, so Chromium
+serialises it back as `"start"` for an LTR and an RTL element alike. The suite
+ranges over each element's own text and measures which edge the glyphs actually
+hug.
 * `DailyEssentialsSection.tsx` — `min-w-0 text-start break-words` on both title
   spans; `dir="ltr"` on the `n / m` counter.
 * `RemindersView.tsx` — `min-w-0 text-start` on the title; `dir="ltr"` on the
