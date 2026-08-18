@@ -25,6 +25,8 @@ import {
   FIXED_NOW,
   KEYS,
   SYNTHETIC_SESSION,
+  type SeedEssential,
+  type SeedTask,
   type SeedTheme,
 } from './synthetic-data';
 
@@ -66,6 +68,19 @@ export interface AppOptions {
   theme?: SeedTheme;
   /** Skip data seeding to measure the empty state. Auth is still injected. */
   seedData?: boolean;
+  /**
+   * Replace the default German task seed. Added for PR5, where the whole point
+   * is to measure content the default seed deliberately does not contain.
+   *
+   * This only swaps the *payload*: the envelope, the keys, the auth injection
+   * and the once-per-tab seeding guard are all unchanged, so a content override
+   * cannot quietly change what the harness is testing about storage.
+   */
+  tasks?: SeedTask[];
+  /** Replace the default essentials seed. See `tasks`. */
+  essentials?: SeedEssential[];
+  /** Replace the default per-day essentials progress. See `tasks`. */
+  essentialsState?: { date: string; progressById: Record<string, number> };
 }
 
 export class AppHarness {
@@ -96,6 +111,18 @@ export class AppHarness {
     // so a bare getByLabel now matches both the trigger and the dialog.
     await this.settingsButton().click();
     await expect(this.page.getByRole('button', { name: 'Exportieren' })).toBeVisible();
+  }
+
+  /**
+   * Resolved writing direction of an element, as the browser actually computed
+   * it — `getComputedStyle().direction`, not the `dir` attribute. `dir="auto"`
+   * leaves the attribute reading "auto" forever, so the attribute says nothing
+   * about how the string was laid out; only the computed value does.
+   */
+  async direction(locator: Locator): Promise<'ltr' | 'rtl'> {
+    return locator.evaluate(
+      (el) => getComputedStyle(el as HTMLElement).direction as 'ltr' | 'rtl',
+    );
   }
 
   /** Read the app's own localStorage exactly as the browser holds it. */
@@ -146,7 +173,11 @@ export const test = base.extend<Fixtures>({
         sessionKey: KEYS.authSession,
         session: SYNTHETIC_SESSION,
         storage: seedData
-          ? buildStorageSeed(theme)
+          ? buildStorageSeed(theme, {
+              tasks: appOptions.tasks,
+              essentials: appOptions.essentials,
+              essentialsState: appOptions.essentialsState,
+            })
           : { [KEYS.theme]: theme, [KEYS.essentialsCollapsed]: 'false' },
         marker: '__mdf_e2e_seeded__',
       },

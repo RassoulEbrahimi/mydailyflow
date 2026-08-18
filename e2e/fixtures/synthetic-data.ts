@@ -62,6 +62,7 @@ export interface SeedTask {
   date: string;
   notes?: string;
   recurrence?: 'none' | 'daily' | 'every2days' | 'weekly' | 'monthly';
+  rolledOverFrom?: string;
   checklistItems?: { id: string; text: string; completed: boolean }[];
 }
 
@@ -195,12 +196,22 @@ export const SEED_ESSENTIALS_STATE = {
 
 export type SeedTheme = 'dark' | 'light';
 
+/** Optional content overrides. The envelope and the key set never change. */
+export interface SeedOverrides {
+  tasks?: SeedTask[];
+  essentials?: SeedEssential[];
+  essentialsState?: { date: string; progressById: Record<string, number> };
+}
+
 /** The exact localStorage payload the suite writes, as raw strings. */
-export function buildStorageSeed(theme: SeedTheme): Record<string, string> {
+export function buildStorageSeed(
+  theme: SeedTheme,
+  overrides: SeedOverrides = {},
+): Record<string, string> {
   return {
-    [KEYS.tasks]: JSON.stringify({ version: 1, data: SEED_TASKS }),
-    [KEYS.essentialsData]: JSON.stringify({ version: 1, data: SEED_ESSENTIALS }),
-    [KEYS.essentialsState]: JSON.stringify({ version: 1, data: SEED_ESSENTIALS_STATE }),
+    [KEYS.tasks]: JSON.stringify({ version: 1, data: overrides.tasks ?? SEED_TASKS }),
+    [KEYS.essentialsData]: JSON.stringify({ version: 1, data: overrides.essentials ?? SEED_ESSENTIALS }),
+    [KEYS.essentialsState]: JSON.stringify({ version: 1, data: overrides.essentialsState ?? SEED_ESSENTIALS_STATE }),
     [KEYS.theme]: theme,
     [KEYS.remindersEnabled]: 'false',
     [KEYS.stickyHeroEnabled]: 'true',

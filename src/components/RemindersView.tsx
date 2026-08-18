@@ -247,10 +247,12 @@ function ReminderRow({ task, detail, muted, onEditTask }: ReminderRowProps) {
                 <span className="min-w-0 flex flex-col gap-0.5">
                     {/* dir="auto" so a DE/EN/FA/mixed title renders in its own
                         direction while the surrounding German chrome stays LTR. */}
-                    <span dir="auto" className="text-fg font-semibold text-[15px] leading-snug break-words">
+                    <span dir="auto" className="min-w-0 text-start text-fg font-semibold text-[15px] leading-snug break-words">
                         {task.title}
                     </span>
-                    <span className="flex items-center gap-1.5 text-[11.5px] text-fg-secondary font-medium">
+                    {/* Schedule detail is German chrome — pinned LTR so the
+                        icon and the text keep their order beside an RTL title. */}
+                    <span dir="ltr" className="flex items-center gap-1.5 text-[11.5px] text-fg-secondary font-medium">
                         {task.time ? (
                             <Clock size={12} className="flex-shrink-0" aria-hidden="true" />
                         ) : (

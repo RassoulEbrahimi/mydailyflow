@@ -252,7 +252,7 @@ const NewTaskModal = ({
                       <div className="flex-shrink-0 w-4 h-4 rounded border border-edge-strong flex items-center justify-center" aria-hidden="true">
                         {item.completed && <Check size={10} strokeWidth={3} className="text-primary-text" />}
                       </div>
-                      <span dir="auto" className="flex-1 text-[14px] text-fg">{item.text}</span>
+                      <span dir="auto" className="min-w-0 flex-1 text-start break-words text-[14px] text-fg">{item.text}</span>
                       <button
                         type="button"
                         onClick={() => removeChecklistItem(item.id)}
