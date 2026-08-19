@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDialogFocus } from '../hooks/useDialogFocus';
-import { Plus, Check, Trash2, CheckCircle2, ChevronDown, Mic } from 'lucide-react';
+import { Plus, Check, Trash2, CheckCircle2, ChevronDown, Mic, CalendarDays } from 'lucide-react';
 
 import type { Task, ChecklistItem, Recurrence } from '../types/task';
-import { deriveTimeBlock, getSmartDefaultTime } from '../utils/taskUtils';
+import { deriveTimeBlock, getSmartDefaultTime, getTodayString, getTomorrowString } from '../utils/taskUtils';
 import VoiceTaskModal from './VoiceTaskModal';
 
 const RECURRENCE_LABELS: Record<Recurrence, string> = {
@@ -23,7 +23,7 @@ const NewTaskModal = ({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (task: Omit<Task, 'id' | 'createdAt' | 'completed' | 'date' | 'rolledOverFrom'>) => void;
+  onSave: (task: Omit<Task, 'id' | 'createdAt' | 'completed' | 'rolledOverFrom' | 'recurrenceAnchorDay'>) => void;
   taskToEdit?: Task | null;
   initialDraft?: Partial<Task> | null;
 }) => {
@@ -34,6 +34,7 @@ const NewTaskModal = ({
   const [showChecklist, setShowChecklist] = useState(false);
   const [newChecklistText, setNewChecklistText] = useState('');
   const [selectedTime, setSelectedTime] = useState('14:00');
+  const [selectedDate, setSelectedDate] = useState(getTodayString());
   const [selectedDuration, setSelectedDuration] = useState('30m');
   const [isReminderEnabled, setIsReminderEnabled] = useState(true);
   const [selectedPriority, setSelectedPriority] = useState('Medium');
@@ -56,6 +57,7 @@ const NewTaskModal = ({
         setShowChecklist(existing.length > 0);
         setNewChecklistText('');
         setSelectedTime(taskToEdit.time);
+        setSelectedDate(taskToEdit.date || getTodayString());
         setSelectedDuration(taskToEdit.duration);
         setSelectedPriority(taskToEdit.priority.charAt(0).toUpperCase() + taskToEdit.priority.slice(1));
         setSelectedRecurrence(taskToEdit.recurrence ?? 'none');
@@ -69,6 +71,7 @@ const NewTaskModal = ({
         setShowChecklist(false);
         setNewChecklistText('');
         setSelectedTime(initialDraft.time || getSmartDefaultTime());
+        setSelectedDate(initialDraft.date || getTodayString());
         setSelectedDuration(initialDraft.duration || '30m');
         setIsReminderEnabled(initialDraft.reminderEnabled ?? true);
         setSelectedPriority(initialDraft.priority ? initialDraft.priority.charAt(0).toUpperCase() + initialDraft.priority.slice(1) : 'Medium');
@@ -81,6 +84,7 @@ const NewTaskModal = ({
         setShowChecklist(false);
         setNewChecklistText('');
         setSelectedTime(getSmartDefaultTime());
+        setSelectedDate(getTodayString());
         setSelectedDuration('30m');
         setIsReminderEnabled(true);
         setSelectedPriority('Medium');
@@ -108,6 +112,7 @@ const NewTaskModal = ({
 
   const handleSaveClick = () => {
     if (!title.trim()) return; // Don't save empty tasks
+    if (!selectedDate || selectedDate < getTodayString()) return;
 
     onSave({
       title: title.trim(),
@@ -120,10 +125,19 @@ const NewTaskModal = ({
       priority: selectedPriority.toLowerCase() as Task['priority'],
       recurrence: selectedRecurrence,
       reminderEnabled: isReminderEnabled,
+      date: selectedDate,
     });
 
     onClose();
   };
+
+  const today = getTodayString();
+  const tomorrow = getTomorrowString();
+  const dateError = !selectedDate
+    ? 'Bitte wähle ein Datum aus.'
+    : selectedDate < today
+      ? 'Vergangene Daten können nicht geplant werden.'
+      : null;
 
   return (
     <>
@@ -163,7 +177,8 @@ const NewTaskModal = ({
             <button
               type="button"
               onClick={handleSaveClick}
-              className="text-primary-text font-semibold text-[15px] active:opacity-60 transition-opacity w-16 min-h-11 text-right"
+              disabled={Boolean(dateError)}
+              className="text-primary-text font-semibold text-[15px] active:opacity-60 transition-opacity w-16 min-h-11 text-right disabled:opacity-40"
             >
               Fertig
             </button>
@@ -293,9 +308,62 @@ const NewTaskModal = ({
 
           {/* ── Schedule card ── */}
           <div className="bg-surface-accent rounded-2xl p-4 mb-3 border border-edge-accent">
-            {/* Header + Start Time Row */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CalendarDays size={19} className="text-primary-text flex-shrink-0" aria-hidden="true" />
               <h3 className="text-fg font-bold text-[17px]">Zeitplan</h3>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedDate(today)}
+                aria-pressed={selectedDate === today}
+                className={`min-h-11 rounded-xl border text-[14px] font-semibold transition-colors ${
+                  selectedDate === today
+                    ? 'bg-primary border-primary text-white'
+                    : 'bg-surface-inset border-edge-muted text-fg-secondary'
+                }`}
+              >
+                Heute
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedDate(tomorrow)}
+                aria-pressed={selectedDate === tomorrow}
+                className={`min-h-11 rounded-xl border text-[14px] font-semibold transition-colors ${
+                  selectedDate === tomorrow
+                    ? 'bg-primary border-primary text-white'
+                    : 'bg-surface-inset border-edge-muted text-fg-secondary'
+                }`}
+              >
+                Morgen
+              </button>
+            </div>
+
+            <label htmlFor="task-date" className="mt-3 block text-fg-muted text-[11px] font-semibold tracking-widest">
+              DATUM WÄHLEN
+            </label>
+            <input
+              type="date"
+              id="task-date"
+              aria-label="Aufgabendatum"
+              value={selectedDate}
+              min={today}
+              aria-invalid={dateError ? 'true' : 'false'}
+              aria-describedby={dateError ? 'task-date-error' : undefined}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className={`mt-2 w-full min-h-11 rounded-xl border bg-surface-inset px-3 text-[15px] font-semibold text-fg ${
+                dateError ? 'border-danger' : 'border-edge-muted'
+              }`}
+            />
+            {dateError && (
+              <p id="task-date-error" role="alert" className="mt-2 text-[13px] font-medium text-danger">
+                {dateError}
+              </p>
+            )}
+
+            <div className="mt-4 flex items-center justify-between border-t border-edge-accent pt-4">
+              <span className="text-fg font-medium text-[15px]">Startzeit</span>
               <input
                 type="time"
                 id="task-time"
@@ -431,7 +499,8 @@ const NewTaskModal = ({
           <button
             type="button"
             onClick={handleSaveClick}
-            className="w-full bg-primary hover:brightness-110 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(19,91,236,0.45)] active:scale-[0.98] transition-all text-[16px]"
+            disabled={Boolean(dateError)}
+            className="w-full bg-primary hover:brightness-110 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(19,91,236,0.45)] active:scale-[0.98] transition-all text-[16px] disabled:opacity-40 disabled:shadow-none"
           >
             <CheckCircle2 size={20} strokeWidth={2.5} aria-hidden="true" />
             <span>Speichern</span>

@@ -107,7 +107,7 @@ export function useTasks() {
 
   // recurrenceAnchorDay is owned by this hook, not by callers: it is derived
   // from the task's own recurrence and scheduled date on every save.
-  const saveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed' | 'date' | 'rolledOverFrom' | 'recurrenceAnchorDay'>, taskToEdit?: Task | null): Task => {
+  const saveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed' | 'rolledOverFrom' | 'recurrenceAnchorDay'>, taskToEdit?: Task | null): Task => {
     let savedTaskInner: Task;
 
     if (taskToEdit) {
@@ -119,7 +119,6 @@ export function useTasks() {
         id: Math.random().toString(36).substr(2, 9),
         completed: false,
         createdAt: new Date().toISOString(),
-        date: getTodayString(),
       });
       setTasks(prev => [...prev, savedTaskInner]);
     }
