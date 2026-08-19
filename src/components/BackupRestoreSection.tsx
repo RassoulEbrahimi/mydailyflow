@@ -328,14 +328,15 @@ const BackupRestoreSection = ({ onImported }: BackupRestoreSectionProps) => {
           </h4>
           <div className="flex flex-col gap-2">
             {snapshots.map(snapshot => (
-              <div key={snapshot.key} className={`${cardClass} flex items-center justify-between gap-3`}>
-                <div className="min-w-0">
-                  <p className="text-fg text-[14px] font-semibold truncate">{snapshot.sourceKey}</p>
-                  <p className="text-fg-placeholder text-[11px] truncate">
-                    {snapshot.capturedAt} · {snapshot.size} Zeichen
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
+              <div key={snapshot.key} className={`${cardClass} flex flex-col gap-3`}>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-fg text-[14px] font-semibold truncate">{snapshot.sourceKey}</p>
+                    <p className="text-fg-placeholder text-[11px] truncate">
+                      {snapshot.capturedAt} · {snapshot.size} Zeichen
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
                   <button
                     type="button"
                     onClick={() => handleExportSnapshot(snapshot)}
@@ -344,25 +345,40 @@ const BackupRestoreSection = ({ onImported }: BackupRestoreSectionProps) => {
                   >
                     <Download size={16} strokeWidth={2.5} aria-hidden="true" />
                   </button>
-                  {confirmDelete === snapshot.key ? (
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteSnapshot(snapshot)}
-                      className="px-3 py-2 min-h-11 rounded-xl bg-danger-surface text-danger text-[12px] font-semibold active:scale-95 transition-all"
-                    >
-                      Wirklich löschen?
-                    </button>
-                  ) : (
                     <button
                       type="button"
                       onClick={() => setConfirmDelete(snapshot.key)}
                       aria-label="Wiederherstellungspunkt löschen"
+                      aria-expanded={confirmDelete === snapshot.key}
                       className="min-w-11 min-h-11 flex items-center justify-center rounded-xl bg-surface-inset text-fg-secondary hover:text-danger active:scale-95 transition-all"
                     >
                       <Trash2 size={16} strokeWidth={2.5} aria-hidden="true" />
                     </button>
-                  )}
+                  </div>
                 </div>
+                {confirmDelete === snapshot.key && (
+                  <div role="alert" className="border-t border-danger-border pt-3">
+                    <p className="text-danger text-[13px] font-semibold">Wiederherstellungspunkt endgültig löschen?</p>
+                    <p className="text-fg-secondary text-[12px] mt-1">Diese Aktion kann nicht rückgängig gemacht werden.</p>
+                    <div className="grid grid-cols-2 gap-2 mt-3">
+                      <button
+                        type="button"
+                        autoFocus
+                        onClick={() => setConfirmDelete(null)}
+                        className="min-h-11 rounded-xl bg-surface-inset text-fg-secondary font-semibold text-[13px]"
+                      >
+                        Abbrechen
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSnapshot(snapshot)}
+                        className="min-h-11 rounded-xl bg-danger-solid text-white font-semibold text-[13px]"
+                      >
+                        Endgültig löschen
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

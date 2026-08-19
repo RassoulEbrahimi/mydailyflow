@@ -1,4 +1,4 @@
-import { Waves, Search, Bell, Sun, List, CheckCircle2, Settings, Plus } from 'lucide-react';
+import { Waves, Search, Bell, Sun, List, CheckCircle2, Settings, Plus, RotateCcw } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from './hooks/useAuth';
 import LoginPage from './components/LoginPage';
@@ -218,7 +218,31 @@ function AppInner({ logout }: { logout: () => void }) {
     setIsModalOpen(true);
   };
 
-  const { tasks, saveTask, toggleTaskStatus, toggleChecklistItem, deleteTask, moveTaskToTomorrow } = useTasks();
+  const { tasks, saveTask, toggleTaskStatus, toggleChecklistItem, deleteTask, restoreTask, moveTaskToTomorrow } = useTasks();
+  const [pendingTaskDeletion, setPendingTaskDeletion] = useState<Task | null>(null);
+
+  // Task deletion is immediate, but recoverable for eight seconds. The toast
+  // lives at app-shell level so switching tabs cannot make the recovery action
+  // disappear. Nothing is added to persisted storage or to the Task shape.
+  useEffect(() => {
+    if (!pendingTaskDeletion) return;
+    const timeoutId = window.setTimeout(() => setPendingTaskDeletion(null), 8000);
+    return () => window.clearTimeout(timeoutId);
+  }, [pendingTaskDeletion]);
+
+  const handleDeleteTask = (id: string) => {
+    const task = tasks.find(candidate => candidate.id === id);
+    if (!task) return;
+    deleteTask(id);
+    setPendingTaskDeletion(task);
+    setOpenSwipeId(null);
+  };
+
+  const handleUndoTaskDelete = () => {
+    if (!pendingTaskDeletion) return;
+    restoreTask(pendingTaskDeletion);
+    setPendingTaskDeletion(null);
+  };
 
   useReminders(tasks, remindersEnabled);
   
@@ -414,13 +438,13 @@ function AppInner({ logout }: { logout: () => void }) {
             />
             <div className="flex flex-col gap-8 px-5 pt-2">
             <TaskSection title="Morgen" timeRange="06:00 – 12:00" accentClass="text-block-morning">
-              {morningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />)}
+              {morningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />)}
             </TaskSection>
             <TaskSection title="Nachmittag" timeRange="12:00 – 18:00" accentClass="text-block-afternoon">
-              {afternoonTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />)}
+              {afternoonTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />)}
             </TaskSection>
             <TaskSection title="Abend" timeRange="18:00 – 23:00" accentClass="text-block-evening">
-              {eveningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />)}
+              {eveningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />)}
             </TaskSection>
 
             {pendingTasks.length === 0 && (
@@ -455,7 +479,7 @@ function AppInner({ logout }: { logout: () => void }) {
                     {/* Task cards */}
                     <div className="flex flex-col gap-2.5">
                       {group.tasks.map(t => (
-                        <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />
+                        <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />
                       ))}
                     </div>
                   </div>
@@ -493,7 +517,7 @@ function AppInner({ logout }: { logout: () => void }) {
           <div className="flex flex-col gap-8 px-5">
             {doneTasks.length > 0 ? (
               <TaskSection title="Erledigte Aufgaben" accentClass="text-block-done">
-                {doneTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={deleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />)}
+                {doneTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />)}
               </TaskSection>
             ) : (
               <div className="text-center py-12 text-fg-secondary mt-10">
@@ -504,6 +528,26 @@ function AppInner({ logout }: { logout: () => void }) {
           </div>
         )}
       </main>
+
+      {pendingTaskDeletion && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed left-4 right-4 bottom-[6.75rem] z-40 mx-auto max-w-md rounded-2xl border border-edge bg-surface-overlay p-3 pl-4 shadow-2xl flex items-center gap-3"
+        >
+          <p className="min-w-0 flex-1 text-[14px] text-fg-secondary">
+            Aufgabe <span dir="auto" className="font-semibold text-fg">„{pendingTaskDeletion.title}“</span> gelöscht.
+          </p>
+          <button
+            type="button"
+            onClick={handleUndoTaskDelete}
+            className="min-h-11 flex-shrink-0 rounded-xl px-3 text-[14px] font-semibold text-primary-text hover:bg-primary-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary flex items-center gap-1.5"
+          >
+            <RotateCcw size={16} aria-hidden="true" />
+            Rückgängig
+          </button>
+        </div>
+      )}
 
       {/* Floating Action Button */}
       <div className="fixed bottom-[5.5rem] right-5 z-20 flex flex-col items-end">

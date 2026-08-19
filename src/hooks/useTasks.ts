@@ -163,6 +163,17 @@ export function useTasks() {
     setTasks(prev => prev.filter(t => t.id !== id));
   };
 
+  /**
+   * Restores the exact object removed by an undoable delete.
+   *
+   * The duplicate guard makes a delayed/double Undo harmless. Sorting remains
+   * a view concern below, so restoring does not mutate any task field or add a
+   * persistence/schema concept.
+   */
+  const restoreTask = (task: Task) => {
+    setTasks(prev => prev.some(existing => existing.id === task.id) ? prev : [...prev, task]);
+  };
+
   const sortedTasks = [...tasks].sort((a, b) => {
     const timeA = a.time || '23:59';
     const timeB = b.time || '23:59';
@@ -183,5 +194,5 @@ export function useTasks() {
     }));
   };
 
-  return { tasks: sortedTasks, saveTask, toggleTaskStatus, toggleChecklistItem, deleteTask, moveTaskToTomorrow };
+  return { tasks: sortedTasks, saveTask, toggleTaskStatus, toggleChecklistItem, deleteTask, restoreTask, moveTaskToTomorrow };
 }

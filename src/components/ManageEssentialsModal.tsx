@@ -101,6 +101,7 @@ export default function ManageEssentialsModal({
 
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   
   const [formTitle, setFormTitle] = useState('');
   const [formTargetCount, setFormTargetCount] = useState(1);
@@ -134,6 +135,7 @@ export default function ManageEssentialsModal({
     if (isOpen) {
       setIsAdding(false);
       setEditingId(null);
+      setPendingDeleteId(null);
     }
   }, [isOpen]);
 
@@ -144,6 +146,7 @@ export default function ManageEssentialsModal({
     setFormTargetCount(1);
     setIsAdding(true);
     setEditingId(null);
+    setPendingDeleteId(null);
   };
 
   const handleStartEdit = (e: DailyEssential) => {
@@ -151,6 +154,7 @@ export default function ManageEssentialsModal({
     setFormTargetCount(e.targetCount);
     setEditingId(e.id);
     setIsAdding(false);
+    setPendingDeleteId(null);
   };
 
   const handleSave = () => {
@@ -169,6 +173,43 @@ export default function ManageEssentialsModal({
     setIsAdding(false);
     setEditingId(null);
   };
+
+  const pendingDeleteEssential = pendingDeleteId
+    ? essentials.find(essential => essential.id === pendingDeleteId) ?? null
+    : null;
+
+  const confirmEssentialDelete = () => {
+    if (!pendingDeleteEssential) return;
+    onDelete(pendingDeleteEssential.id);
+    setPendingDeleteId(null);
+  };
+
+  const renderDeleteConfirmation = () => pendingDeleteEssential && (
+    <div role="alert" className="bg-danger-surface border border-danger-border rounded-2xl p-4">
+      <p className="font-semibold text-danger text-[15px]">Essential endgültig löschen?</p>
+      <p className="mt-1 text-[14px] text-fg-secondary">
+        <span dir="auto" className="font-semibold text-fg">„{pendingDeleteEssential.title}“</span>{' '}
+        und der heutige Fortschritt dafür werden entfernt. Diese Aktion kann nicht rückgängig gemacht werden.
+      </p>
+      <div className="mt-4 grid grid-cols-2 gap-2.5">
+        <button
+          type="button"
+          autoFocus
+          onClick={() => setPendingDeleteId(null)}
+          className="min-h-11 rounded-xl bg-surface-raised border border-edge text-fg-secondary font-semibold text-[14px]"
+        >
+          Abbrechen
+        </button>
+        <button
+          type="button"
+          onClick={confirmEssentialDelete}
+          className="min-h-11 rounded-xl bg-danger-solid text-white font-semibold text-[14px]"
+        >
+          Endgültig löschen
+        </button>
+      </div>
+    </div>
+  );
 
   const renderForm = () => (
     <div className="bg-surface-raised p-4 rounded-xl border border-edge-subtle flex flex-col gap-4 mb-4">
@@ -250,7 +291,9 @@ export default function ManageEssentialsModal({
         </div>
 
         <div className="p-5 overflow-y-auto custom-scrollbar flex-1 relative">
-          {(isAdding || editingId) ? (
+          {pendingDeleteEssential ? (
+            renderDeleteConfirmation()
+          ) : (isAdding || editingId) ? (
             renderForm()
           ) : (
             <div className="flex flex-col gap-3">
@@ -270,7 +313,7 @@ export default function ManageEssentialsModal({
                         key={e.id} 
                         e={e} 
                         onStartEdit={handleStartEdit} 
-                        onDelete={onDelete} 
+                        onDelete={setPendingDeleteId}
                       />
                     ))}
                   </SortableContext>
