@@ -136,6 +136,27 @@ export const compareByTimeUntimedLast = (a: Task, b: Task): number => {
     return a.time.localeCompare(b.time);
 };
 
+/** Formats a local wall-clock time as HH:MM. */
+export const getCurrentTimeString = (date: Date = new Date()): string =>
+    `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+
+/**
+ * Selects the task shown in Today's "Jetzt" focus card.
+ *
+ * The next incomplete timed task at or after the current time wins. Once every
+ * timed task is in the past, the earliest still-open timed task is surfaced so
+ * Today never hides unfinished work behind an empty focus state. Untimed tasks
+ * remain valid Today items, but cannot be "next" because they have no moment to
+ * compare with the wall clock.
+ */
+export const selectNowTask = (tasks: Task[], currentTime: string): Task | null => {
+    const openTimed = tasks
+        .filter(task => !task.completed && hasTime(task))
+        .sort(compareByTimeUntimedLast);
+
+    return openTimed.find(task => task.time >= currentTime) ?? openTimed[0] ?? null;
+};
+
 // ─── Recurrence helper ────────────────────────────────────────────────────────
 
 // Formats a local Date as YYYY-MM-DD.

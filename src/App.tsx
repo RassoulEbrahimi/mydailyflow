@@ -10,6 +10,8 @@ import {
   filterTasksBySearch,
   groupTasksByDate,
   compareByTimeUntimedLast,
+  getCurrentTimeString,
+  selectNowTask,
 } from './utils/taskUtils';
 import DateGroupHeader from './components/DateGroupHeader';
 import AllTasksFilterBar from './components/AllTasksFilterBar';
@@ -25,6 +27,7 @@ import RemindersView from './components/RemindersView';
 import ManageEssentialsModal from './components/ManageEssentialsModal';
 import VoiceTaskModal from './components/VoiceTaskModal';
 import { useTheme } from './hooks/useTheme';
+import NowFocusCard from './components/NowFocusCard';
 
 const TaskSection = ({ title, timeRange, accentClass, children }: { title: string, timeRange?: string, accentClass: string, children: React.ReactNode }) => {
   return (
@@ -257,6 +260,16 @@ function AppInner({ logout }: { logout: () => void }) {
   } = useDailyEssentials();
 
   const [activeTab, setActiveTab] = useState<TabId>('today');
+  const [currentTime, setCurrentTime] = useState(() => getCurrentTimeString());
+
+  // Keep the focus card aligned with the wall clock while the app remains open.
+  useEffect(() => {
+    const intervalId = window.setInterval(
+      () => setCurrentTime(getCurrentTimeString()),
+      30_000,
+    );
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   // 'all' | 'today' | 'yesterday' | YYYY-MM-DD
   const [allDateFilter, setAllDateFilter] = useState<string>('all');
@@ -296,6 +309,7 @@ function AppInner({ logout }: { logout: () => void }) {
   const progressPercentage = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
 
   const pendingTasks = todayTasks.filter(t => !t.completed);
+  const nowTask = selectNowTask(todayTasks, currentTime);
   // Done tab: all completed tasks, regardless of date
   const doneTasks = filteredTasks.filter(t => t.completed).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
@@ -426,6 +440,15 @@ function AppInner({ logout }: { logout: () => void }) {
 
         {activeTab === 'today' ? (
           <>
+            {nowTask && (
+              <NowFocusCard
+                task={nowTask}
+                openCount={pendingTasks.length}
+                currentTime={currentTime}
+                onComplete={toggleTaskStatus}
+                onEdit={openEditTaskModal}
+              />
+            )}
             <DailyEssentialsSection
               essentials={essentials}
               progressById={progressById}
