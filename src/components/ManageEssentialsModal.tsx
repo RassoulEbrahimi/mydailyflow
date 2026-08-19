@@ -61,8 +61,8 @@ const SortableEssentialItem: React.FC<{
         } transition-all duration-200`}
     >
       <div className="flex flex-col flex-1 min-w-0 pointer-events-none">
-        <span dir="auto" className="text-[15px] font-semibold text-fg">{e.title}</span>
-        <span className="text-[13px] text-fg-secondary">
+        <span dir="auto" className="min-w-0 text-start break-words text-[15px] font-semibold text-fg">{e.title}</span>
+        <span dir="ltr" className="text-[13px] text-fg-secondary">
           {e.targetCount === 1 ? 'Einfaches Element' : `Mehrfach-Häkchen (${e.targetCount})`}
         </span>
       </div>

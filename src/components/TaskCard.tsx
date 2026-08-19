@@ -305,10 +305,18 @@ const TaskCard = ({
               Dark. */}
           <div className="flex-1 min-w-0">
             <div className="flex items-start gap-2">
-              {/* Title — dir="auto" so Persian renders RTL */}
+              {/* Title — the user's own string decides its own direction.
+                  `dir="auto"` gives this element its own `direction`, resolved
+                  from the first *strong* character, so a leading emoji, digit or
+                  bracket never decides. Because the direction lives on the
+                  element (and Chromium isolates elements by default), it stays
+                  here: it does not reorder the German metadata below or the
+                  priority dot beside it. `text-start` then resolves the
+                  alignment against the title's own direction rather than an
+                  inherited physical `left`. */}
               <h3
                 dir="auto"
-                className={`flex-1 min-w-0 font-semibold text-[15px] leading-relaxed break-words py-0.5 ${
+                className={`flex-1 min-w-0 text-start font-semibold text-[15px] leading-relaxed break-words py-0.5 ${
                   completed ? 'line-through text-fg-secondary decoration-fg-faint' : 'text-fg'
                 }`}
               >
@@ -324,8 +332,11 @@ const TaskCard = ({
               />
             </div>
 
-            {/* Meta row */}
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
+            {/* Meta row — application chrome (time, duration, badges), never
+                user-authored. Pinned to `ltr` so the German metadata keeps its
+                order and reads left-to-right no matter which direction the
+                title above it resolved to. */}
+            <div dir="ltr" className="flex items-center gap-2 mt-1 flex-wrap">
               {/* A task without a time is a valid state, not a broken one. The
                   bullet is part of the time segment, so an untimed task shows
                   "Ohne Zeit • 30m" rather than a leading " • 30m". */}
@@ -396,7 +407,7 @@ const TaskCard = ({
                 </div>
                 <span
                   dir="auto"
-                  className={`text-[11.5px] leading-relaxed ${
+                  className={`min-w-0 flex-1 text-start break-words text-[11.5px] leading-relaxed ${
                     item.completed ? 'line-through text-fg-disabled' : 'text-fg-meta'
                   }`}
                 >
@@ -416,7 +427,7 @@ const TaskCard = ({
         {hasNotes && (
           <p
             dir="auto"
-            className="mt-2 ml-[34px] text-[11.5px] leading-relaxed text-fg-meta line-clamp-2"
+            className="mt-2 ml-[34px] text-start break-words text-[11.5px] leading-relaxed text-fg-meta line-clamp-2"
           >
             {task.notes}
           </p>

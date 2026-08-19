@@ -1039,11 +1039,8 @@ done carry the reason and, where one exists, the owner.
 
 ### PR5 — RTL/bidi hardening
 
-* **Not covered by this baseline.** All synthetic data here is German (LTR), so
-  no right-to-left rendering was measured. `TaskCard`, its checklist and its
-  notes use `dir="auto"`; nothing else does.
-* Add measured DE / EN / FA / mixed-direction coverage, and extend this harness
-  with the corresponding cells.
+* ✅ **Closed.** The directionality contract is now explicit and measured. See
+  §12 for the contract, the root causes and the coverage matrix.
 
 ### PR6 — safe destructive actions
 
@@ -1120,3 +1117,115 @@ Two guards live outside the browser suite:
 |---|---|
 | `tests/themeTokens.test.ts` | parses `src/index.css`: the two Light palette blocks must stay identical, no `@theme` token may point at an undeclared private value, and the Dark palette must define everything the Light one does |
 | `e2e/viewports.spec.ts` `TARGET_SIZE_EXCEPTIONS` | the two control classes still below 44 × 44, each with a reason and an owner |
+
+---
+
+## 12. Directionality and bidi — the PR5 contract
+
+Everything in §1–§11 was measured with German (LTR) content only. §12 records
+what happens when the *user's own* content is Persian, English or mixed, and
+what the app now guarantees about it.
+
+### 12.1 The contract
+
+1. **Application chrome is German and LTR.** Nav labels, buttons, badges, dates,
+   times, durations, recurrence and overdue chips, progress counters, section
+   headings, modal titles, form labels and validation text never change
+   direction and never reorder. `index.html` now declares this explicitly:
+   `<html lang="de" dir="ltr">`. Previously the document declared `lang="en"`
+   for a German UI and left `dir` unset, so the whole LTR contract rested on a
+   user-agent default.
+2. **Every user-authored string decides its own direction, independently.** Task
+   titles, notes, checklist item text and Essential titles each carry
+   `dir="auto"` on the smallest content-only element that holds them.
+3. **Isolation is standards-based.** `dir="auto"` resolves direction from the
+   string's *first strong character* and sets it on that element, so a leading
+   emoji, digit or bracket never decides. Because the direction lives on the
+   element itself, it does not propagate outward.
+
+   The suite does **not** assert `unicode-bidi: isolate` as evidence of this.
+   That was measured and rejected: Chromium's UA stylesheet computes `isolate`
+   for essentially every element, including a bare `<div>` with no `dir` at all,
+   so such an assertion passes even with the attribute removed. What is asserted
+   instead is the property that actually has to hold — **containment**: for every
+   element resolving to RTL, every ancestor up to `<main>` is still LTR.
+4. **No Unicode directional controls are ever stored.** U+200E/U+200F,
+   U+202A–U+202E and U+2066–U+2069 appear in neither the app nor the fixture,
+   and the suite fails if one shows up in a persisted string.
+5. **Persisted strings are never mutated or normalised.** Editing and re-saving a
+   Persian or mixed task returns the identical string.
+6. **Layout stays physical.** An RTL title never moves the checkbox, the priority
+   dot, the swipe strip or the FAB. The strip stays anchored to the physical
+   right edge in every content direction, and PR4's containment is unaffected.
+
+### 12.2 Root causes found
+
+| # | Defect | Cause |
+|---|--------|-------|
+| 1 | Undeclared document direction | `<html lang="en">` with no `dir`; the German UI's LTR-ness was a UA default, not a declaration |
+| 2 | RTL titles aligned to the wrong edge | The content elements inherited a **physical** `text-align: left` from their chrome wrappers (`text-left` on the checklist row button, the Essentials row button and the Reminders row button). `text-align: left` overrides the natural alignment `dir="auto"` establishes; the wrapped tail and any ellipsis landed on the right regardless of reading direction |
+| 3 | Persian search rendered LTR | `#task-search` had no `dir="auto"`, so a Persian query displayed and caret-ed as if it were German |
+| 4 | Long mixed strings escaped their box | Several user-content spans had neither `min-w-0` nor `break-words`, so a long unbroken run pushed the row wider instead of wrapping — and which edge it escaped from flipped with direction |
+| 5 | Metadata order was only incidentally stable | The TaskCard meta row, the Reminders schedule detail, the Essentials `n / m` counter and the ManageEssentials subtitle inherited their direction rather than declaring it, so "2 / 6" beside an RTL title was one container change away from reading "6 / 2" |
+
+### 12.3 Fixes
+
+* `index.html` — `<html lang="de" dir="ltr">`.
+* `TaskCard.tsx` — `text-start` on the title and the notes; `min-w-0 flex-1
+  text-start break-words` on checklist item text; `dir="ltr"` on the meta row.
+
+Note on alignment assertions: `getComputedStyle().textAlign` cannot verify this
+fix. `text-align: start` is a computed value in its own right, so Chromium
+serialises it back as `"start"` for an LTR and an RTL element alike. The suite
+ranges over each element's own text and measures which edge the glyphs actually
+hug.
+* `DailyEssentialsSection.tsx` — `min-w-0 text-start break-words` on both title
+  spans; `dir="ltr"` on the `n / m` counter.
+* `RemindersView.tsx` — `min-w-0 text-start` on the title; `dir="ltr"` on the
+  schedule detail.
+* `ManageEssentialsModal.tsx` — `min-w-0 text-start break-words` on the title;
+  `dir="ltr"` on the target-count subtitle.
+* `NewTaskModal.tsx` — `min-w-0 flex-1 text-start break-words` on checklist item
+  text. (Its title, notes and checklist inputs already carried `dir="auto"`.)
+* `App.tsx` — `dir="auto"` on the search field.
+
+Accessible names are deliberately **not** changed. `aria-label` has no bidi
+context to isolate; what matters there is that the complete logical text is
+present, and it is (`"<title> als erledigt markieren"`, `"<title> — <detail>.
+Aufgabe bearbeiten."`, `"<title>: n von m"`).
+
+### 12.4 Content cases measured
+
+`e2e/fixtures/bidi-data.ts` seeds all of these, and `e2e/bidi.spec.ts` asserts
+the resolved direction of each:
+
+| Case | Expected | Why |
+|------|----------|-----|
+| Pure German | ltr | baseline |
+| Pure English | ltr | baseline |
+| Pure Persian | rtl | baseline |
+| Persian behind a leading emoji | rtl | emoji is neutral; it must not decide |
+| Persian behind leading ASCII digits | rtl | digits are weak, not strong |
+| English containing a Persian phrase | ltr | first strong char is Latin |
+| Persian containing an English product name | rtl | embedded Latin must not flip it |
+| Persian containing German terms | rtl | same, for DE |
+| Persian with `( ) / : —` and numbers | rtl | neutrals between strong runs |
+| Very long mixed title | rtl | wrapping and truncation at 360px |
+| Punctuation only | ltr | no strong char → inherits the LTR chrome |
+| Empty | ltr | defensive |
+
+Plus: Persian multi-line notes, three Persian checklist items, a Persian
+Essential simple row, a Persian Essential counter row, a mixed Persian/German
+Essential, a completed Persian task, a Persian task carrying the overdue +
+rollover + recurrence badges, and an untimed Persian task showing `Ohne Zeit`.
+
+### 12.5 Coverage matrix
+
+Direction, containment, overlap, badge order, swipe reachability and Essentials
+are measured at **360 / 390 / 430 px × dark / light**. Tab coverage (Today, Alle
+Aufgaben, Erinnerungen, Erledigt) and the input-direction cases are measured at
+360 px in both themes — 360 is the binding width, and the input behaviour is a
+property of the field's value rather than of the viewport.
+
+The axe fingerprint matrix is unchanged: every cell is still empty, so the new
+content introduced no violating node.

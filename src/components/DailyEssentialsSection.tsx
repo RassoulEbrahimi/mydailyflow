@@ -100,7 +100,7 @@ export default function DailyEssentialsSection({
                 >
                   <span
                     dir="auto"
-                    className={`text-[15px] font-medium transition-colors ${
+                    className={`min-w-0 text-start break-words text-[15px] font-medium transition-colors ${
                       isDone ? 'text-fg line-through opacity-70' : 'text-fg'
                     }`}
                   >
@@ -133,13 +133,15 @@ export default function DailyEssentialsSection({
                 <div className="flex items-baseline justify-between gap-3 min-w-0">
                   <span
                     dir="auto"
-                    className={`text-[15px] font-medium transition-colors min-w-0 break-words ${
+                    className={`text-[15px] font-medium transition-colors min-w-0 text-start break-words ${
                       isDone ? 'text-fg line-through opacity-70' : 'text-fg'
                     }`}
                   >
                     {essential.title}
                   </span>
-                  <span className="text-[12px] font-medium text-fg-secondary flex-shrink-0 tabular-nums">
+                  {/* Progress counter is chrome: "2 / 6" must never be read
+                      as "6 / 2" because the title beside it resolved to RTL. */}
+                  <span dir="ltr" className="text-[12px] font-medium text-fg-secondary flex-shrink-0 tabular-nums">
                     {progress} / {essential.targetCount}
                   </span>
                 </div>

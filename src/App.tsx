@@ -341,6 +341,10 @@ function AppInner({ logout }: { logout: () => void }) {
                 autoFocus
                 id="task-search"
                 type="text"
+                // A Persian query has to render and caret like Persian. The
+                // German placeholder still shows LTR: with an empty value
+                // `dir="auto"` falls back to the ancestor direction.
+                dir="auto"
                 placeholder="Suche..."
                 aria-label="Aufgaben durchsuchen"
                 className="bg-transparent border-none text-fg text-[15px] w-full placeholder:text-fg-placeholder"
