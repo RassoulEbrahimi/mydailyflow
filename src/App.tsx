@@ -12,6 +12,7 @@ import {
   compareByTimeUntimedLast,
   getCurrentTimeString,
   selectNowTask,
+  summarizeTodayWork,
 } from './utils/taskUtils';
 import DateGroupHeader from './components/DateGroupHeader';
 import AllTasksFilterBar from './components/AllTasksFilterBar';
@@ -28,6 +29,7 @@ import ManageEssentialsModal from './components/ManageEssentialsModal';
 import VoiceTaskModal from './components/VoiceTaskModal';
 import { useTheme } from './hooks/useTheme';
 import NowFocusCard from './components/NowFocusCard';
+import CarryOverSection from './components/CarryOverSection';
 
 const TaskSection = ({ title, timeRange, accentClass, children }: { title: string, timeRange?: string, accentClass: string, children: React.ReactNode }) => {
   return (
@@ -261,6 +263,7 @@ function AppInner({ logout }: { logout: () => void }) {
 
   const [activeTab, setActiveTab] = useState<TabId>('today');
   const [currentTime, setCurrentTime] = useState(() => getCurrentTimeString());
+  const [carryOverExpanded, setCarryOverExpanded] = useState(true);
 
   // Keep the focus card aligned with the wall clock while the app remains open.
   useEffect(() => {
@@ -304,9 +307,7 @@ function AppInner({ logout }: { logout: () => void }) {
 
   // Today tab: only tasks dated today
   const todayTasks = filteredTasks.filter(t => t.date === today);
-  const totalTasksCount = todayTasks.length;
-  const completedTasksCount = todayTasks.filter(t => t.completed).length;
-  const progressPercentage = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
+  const todaySummary = summarizeTodayWork(todayTasks);
 
   const pendingTasks = todayTasks.filter(t => !t.completed);
   const nowTask = selectNowTask(todayTasks, currentTime);
@@ -322,9 +323,13 @@ function AppInner({ logout }: { logout: () => void }) {
     });
   };
 
-  const morningTasks = sortSectionTasks(todayTasks.filter(t => t.timeBlock === 'morning'));
-  const afternoonTasks = sortSectionTasks(todayTasks.filter(t => t.timeBlock === 'afternoon'));
-  const eveningTasks = sortSectionTasks(todayTasks.filter(t => t.timeBlock === 'evening'));
+  // Open carry-over has its own group. Completed carry-over remains in the
+  // time blocks until the later Phase 1B "Heute erledigt" group lands, so this
+  // PR never makes a completed task disappear from Today.
+  const timeBlockTasks = todayTasks.filter(t => !t.rolledOverFrom || t.completed);
+  const morningTasks = sortSectionTasks(timeBlockTasks.filter(t => t.timeBlock === 'morning'));
+  const afternoonTasks = sortSectionTasks(timeBlockTasks.filter(t => t.timeBlock === 'afternoon'));
+  const eveningTasks = sortSectionTasks(timeBlockTasks.filter(t => t.timeBlock === 'evening'));
 
   // ─── All Tasks tab: resolve the effective date string for filtering ─────────
   const resolvedDateFilter: string | null = (() => {
@@ -430,9 +435,10 @@ function AppInner({ logout }: { logout: () => void }) {
         {/* Hero — only on Today tab; sticks to top once header scrolls off */}
         {activeTab === 'today' && (
           <HomeHero
-            completed={completedTasksCount}
-            total={totalTasksCount}
-            percentage={progressPercentage}
+            completed={todaySummary.completedPlanned}
+            total={todaySummary.totalPlanned}
+            percentage={todaySummary.percentage}
+            carried={todaySummary.carriedTasks.length}
             stickyEnabled={stickyHeroEnabled}
             panelRef={pinnedRef}
           />
@@ -443,12 +449,24 @@ function AppInner({ logout }: { logout: () => void }) {
             {nowTask && (
               <NowFocusCard
                 task={nowTask}
-                openCount={pendingTasks.length}
+                openCount={todaySummary.openPlanned}
                 currentTime={currentTime}
                 onComplete={toggleTaskStatus}
                 onEdit={openEditTaskModal}
               />
             )}
+            <CarryOverSection
+              tasks={sortSectionTasks(todaySummary.carriedTasks)}
+              expanded={carryOverExpanded}
+              onExpandedChange={setCarryOverExpanded}
+              onToggleComplete={toggleTaskStatus}
+              onDelete={handleDeleteTask}
+              onEdit={openEditTaskModal}
+              onToggleChecklistItem={toggleChecklistItem}
+              openSwipeId={openSwipeId}
+              setOpenSwipeId={setOpenSwipeId}
+              onMoveTomorrow={moveTaskToTomorrow}
+            />
             <DailyEssentialsSection
               essentials={essentials}
               progressById={progressById}

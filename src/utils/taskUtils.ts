@@ -157,6 +157,43 @@ export const selectNowTask = (tasks: Task[], currentTime: string): Task | null =
     return openTimed.find(task => task.time >= currentTime) ?? openTimed[0] ?? null;
 };
 
+export interface TodayWorkSummary {
+    /** Tasks intentionally scheduled for today, excluding automatic carry-over. */
+    plannedTasks: Task[];
+    /** Still-open tasks automatically brought forward from an earlier date. */
+    carriedTasks: Task[];
+    completedPlanned: number;
+    totalPlanned: number;
+    openPlanned: number;
+    percentage: number;
+}
+
+/**
+ * Separates today's plan from unfinished work automatically carried into it.
+ *
+ * `rolledOverFrom` is existing persisted provenance, not a second schedule.
+ * Completed carry-over leaves the open carry group, but never inflates today's
+ * planned denominator or numerator. This keeps the progress ring truthful:
+ * it reports the plan the user made for today and names carry-over separately.
+ */
+export const summarizeTodayWork = (todayTasks: Task[]): TodayWorkSummary => {
+    const plannedTasks = todayTasks.filter(task => !task.rolledOverFrom);
+    const carriedTasks = todayTasks.filter(task => !!task.rolledOverFrom && !task.completed);
+    const completedPlanned = plannedTasks.filter(task => task.completed).length;
+    const totalPlanned = plannedTasks.length;
+
+    return {
+        plannedTasks,
+        carriedTasks,
+        completedPlanned,
+        totalPlanned,
+        openPlanned: totalPlanned - completedPlanned,
+        percentage: totalPlanned > 0
+            ? Math.round((completedPlanned / totalPlanned) * 100)
+            : 0,
+    };
+};
+
 // ─── Recurrence helper ────────────────────────────────────────────────────────
 
 // Formats a local Date as YYYY-MM-DD.
