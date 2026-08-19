@@ -103,7 +103,10 @@ test.describe('swipe strip behaviour', () => {
   test('a swipe still reveals the actions', async ({ app }) => {
     const page = app.page;
     const card = page.locator(CARD).first();
-    await card.scrollIntoViewIfNeeded();
+    // The Phase 1B Today entry point adds the focus card above the task list.
+    // Centre the target card explicitly so the fixed FAB/nav cannot intercept
+    // the real CDP touch stream when the card starts below the first viewport.
+    await card.evaluate((element) => element.scrollIntoView({ block: 'center' }));
     await page.waitForTimeout(200);
     const box = (await card.boundingBox())!;
 
