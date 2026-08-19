@@ -1,5 +1,5 @@
-import React, { useRef, useState, useCallback } from 'react';
-import { Check, Clock, Pencil, Trash2, RepeatIcon, RotateCcw, ArrowRight } from 'lucide-react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
+import { Check, Clock, Pencil, Trash2, RepeatIcon, RotateCcw, ArrowRight, MoreVertical } from 'lucide-react';
 import type { Task } from '../types/task';
 import { getRolloverLabel, hasTime, isTaskOverdue } from '../utils/taskUtils';
 
@@ -42,6 +42,72 @@ const TaskCard = ({
   const untimed = !hasTime(task);
 
   const isSwipeOpen = openSwipeId === id;
+  const menuSurfaceId = `menu:${id}`;
+  const isMenuOpen = openSwipeId === menuSurfaceId;
+
+  // The swipe strip and the visible menu share `openSwipeId`, so opening any
+  // action surface closes every other action surface in the task list.
+  const cardRef = useRef<HTMLDivElement>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const menuItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const [activeMenuIndex, setActiveMenuIndex] = useState(0);
+
+  const menuItemCount = !completed && onMoveTomorrow ? 3 : 2;
+
+  const focusMenuItem = useCallback((index: number) => {
+    const normalizedIndex = (index + menuItemCount) % menuItemCount;
+    setActiveMenuIndex(normalizedIndex);
+    menuItemRefs.current[normalizedIndex]?.focus();
+  }, [menuItemCount]);
+
+  const closeMenu = useCallback((restoreFocus = false) => {
+    setOpenSwipeId(null);
+    if (restoreFocus) {
+      requestAnimationFrame(() => menuTriggerRef.current?.focus());
+    }
+  }, [setOpenSwipeId]);
+
+  useEffect(() => {
+    if (!isMenuOpen) return;
+
+    setActiveMenuIndex(0);
+    requestAnimationFrame(() => menuItemRefs.current[0]?.focus());
+
+    const handleOutsidePointer = (event: PointerEvent) => {
+      if (!cardRef.current?.contains(event.target as Node)) closeMenu();
+    };
+
+    document.addEventListener('pointerdown', handleOutsidePointer);
+    return () => document.removeEventListener('pointerdown', handleOutsidePointer);
+  }, [isMenuOpen, closeMenu]);
+
+  const handleMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeMenu(true);
+      return;
+    }
+
+    if (event.key === 'ArrowDown' || event.key === 'Tab' && !event.shiftKey) {
+      event.preventDefault();
+      focusMenuItem(activeMenuIndex + 1);
+    } else if (event.key === 'ArrowUp' || event.key === 'Tab' && event.shiftKey) {
+      event.preventDefault();
+      focusMenuItem(activeMenuIndex - 1);
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      focusMenuItem(0);
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      focusMenuItem(menuItemCount - 1);
+    }
+  };
+
+  const runMenuAction = (action: () => void) => {
+    setOpenSwipeId(null);
+    setDragX(0);
+    action();
+  };
 
   // ─── Touch swipe state ────────────────────────────────────────────────────
   const touchStartX   = useRef<number>(0);
@@ -143,11 +209,9 @@ const TaskCard = ({
   };
 
   /**
-   * The action strip is the only route to Bearbeiten / Erledigt / Löschen, and
-   * by pointer it is reached with a horizontal swipe that has no keyboard
-   * equivalent. The buttons are therefore kept in the tab ring — but focusing an
-   * invisible control is its own defect, so focus opens the strip, exactly as a
-   * swipe would, and blurring out of the card closes it again.
+   * The swipe strip remains a fast touch shortcut. The persistent menu below is
+   * now the discoverable pointer/keyboard route to the same task actions. Strip
+   * focus still reveals it so the established keyboard path remains valid.
    */
   const handleStripFocus = () => setOpenSwipeId(id);
 
@@ -176,7 +240,13 @@ const TaskCard = ({
     : 'Priorität: niedrig';
 
   return (
-    <div className="relative overflow-hidden rounded-2xl" style={{ touchAction: 'pan-y' }}>
+    <div
+      ref={cardRef}
+      data-task-card={id}
+      className="relative rounded-2xl"
+      style={{ touchAction: 'pan-y' }}
+    >
+      <div className="relative overflow-hidden rounded-2xl">
 
       {/* ── Action strip (revealed behind card by swipe) ────────────────────*/}
       <div
@@ -330,6 +400,23 @@ const TaskCard = ({
                 aria-label={priorityLabel}
                 title={priorityLabel}
               />
+              <button
+                ref={menuTriggerRef}
+                type="button"
+                onPointerDown={event => event.stopPropagation()}
+                onClick={event => {
+                  event.stopPropagation();
+                  setDragX(0);
+                  setOpenSwipeId(isMenuOpen ? null : menuSurfaceId);
+                }}
+                className="-my-2 -mr-2 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-fg-secondary transition-colors hover:bg-surface-control hover:text-fg focus-visible:bg-surface-control focus-visible:text-fg"
+                aria-label={`Aktionen für ${title}`}
+                aria-haspopup="menu"
+                aria-expanded={isMenuOpen}
+                aria-controls={`task-actions-${id}`}
+              >
+                <MoreVertical size={20} aria-hidden="true" />
+              </button>
             </div>
 
             {/* Meta row — application chrome (time, duration, badges), never
@@ -346,10 +433,11 @@ const TaskCard = ({
                 {duration ? ` • ${duration}` : ''}
               </span>
 
-              {/* Recurrence badge — icon-only, so it needs a name of its own. */}
+              {/* Informational badges are deliberately neutral. Semantic badge
+                  colour is reserved for overdue and carried-over state. */}
               {task.recurrence && task.recurrence !== 'none' && (
                 <span
-                  className="flex items-center gap-1 text-[10px] font-medium text-accent bg-accent-surface px-1.5 py-0.5 rounded-md leading-tight flex-shrink-0"
+                  className="flex items-center gap-1 text-[10px] font-medium text-fg-meta bg-surface-raised border border-edge px-1.5 py-0.5 rounded-md leading-tight flex-shrink-0"
                   role="img"
                   aria-label="Wiederholende Aufgabe"
                   title="Wiederholende Aufgabe"
@@ -360,7 +448,10 @@ const TaskCard = ({
 
               {/* Rollover badge */}
               {task.rolledOverFrom && !completed && (
-                <span className="flex items-center gap-1 text-[10px] font-medium text-warning bg-warning-surface px-1.5 py-0.5 rounded-md leading-tight flex-shrink-0">
+                <span
+                  className="flex items-center gap-1 text-[10px] font-medium text-warning bg-warning-surface px-1.5 py-0.5 rounded-md leading-tight flex-shrink-0"
+                  aria-label={`${getRolloverLabel(task.rolledOverFrom)} übernommen`}
+                >
                   ↩ {getRolloverLabel(task.rolledOverFrom)}
                 </span>
               )}
@@ -374,7 +465,10 @@ const TaskCard = ({
 
               {/* Checklist progress badge */}
               {hasChecklist && (
-                <span className="flex items-center gap-1 text-[10px] font-medium text-primary-text bg-primary-surface px-1.5 py-0.5 rounded-md leading-tight flex-shrink-0">
+                <span
+                  className="flex items-center gap-1 text-[10px] font-medium text-fg-meta bg-surface-raised border border-edge px-1.5 py-0.5 rounded-md leading-tight flex-shrink-0"
+                  aria-label={`Checkliste: ${checklistDone} von ${checklistTotal} erledigt`}
+                >
                   ☑ {checklistDone}/{checklistTotal}
                 </span>
               )}
@@ -433,6 +527,55 @@ const TaskCard = ({
           </p>
         )}
       </div>
+      </div>
+
+      {isMenuOpen && (
+        <div
+          id={`task-actions-${id}`}
+          role="menu"
+          aria-label={`Aktionen für ${title}`}
+          className="absolute right-2 top-12 z-40 w-44 overflow-hidden rounded-xl border border-edge bg-surface-raised p-1.5 shadow-2xl"
+          onKeyDown={handleMenuKeyDown}
+        >
+          <button
+            ref={element => { menuItemRefs.current[0] = element; }}
+            type="button"
+            role="menuitem"
+            tabIndex={activeMenuIndex === 0 ? 0 : -1}
+            onClick={() => runMenuAction(() => onEdit(task))}
+            className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium text-fg hover:bg-surface-control focus-visible:bg-surface-control"
+          >
+            <Pencil size={17} aria-hidden="true" />
+            Bearbeiten
+          </button>
+
+          {!completed && onMoveTomorrow && (
+            <button
+              ref={element => { menuItemRefs.current[1] = element; }}
+              type="button"
+              role="menuitem"
+              tabIndex={activeMenuIndex === 1 ? 0 : -1}
+              onClick={() => runMenuAction(() => onMoveTomorrow(id))}
+              className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium text-fg hover:bg-surface-control focus-visible:bg-surface-control"
+            >
+              <ArrowRight size={17} aria-hidden="true" />
+              Morgen
+            </button>
+          )}
+
+          <button
+            ref={element => { menuItemRefs.current[menuItemCount - 1] = element; }}
+            type="button"
+            role="menuitem"
+            tabIndex={activeMenuIndex === menuItemCount - 1 ? 0 : -1}
+            onClick={() => runMenuAction(() => onDelete(id))}
+            className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium text-danger hover:bg-danger-surface focus-visible:bg-danger-surface"
+          >
+            <Trash2 size={17} aria-hidden="true" />
+            Löschen
+          </button>
+        </div>
+      )}
     </div>
   );
 };
