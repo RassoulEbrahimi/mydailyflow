@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 
 import type { Task } from '../src/types/task';
-import { getCurrentTimeString, selectNowTask } from '../src/utils/taskUtils';
+import { getCurrentTimeString, selectNowTask, summarizeTodayWork } from '../src/utils/taskUtils';
 
 const task = (id: string, time: string, completed = false): Task => ({
   id,
@@ -57,5 +57,60 @@ describe('selectNowTask', () => {
 describe('getCurrentTimeString', () => {
   it('formats local hours and minutes as HH:MM', () => {
     assert.equal(getCurrentTimeString(new Date(2026, 4, 20, 7, 5)), '07:05');
+  });
+});
+
+describe('summarizeTodayWork', () => {
+  it('counts only the plan made for today in the progress fraction', () => {
+    const plannedDone = { ...task('planned-done', '08:00', true) };
+    const plannedOpen = task('planned-open', '09:00');
+    const carriedOpen = {
+      ...task('carried-open', '10:00'),
+      rolledOverFrom: '2026-05-19',
+    };
+    const carriedDone = {
+      ...task('carried-done', '11:00', true),
+      rolledOverFrom: '2026-05-18',
+    };
+
+    const summary = summarizeTodayWork([
+      carriedOpen,
+      plannedOpen,
+      carriedDone,
+      plannedDone,
+    ]);
+
+    assert.equal(summary.completedPlanned, 1);
+    assert.equal(summary.totalPlanned, 2);
+    assert.equal(summary.openPlanned, 1);
+    assert.equal(summary.percentage, 50);
+    assert.deepEqual(summary.plannedTasks.map(item => item.id), ['planned-open', 'planned-done']);
+    assert.deepEqual(summary.carriedTasks.map(item => item.id), ['carried-open']);
+  });
+
+  it('reports zero progress for a carry-over-only day', () => {
+    const carried = {
+      ...task('carried', '10:00'),
+      rolledOverFrom: '2026-05-19',
+    };
+
+    const summary = summarizeTodayWork([carried]);
+
+    assert.equal(summary.totalPlanned, 0);
+    assert.equal(summary.completedPlanned, 0);
+    assert.equal(summary.openPlanned, 0);
+    assert.equal(summary.percentage, 0);
+    assert.equal(summary.carriedTasks.length, 1);
+  });
+
+  it('does not mutate the input or its task order', () => {
+    const input = [
+      { ...task('carried', '10:00'), rolledOverFrom: '2026-05-19' },
+      task('planned', '09:00'),
+    ];
+
+    summarizeTodayWork(input);
+
+    assert.deepEqual(input.map(item => item.id), ['carried', 'planned']);
   });
 });

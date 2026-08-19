@@ -9,7 +9,7 @@ function getGreeting(): string {
 }
 
 // ─── Compact progress arc ──────────────────────────────────────────────────────
-const MiniRing = ({ percentage, completed, total }: { percentage: number; completed: number; total: number }) => {
+const MiniRing = ({ percentage, completed, total, carried }: { percentage: number; completed: number; total: number; carried: number }) => {
   const size   = 54;
   const stroke = 5;
   const r      = (size - stroke) / 2;
@@ -25,7 +25,7 @@ const MiniRing = ({ percentage, completed, total }: { percentage: number; comple
           className="transform -rotate-90"
           viewBox={`0 0 ${size} ${size}`}
           role="img"
-          aria-label={`Tagesfortschritt: ${percentage} Prozent, ${completed} von ${total} Aufgaben erledigt`}
+          aria-label={`Tagesfortschritt: ${percentage} Prozent, ${completed} von ${total} geplanten Aufgaben erledigt${carried > 0 ? `, ${carried} übernommen` : ''}`}
         >
           {/* `--ring-track` was never declared — the token is `--color-ring-track`
               — so this stroke resolved to nothing and the ring had no track at
@@ -67,6 +67,8 @@ interface HomeHeroProps {
   completed: number;
   total: number;
   percentage: number;
+  /** Open tasks automatically carried over from earlier days. */
+  carried: number;
   /** Whether to pin the hero with CSS sticky while content scrolls */
   stickyEnabled: boolean;
   userName?: string;
@@ -82,6 +84,7 @@ const HomeHero = ({
   completed,
   total,
   percentage,
+  carried,
   stickyEnabled,
   userName = 'SolariuS',
   panelRef,
@@ -108,8 +111,11 @@ const HomeHero = ({
             {greeting},<br />
             <span className="text-primary-text">{userName}!</span>
           </h1>
+          <p className="mt-1.5 text-[11px] font-medium text-fg-secondary" aria-hidden="true">
+            {completed} von {total} geplant{carried > 0 ? ` · ${carried} übernommen` : ''}
+          </p>
         </div>
-        <MiniRing percentage={percentage} completed={completed} total={total} />
+        <MiniRing percentage={percentage} completed={completed} total={total} carried={carried} />
       </div>
     </div>
   );
