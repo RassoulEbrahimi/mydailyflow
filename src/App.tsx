@@ -279,12 +279,8 @@ function AppInner({ logout }: { logout: () => void }) {
     `${activeTab}|${allDateFilter}|${searchQuery}`,
   );
 
-  const handleSaveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed' | 'date' | 'rolledOverFrom'>) => {
-    const saved = saveTask(taskData, taskToEdit);
-    // If we have a voice draft meant for tomorrow, move it immediately
-    if (!taskToEdit && voiceDraft?.date && voiceDraft.date > getTodayString()) {
-      moveTaskToTomorrow(saved.id);
-    }
+  const handleSaveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed' | 'rolledOverFrom' | 'recurrenceAnchorDay'>) => {
+    saveTask(taskData, taskToEdit);
   };
 
 

@@ -21,6 +21,16 @@ export const getYesterdayString = (): string => {
     return `${y}-${m}-${day}`;
 };
 
+// Returns YYYY-MM-DD for tomorrow (local timezone).
+export const getTomorrowString = (): string => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+};
+
 // Formats a YYYY-MM-DD string into a human-readable label.
 export const formatDateLabel = (dateStr: string): string => {
     const today = getTodayString();
