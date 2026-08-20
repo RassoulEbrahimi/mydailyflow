@@ -1,4 +1,4 @@
-import { Waves, Search, Bell, Sun, List, CheckCircle2, Settings, Plus, RotateCcw } from 'lucide-react';
+import { Waves, Search, Bell, Sun, List, CheckCircle2, Settings, Plus, RotateCcw, CalendarPlus } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from './hooks/useAuth';
 import LoginPage from './components/LoginPage';
@@ -11,6 +11,8 @@ import {
   groupTasksByDatePeriod,
   compareByTimeUntimedLast,
   getCurrentTimeString,
+  getTomorrowString,
+  formatDateLabel,
   selectNowTask,
   summarizeTodayWork,
 } from './utils/taskUtils';
@@ -129,6 +131,7 @@ function AppInner({ logout }: { logout: () => void }) {
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [showPlusMenu, setShowPlusMenu] = useState(false);
   const [voiceDraft, setVoiceDraft] = useState<Partial<Task> | null>(null);
+  const [newTaskInitialDate, setNewTaskInitialDate] = useState<string | undefined>();
   /** ID of the task card currently swiped open — only one allowed at a time */
   const [openSwipeId, setOpenSwipeId] = useState<string | null>(null);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
@@ -208,9 +211,10 @@ function AppInner({ logout }: { logout: () => void }) {
     'Notification' in window ? Notification.permission : 'denied'
   );
 
-  const openNewTaskModal = () => {
+  const openNewTaskModal = (initialDate = getTodayString()) => {
     setTaskToEdit(null);
     setVoiceDraft(null);
+    setNewTaskInitialDate(initialDate);
     setIsModalOpen(true);
     setShowPlusMenu(false);
   };
@@ -227,6 +231,7 @@ function AppInner({ logout }: { logout: () => void }) {
 
   const { tasks, saveTask, toggleTaskStatus, toggleChecklistItem, deleteTask, restoreTask, moveTaskToTomorrow } = useTasks();
   const [pendingTaskDeletion, setPendingTaskDeletion] = useState<Task | null>(null);
+  const [planningConfirmation, setPlanningConfirmation] = useState<Task | null>(null);
 
   // Task deletion is immediate, but recoverable for eight seconds. The toast
   // lives at app-shell level so switching tabs cannot make the recovery action
@@ -236,6 +241,12 @@ function AppInner({ logout }: { logout: () => void }) {
     const timeoutId = window.setTimeout(() => setPendingTaskDeletion(null), 8000);
     return () => window.clearTimeout(timeoutId);
   }, [pendingTaskDeletion]);
+
+  useEffect(() => {
+    if (!planningConfirmation) return;
+    const timeoutId = window.setTimeout(() => setPlanningConfirmation(null), 6000);
+    return () => window.clearTimeout(timeoutId);
+  }, [planningConfirmation]);
 
   const handleDeleteTask = (id: string) => {
     const task = tasks.find(candidate => candidate.id === id);
@@ -298,13 +309,37 @@ function AppInner({ logout }: { logout: () => void }) {
   );
 
   const handleSaveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed' | 'rolledOverFrom' | 'recurrenceAnchorDay'>) => {
-    saveTask(taskData, taskToEdit);
+    const savedTask = saveTask(taskData, taskToEdit);
+    setPlanningConfirmation(savedTask);
+
+    // A future task must not disappear behind Today after saving. Route to its
+    // exact All Tasks group so creation, planning and result form one flow.
+    const todayDate = getTodayString();
+    if (savedTask.date !== todayDate) {
+      setActiveTab('all');
+      setAllDateFilter('date');
+      setAllDatePicker(savedTask.date);
+    } else if (activeTab === 'all') {
+      setAllDateFilter('today');
+      setAllDatePicker('');
+    }
   };
 
 
 
   // Derived state
   const today = getTodayString();
+  const tomorrow = getTomorrowString();
+  const allPlanningDate = allDateFilter === 'date' && allDatePicker >= today
+    ? allDatePicker
+    : allDateFilter === 'upcoming'
+      ? tomorrow
+      : today;
+  const allPlanningDateLabel = allPlanningDate === today
+    ? 'Heute'
+    : allPlanningDate === tomorrow
+      ? 'Morgen'
+      : formatDateLabel(allPlanningDate);
   const filteredTasks = filterTasksBySearch(tasks, searchQuery);
 
   // Today tab: only tasks dated today
@@ -503,6 +538,43 @@ function AppInner({ logout }: { logout: () => void }) {
               setOpenSwipeId={setOpenSwipeId}
               onMoveTomorrow={moveTaskToTomorrow}
             />
+
+            <section
+              aria-labelledby="tomorrow-planning-heading"
+              className="rounded-2xl border border-edge bg-surface-raised p-4"
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-primary-surface text-primary-text">
+                  <CalendarPlus size={22} aria-hidden="true" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 id="tomorrow-planning-heading" className="text-[16px] font-bold text-fg">Morgen planen</h2>
+                  <p className="mt-1 text-[13px] leading-5 text-fg-secondary">
+                    Nächste Aufgabe festlegen oder den kommenden Plan prüfen.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => openNewTaskModal(tomorrow)}
+                  className="min-h-11 rounded-xl bg-primary px-3 text-[13px] font-semibold text-white"
+                >
+                  Aufgabe für morgen
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('all');
+                    setAllDateFilter('upcoming');
+                    setAllDatePicker('');
+                  }}
+                  className="min-h-11 rounded-xl border border-edge-muted bg-surface-inset px-3 text-[13px] font-semibold text-fg-secondary"
+                >
+                  Kommende ansehen
+                </button>
+              </div>
+            </section>
             </div>
           </>
         ) : activeTab === 'all' ? (
@@ -512,6 +584,8 @@ function AppInner({ logout }: { logout: () => void }) {
               setAllDateFilter={setAllDateFilter}
               allDatePicker={allDatePicker}
               setAllDatePicker={setAllDatePicker}
+              planningDateLabel={allPlanningDateLabel}
+              onPlanTask={() => openNewTaskModal(allPlanningDate)}
             />
 
             {/* Task groups */}
@@ -652,13 +726,29 @@ function AppInner({ logout }: { logout: () => void }) {
         </div>
       )}
 
+      {planningConfirmation && !pendingTaskDeletion && (
+        <div
+          role="status"
+          data-planning-confirmation
+          aria-live="polite"
+          className="fixed left-4 right-4 bottom-[6.75rem] z-40 mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-edge bg-surface-overlay p-3 pl-4 shadow-2xl"
+        >
+          <CheckCircle2 size={20} className="flex-shrink-0 text-success" aria-hidden="true" />
+          <p className="min-w-0 flex-1 text-[14px] text-fg-secondary">
+            <span dir="auto" className="font-semibold text-fg">{planningConfirmation.title}</span>
+            {' · '}{planningConfirmation.date === today ? 'Heute' : planningConfirmation.date === tomorrow ? 'Morgen' : formatDateLabel(planningConfirmation.date)}
+            {' · '}{planningConfirmation.time ? `${planningConfirmation.time} Uhr` : 'Ohne Zeit'}
+          </p>
+        </div>
+      )}
+
       {/* Floating Action Button */}
       <div className="fixed bottom-[5.5rem] right-5 z-20 flex flex-col items-end">
         {showPlusMenu && (
           <div className="mb-3 bg-surface-raised border border-edge-muted rounded-2xl shadow-xl flex flex-col overflow-hidden animate-fade-in origin-bottom-right">
             <button
               type="button"
-              onClick={openNewTaskModal}
+              onClick={() => openNewTaskModal(activeTab === 'all' ? allPlanningDate : today)}
               className="px-5 py-3.5 min-h-11 text-fg font-semibold text-[15px] hover:bg-fg/5 transition-colors border-b border-edge-muted/50 text-left whitespace-nowrap"
             >
               Manuelle Aufgabe
@@ -720,13 +810,21 @@ function AppInner({ logout }: { logout: () => void }) {
         </div>
       </nav>
 
-      <NewTaskModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveTask} taskToEdit={taskToEdit} initialDraft={voiceDraft} />
+      <NewTaskModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSave={handleSaveTask}
+        taskToEdit={taskToEdit}
+        initialDraft={voiceDraft}
+        initialDate={newTaskInitialDate}
+      />
       <VoiceTaskModal
         isOpen={isVoiceModalOpen}
         onClose={() => setIsVoiceModalOpen(false)}
         onSuccess={(draft) => {
           setVoiceDraft(draft);
           setTaskToEdit(null);
+          setNewTaskInitialDate(activeTab === 'all' ? allPlanningDate : today);
           setIsModalOpen(true);
         }}
       />
