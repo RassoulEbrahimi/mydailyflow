@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Trash2, Edit2, Check } from 'lucide-react';
+import { X, Plus, Trash2, Edit2, Check, GripVertical } from 'lucide-react';
 import type { DailyEssential } from '../types/essential';
 import {
   DndContext,
@@ -38,6 +38,7 @@ const SortableEssentialItem: React.FC<{
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging
@@ -54,19 +55,29 @@ const SortableEssentialItem: React.FC<{
     <div 
         ref={setNodeRef} 
         style={style} 
-        {...attributes} 
-        {...listeners} 
-        className={`group flex items-center justify-between bg-surface-raised p-3.5 rounded-xl border ${
+        data-essential-id={e.id}
+        className={`group flex items-center gap-1 bg-surface-raised p-2 rounded-xl border ${
           isDragging ? 'border-primary shadow-lg opacity-90 scale-[1.02]' : 'border-edge-subtle'
         } transition-all duration-200`}
     >
-      <div className="flex flex-col flex-1 min-w-0 pointer-events-none">
+      <button
+        ref={setActivatorNodeRef}
+        type="button"
+        {...attributes}
+        {...listeners}
+        aria-label={`Reihenfolge ändern: ${e.title}`}
+        aria-describedby="essentials-reorder-help"
+        className="flex h-11 w-11 flex-shrink-0 touch-none cursor-grab items-center justify-center rounded-lg text-fg-secondary transition-colors hover:bg-surface-control hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing"
+      >
+        <GripVertical size={20} strokeWidth={2.25} aria-hidden="true" />
+      </button>
+      <div className="flex flex-col flex-1 min-w-0 px-1 pointer-events-none">
         <span dir="auto" className="min-w-0 text-start break-words text-[15px] font-semibold text-fg">{e.title}</span>
         <span dir="ltr" className="text-[13px] text-fg-secondary">
-          {e.targetCount === 1 ? 'Einfaches Element' : `Mehrfach-Häkchen (${e.targetCount})`}
+          {e.targetCount === 1 ? 'Einfach' : `Mehrfach · ${e.targetCount}`}
         </span>
       </div>
-      <div className="flex items-center gap-2" onPointerDown={(e) => e.stopPropagation()}>
+      <div className="flex items-center gap-1">
         <button
           type="button"
           onClick={() => onStartEdit(e)}
@@ -297,6 +308,11 @@ export default function ManageEssentialsModal({
             renderForm()
           ) : (
             <div className="flex flex-col gap-3">
+              {essentials.length > 0 && (
+                <p id="essentials-reorder-help" className="text-[13px] leading-relaxed text-fg-secondary">
+                  Mit dem Griff ziehen oder per Tastatur verschieben.
+                </p>
+              )}
               {essentials.length === 0 ? (
                 <div className="text-center py-8 text-fg-secondary">
                   <div className="w-12 h-12 rounded-full bg-surface-raised flex items-center justify-center mx-auto mb-3" aria-hidden="true">

@@ -28,6 +28,12 @@ export default function DailyEssentialsSection({
     return p >= e.targetCount;
   }).length;
   const totalCount = essentials.length;
+  const incompleteEssentials = essentials.filter(essential => {
+    const progress = progressById[essential.id] || 0;
+    return progress < essential.targetCount;
+  });
+  const summaryEssentials = incompleteEssentials.slice(0, 2);
+  const remainingSummaryCount = Math.max(0, incompleteEssentials.length - summaryEssentials.length);
 
   return (
     <section className="px-5 pt-3 pb-5">
@@ -35,7 +41,7 @@ export default function DailyEssentialsSection({
       <div className="flex items-center justify-between mb-3 gap-2">
         <button
           type="button"
-          className="flex items-center gap-2 select-none min-w-0 min-h-11 text-left"
+          className="flex flex-1 items-center gap-2 select-none min-w-0 min-h-11 text-left"
           onClick={() => setIsCollapsed(!isCollapsed)}
           aria-expanded={!isCollapsed}
           aria-label={`Tägliche Essentials, ${completedCount} von ${totalCount} erledigt`}
@@ -43,15 +49,55 @@ export default function DailyEssentialsSection({
           <div className="flex items-center justify-center flex-shrink-0 w-7 h-7 rounded-full bg-primary-surface text-primary-text" aria-hidden="true">
             <Droplets size={16} strokeWidth={2.5} />
           </div>
-          <h2 className="text-[16px] font-bold text-fg tracking-tight truncate">Tägliche Essentials</h2>
-          <span className="text-[13px] font-medium text-fg-secondary bg-surface-raised px-2 py-0.5 rounded-full flex-shrink-0">
-            {completedCount}/{totalCount}
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="flex min-w-0 items-center gap-2">
+              <h2 className="text-[16px] font-bold text-fg tracking-tight truncate">Tägliche Essentials</h2>
+              <span className="text-[13px] font-medium text-fg-secondary bg-surface-raised px-2 py-0.5 rounded-full flex-shrink-0">
+                {completedCount}/{totalCount}
+              </span>
+              {isCollapsed ? (
+                <ChevronDown size={18} className="text-fg-secondary flex-shrink-0" aria-hidden="true" />
+              ) : (
+                <ChevronUp size={18} className="text-fg-secondary flex-shrink-0" aria-hidden="true" />
+              )}
+            </span>
+
+            {isCollapsed && totalCount > 0 && (
+              <span
+                data-testid="essentials-collapsed-summary"
+                className="mt-0.5 flex min-w-0 items-center gap-1 overflow-hidden text-[12px] text-fg-secondary"
+              >
+                {incompleteEssentials.length === 0 ? (
+                  <span className="truncate">Alles für heute erledigt</span>
+                ) : (
+                  <>
+                    {summaryEssentials.map((essential, index) => {
+                      const progress = progressById[essential.id] || 0;
+                      return (
+                        <React.Fragment key={essential.id}>
+                          {index > 0 && <span aria-hidden="true">·</span>}
+                          <span className="flex min-w-0 items-center gap-1 truncate">
+                            <span dir="auto" className="truncate text-start">{essential.title}</span>
+                            {essential.targetCount > 1 && (
+                              <span dir="ltr" className="flex-shrink-0 tabular-nums">
+                                {progress}/{essential.targetCount}
+                              </span>
+                            )}
+                          </span>
+                        </React.Fragment>
+                      );
+                    })}
+                    {remainingSummaryCount > 0 && (
+                      <>
+                        <span aria-hidden="true">·</span>
+                        <span dir="ltr" className="flex-shrink-0">+{remainingSummaryCount} offen</span>
+                      </>
+                    )}
+                  </>
+                )}
+              </span>
+            )}
           </span>
-          {isCollapsed ? (
-            <ChevronDown size={18} className="text-fg-secondary flex-shrink-0" aria-hidden="true" />
-          ) : (
-            <ChevronUp size={18} className="text-fg-secondary flex-shrink-0" aria-hidden="true" />
-          )}
         </button>
 
         <button
@@ -89,6 +135,8 @@ export default function DailyEssentialsSection({
                 <button
                   type="button"
                   key={essential.id}
+                  data-essential-id={essential.id}
+                  data-essential-type="simple"
                   onClick={() => onUpdateProgress(essential.id, isDone ? 0 : 1)}
                   role="checkbox"
                   aria-checked={isDone}
@@ -98,13 +146,18 @@ export default function DailyEssentialsSection({
                       : 'bg-surface-raised border border-transparent hover:border-edge-subtle'
                   }`}
                 >
-                  <span
-                    dir="auto"
-                    className={`min-w-0 text-start break-words text-[15px] font-medium transition-colors ${
-                      isDone ? 'text-fg line-through opacity-70' : 'text-fg'
-                    }`}
-                  >
-                    {essential.title}
+                  <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+                    <span
+                      dir="auto"
+                      className={`min-w-0 text-start break-words text-[15px] font-medium transition-colors ${
+                        isDone ? 'text-fg line-through opacity-70' : 'text-fg'
+                      }`}
+                    >
+                      {essential.title}
+                    </span>
+                    <span dir="ltr" className="rounded-full bg-surface-control px-2 py-0.5 text-[11px] font-semibold text-fg-secondary">
+                      Einfach
+                    </span>
                   </span>
                   <div className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
                     isDone ? 'bg-primary border-primary text-white' : 'border-edge-strong text-transparent'
@@ -124,20 +177,27 @@ export default function DailyEssentialsSection({
               // covers targets above five without ever overflowing the card.
               <div
                 key={essential.id}
+                data-essential-id={essential.id}
+                data-essential-type="multiple"
                 className={`flex flex-col gap-2 p-3 rounded-xl transition-all ${
                     isDone 
                       ? 'bg-primary-surface border border-primary-border'
                       : 'bg-surface-raised border border-transparent'
                 }`}
               >
-                <div className="flex items-baseline justify-between gap-3 min-w-0">
-                  <span
-                    dir="auto"
-                    className={`text-[15px] font-medium transition-colors min-w-0 text-start break-words ${
-                      isDone ? 'text-fg line-through opacity-70' : 'text-fg'
-                    }`}
-                  >
-                    {essential.title}
+                <div className="flex items-start justify-between gap-3 min-w-0">
+                  <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+                    <span
+                      dir="auto"
+                      className={`text-[15px] font-medium transition-colors min-w-0 text-start break-words ${
+                        isDone ? 'text-fg line-through opacity-70' : 'text-fg'
+                      }`}
+                    >
+                      {essential.title}
+                    </span>
+                    <span dir="ltr" className="rounded-full bg-surface-control px-2 py-0.5 text-[11px] font-semibold text-fg-secondary">
+                      Mehrfach · {essential.targetCount}
+                    </span>
                   </span>
                   {/* Progress counter is chrome: "2 / 6" must never be read
                       as "6 / 2" because the title beside it resolved to RTL. */}
