@@ -100,8 +100,8 @@ This track starts only after Phase 2.0 selects a platform and Phase 2A proves th
 |---|---|---|
 | P2-0 | ADRs, v1/v2 fixtures, migration and failure-mode harness | Documentation/tests only |
 | P2-1 | Schema v2 + `completedAt` + backup migration | Revert before any history UI |
-| P2-2 | Essential daily history slice | Independent storage slice |
-| P2-3 | Weekly Review UI | Read-only consumer of history |
+| P2-2 | Essential daily history slice — shipped with P2-1 | Independent storage slice |
+| P2-3 | Weekly Review UI — implemented | Read-only consumer of history |
 | P2-4 | Week planner and time-block movement | Planning UI isolated from focus |
 | P2-5 | Focus sessions | Separate persisted focus state |
 | P2-6 | Day/routine templates | Additive template slice |
@@ -121,4 +121,6 @@ This track starts only after Phase 2.0 selects a platform and Phase 2A proves th
 
 ## Recommended next objective
 
-Start **Phase 2.0 only**: write the schema/history, authentication/sync, and reminder ADRs; add migration fixtures and failure-path tests; do not change production data or deploy product behaviour yet.
+After P2-3 mobile acceptance, start **P2-4**: the week planner and accessible
+movement between days/time blocks. Keep focus sessions, templates, real identity
+and synchronization in their later independent increments.
