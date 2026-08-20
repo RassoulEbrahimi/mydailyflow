@@ -1,4 +1,4 @@
-import { Waves, Search, Bell, Sun, List, CheckCircle2, Settings, Plus, RotateCcw, CalendarPlus } from 'lucide-react';
+import { Waves, Search, Bell, Sun, List, CheckCircle2, Settings, Plus, RotateCcw, CalendarPlus, BarChart3 } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from './hooks/useAuth';
 import LoginPage from './components/LoginPage';
@@ -35,6 +35,7 @@ import { useTheme } from './hooks/useTheme';
 import NowFocusCard from './components/NowFocusCard';
 import CarryOverSection from './components/CarryOverSection';
 import TodayCompletedSection from './components/TodayCompletedSection';
+import WeeklyReviewView from './components/WeeklyReviewView';
 
 const TaskSection = ({ title, timeRange, accentClass, children }: { title: string, timeRange?: string, accentClass: string, children: React.ReactNode }) => {
   return (
@@ -55,10 +56,10 @@ const TaskSection = ({ title, timeRange, accentClass, children }: { title: strin
   );
 };
 
-type TabId = 'today' | 'all' | 'done' | 'reminders';
+type TabId = 'today' | 'all' | 'done' | 'reminders' | 'review';
 
 /** Bottom-navigation destinations, in visual order. */
-const NAV_ITEMS: { id: TabId; label: string; Icon: typeof Sun }[] = [
+const NAV_ITEMS: { id: Exclude<TabId, 'review'>; label: string; Icon: typeof Sun }[] = [
   { id: 'today',     label: 'Heute',         Icon: Sun },
   { id: 'all',       label: 'Alle Aufgaben', Icon: List },
   { id: 'reminders', label: 'Erinnerungen',  Icon: Bell },
@@ -272,13 +273,16 @@ function AppInner({ logout }: { logout: () => void }) {
     editEssential, 
     deleteEssential, 
     updateProgress,
-    reorderEssentials
+    reorderEssentials,
+    history: essentialHistory,
   } = useDailyEssentials();
 
   const [activeTab, setActiveTab] = useState<TabId>('today');
   const [currentTime, setCurrentTime] = useState(() => getCurrentTimeString());
   const [carryOverExpanded, setCarryOverExpanded] = useState(true);
   const [todayCompletedExpanded, setTodayCompletedExpanded] = useState(false);
+  const [reviewReferenceDate, setReviewReferenceDate] = useState(() => getTodayString());
+  const [reviewReturnTab, setReviewReturnTab] = useState<Exclude<TabId, 'review'>>('today');
 
   // Keep the focus card aligned with the wall clock while the app remains open.
   useEffect(() => {
@@ -444,7 +448,7 @@ function AppInner({ logout }: { logout: () => void }) {
 
           {/* Right: search + settings icons */}
           <div className="flex items-center gap-3 flex-shrink-0">
-            {!isSearchActive && (
+            {!isSearchActive && activeTab !== 'review' && (
               <button
                 type="button"
                 onClick={() => setIsSearchActive(true)}
@@ -452,6 +456,22 @@ function AppInner({ logout }: { logout: () => void }) {
                 aria-label="Aufgaben durchsuchen"
               >
                 <Search size={22} aria-hidden="true" />
+              </button>
+            )}
+            {activeTab !== 'review' && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (activeTab !== 'review') setReviewReturnTab(activeTab);
+                  setReviewReferenceDate(getTodayString());
+                  setActiveTab('review');
+                  setIsSearchActive(false);
+                  setSearchQuery('');
+                }}
+                className="min-w-11 min-h-11 flex items-center justify-center rounded-full text-fg-faint hover:text-fg transition-colors"
+                aria-label="Wochenrückblick öffnen"
+              >
+                <BarChart3 size={22} aria-hidden="true" />
               </button>
             )}
             <button
@@ -663,6 +683,17 @@ function AppInner({ logout }: { logout: () => void }) {
               setIsSettingsOpen(true);
             }}
           />
+        ) : activeTab === 'review' ? (
+          <WeeklyReviewView
+            tasks={tasks}
+            essentialHistory={essentialHistory}
+            essentials={essentials}
+            progressById={progressById}
+            today={today}
+            referenceDate={reviewReferenceDate}
+            onReferenceDateChange={setReviewReferenceDate}
+            onClose={() => setActiveTab(reviewReturnTab)}
+          />
         ) : (
           <div className="flex flex-col gap-5 px-5">
             {doneTaskGroups.length > 0 ? (
@@ -682,7 +713,7 @@ function AppInner({ logout }: { logout: () => void }) {
                     </h2>
                   </div>
                   <p className="text-[13px] leading-5 text-fg-secondary">
-                    Neueste zuerst, gruppiert nach Datum. Ein Abschlusszeitpunkt wird nicht gespeichert.
+                    Neueste zuerst, gruppiert nach Datum. Neue Abschlüsse verwenden den tatsächlich gespeicherten Zeitpunkt.
                   </p>
                 </div>
 
@@ -743,8 +774,8 @@ function AppInner({ logout }: { logout: () => void }) {
         </div>
       )}
 
-      {/* Floating Action Button */}
-      <div className="fixed bottom-[5.5rem] right-5 z-20 flex flex-col items-end">
+      {/* Floating Action Button — review is deliberately read-only. */}
+      {activeTab !== 'review' && <div className="fixed bottom-[5.5rem] right-5 z-20 flex flex-col items-end">
         {showPlusMenu && (
           <div className="mb-3 bg-surface-raised border border-edge-muted rounded-2xl shadow-xl flex flex-col overflow-hidden animate-fade-in origin-bottom-right">
             <button
@@ -773,7 +804,7 @@ function AppInner({ logout }: { logout: () => void }) {
         >
           <div className="pointer-events-none p-1 rounded-full" aria-hidden="true"><Plus size={28} strokeWidth={2.5} /></div>
         </button>
-      </div>
+      </div>}
 
       {/* Bottom Navigation */}
       <nav

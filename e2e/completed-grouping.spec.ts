@@ -39,7 +39,7 @@ test.describe('Completed tasks grouped by scheduled date', () => {
 
     await expect(app.page.getByRole('heading', { name: 'Erledigte Aufgaben, 5 Aufgaben' })).toBeVisible();
     await expect(
-      app.page.getByText('Neueste zuerst, gruppiert nach Datum. Ein Abschlusszeitpunkt wird nicht gespeichert.'),
+      app.page.getByText('Neueste zuerst, gruppiert nach Datum. Neue Abschlüsse verwenden den tatsächlich gespeicherten Zeitpunkt.'),
     ).toBeVisible();
 
     const dateHeaders = app.page.locator('[data-sticky-group] h3');
