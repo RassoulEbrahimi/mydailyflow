@@ -1,4 +1,4 @@
-import { ArrowLeft, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, RotateCcw, Sparkles } from 'lucide-react';
+import { ArrowLeft, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, MoveRight, RotateCcw, Sparkles } from 'lucide-react';
 import type { DailyEssential, EssentialHistoryDay } from '../types/essential';
 import type { Task } from '../types/task';
 import { addCalendarDays, buildWeeklyReview, startOfLocalWeek } from '../utils/weeklyReview';
@@ -11,6 +11,7 @@ interface WeeklyReviewViewProps {
     today: string;
     referenceDate: string;
     onReferenceDateChange: (date: string) => void;
+    onOpenPlanner: () => void;
     onClose: () => void;
 }
 
@@ -29,6 +30,7 @@ export default function WeeklyReviewView({
     today,
     referenceDate,
     onReferenceDateChange,
+    onOpenPlanner,
     onClose,
 }: WeeklyReviewViewProps) {
     const currentWeek = startOfLocalWeek(today);
@@ -90,6 +92,14 @@ export default function WeeklyReviewView({
                         <ChevronRight size={20} aria-hidden="true" />
                     </button>
                 </div>
+                <button
+                    type="button"
+                    onClick={onOpenPlanner}
+                    className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-[13px] font-bold text-white"
+                >
+                    <MoveRight size={18} aria-hidden="true" />
+                    Diese Woche planen
+                </button>
             </section>
 
             <section className="mt-4 grid grid-cols-3 gap-2" aria-label="Wochensummen">
