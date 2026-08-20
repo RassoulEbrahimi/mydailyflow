@@ -1,0 +1,89 @@
+{
+  "app": "mydailyflow",
+  "schemaVersion": 2,
+  "exportedAt": "2026-08-20T12:00:00.000Z",
+  "tasks": [
+    {
+      "id": "synthetic-completed-task",
+      "title": "Synthetic completed task",
+      "time": "08:30",
+      "duration": "30m",
+      "timeBlock": "morning",
+      "completed": true,
+      "priority": "medium",
+      "createdAt": "2026-08-19T07:00:00.000Z",
+      "date": "2026-08-20",
+      "completedAt": null
+    },
+    {
+      "id": "synthetic-open-task",
+      "title": "نمونه آزمایشی / Testaufgabe",
+      "time": "",
+      "duration": "15m",
+      "timeBlock": "evening",
+      "completed": false,
+      "priority": "low",
+      "createdAt": "2026-08-20T09:00:00.000Z",
+      "date": "2026-08-21",
+      "notes": "Synthetic fixture only",
+      "completedAt": null
+    }
+  ],
+  "essentials": [
+    {
+      "id": "synthetic-water",
+      "title": "Wasser trinken",
+      "targetCount": 3,
+      "order": 0,
+      "createdAt": "2026-08-01T08:00:00.000Z"
+    },
+    {
+      "id": "synthetic-reading",
+      "title": "مطالعه آزمایشی",
+      "targetCount": 1,
+      "order": 1,
+      "createdAt": "2026-08-01T08:01:00.000Z"
+    }
+  ],
+  "essentialsState": {
+    "date": "2026-08-20",
+    "progressById": {
+      "synthetic-water": 2,
+      "synthetic-reading": 1,
+      "synthetic-removed-essential": 1
+    }
+  },
+  "essentialHistory": [
+    {
+      "date": "2026-08-20",
+      "recordedAt": null,
+      "source": "legacy-snapshot",
+      "entries": [
+        {
+          "essentialId": "synthetic-water",
+          "title": "Wasser trinken",
+          "targetCount": 3,
+          "completedCount": 2
+        },
+        {
+          "essentialId": "synthetic-reading",
+          "title": "مطالعه آزمایشی",
+          "targetCount": 1,
+          "completedCount": 1
+        },
+        {
+          "essentialId": "synthetic-removed-essential",
+          "title": null,
+          "targetCount": null,
+          "completedCount": 1
+        }
+      ]
+    }
+  ],
+  "preferences": {
+    "theme": "system",
+    "remindersEnabled": true,
+    "stickyHeroEnabled": true,
+    "essentialsCollapsed": false
+  }
+}
