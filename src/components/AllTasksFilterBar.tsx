@@ -1,4 +1,5 @@
 import React from 'react';
+import { CalendarPlus } from 'lucide-react';
 
 export type AllTasksDateFilter = 'all' | 'today' | 'upcoming' | 'past' | 'date';
 
@@ -7,6 +8,8 @@ interface AllTasksFilterBarProps {
     setAllDateFilter: (v: AllTasksDateFilter) => void;
     allDatePicker: string;
     setAllDatePicker: (v: string) => void;
+    planningDateLabel: string;
+    onPlanTask: () => void;
 }
 
 /** Date filter bar for the All Tasks tab: quick-select pills + date picker + clear. */
@@ -15,6 +18,8 @@ const AllTasksFilterBar = ({
     setAllDateFilter,
     allDatePicker,
     setAllDatePicker,
+    planningDateLabel,
+    onPlanTask,
 }: AllTasksFilterBarProps) => (
     <div className="pt-2 flex flex-col gap-2">
         {/* Row 1: quick-select pills */}
@@ -64,6 +69,22 @@ const AllTasksFilterBar = ({
                     Löschen
                 </button>
             )}
+        </div>
+        <div className="mt-1 flex items-center gap-3 rounded-2xl border border-edge bg-surface-raised p-3">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                <CalendarPlus size={20} className="flex-shrink-0 text-primary-text" aria-hidden="true" />
+                <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">Planungsziel</p>
+                    <p className="truncate text-[14px] font-semibold text-fg">{planningDateLabel}</p>
+                </div>
+            </div>
+            <button
+                type="button"
+                onClick={onPlanTask}
+                className="min-h-11 flex-shrink-0 rounded-xl bg-primary-surface px-3 text-[13px] font-semibold text-primary-text hover:bg-primary/15"
+            >
+                Hier planen
+            </button>
         </div>
     </div>
 );

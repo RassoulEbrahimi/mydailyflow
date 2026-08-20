@@ -50,8 +50,8 @@ test.describe('task date capture', () => {
     await dialog.getByLabel('Aufgabentitel').fill(title);
     await dialog.getByRole('button', { name: 'Speichern', exact: true }).click();
 
-    await expect(app.page.getByRole('heading', { name: title, exact: true })).toBeHidden();
-    await app.navButton('all').click();
+    await expect(app.navButton('all')).toHaveAttribute('aria-current', 'page');
+    await expect(app.page.getByLabel('Nach Datum filtern')).toHaveValue(TOMORROW);
     await expect(app.page.getByRole('heading', { name: title, exact: true })).toBeVisible();
     await expect(app.page.getByText(/21\. Mai 2026/)).toBeVisible();
     expect(await storedTask(app.page, title)).toMatchObject({ date: TOMORROW });
@@ -92,7 +92,9 @@ test.describe('task date capture', () => {
     await dialog.getByLabel('Aufgabendatum').fill(TOMORROW);
     await dialog.getByRole('button', { name: 'Speichern', exact: true }).click();
 
-    await expect(heading).toBeHidden();
+    await expect(app.navButton('all')).toHaveAttribute('aria-current', 'page');
+    await expect(app.page.getByLabel('Nach Datum filtern')).toHaveValue(TOMORROW);
+    await expect(heading).toBeVisible();
     const after = await storedTask(app.page, title);
     expect(after).toMatchObject({ id: before.id, date: TOMORROW });
   });

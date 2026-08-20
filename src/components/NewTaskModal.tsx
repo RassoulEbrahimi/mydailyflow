@@ -3,7 +3,7 @@ import { useDialogFocus } from '../hooks/useDialogFocus';
 import { Plus, Check, Trash2, CheckCircle2, ChevronDown, Mic, CalendarDays } from 'lucide-react';
 
 import type { Task, ChecklistItem, Recurrence } from '../types/task';
-import { deriveTimeBlock, getSmartDefaultTime, getTodayString, getTomorrowString } from '../utils/taskUtils';
+import { deriveTimeBlock, formatDateLabel, getSmartDefaultTime, getTodayString, getTomorrowString } from '../utils/taskUtils';
 import VoiceTaskModal from './VoiceTaskModal';
 
 const RECURRENCE_LABELS: Record<Recurrence, string> = {
@@ -20,12 +20,15 @@ const NewTaskModal = ({
   onSave,
   taskToEdit,
   initialDraft,
+  initialDate,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onSave: (task: Omit<Task, 'id' | 'createdAt' | 'completed' | 'rolledOverFrom' | 'recurrenceAnchorDay'>) => void;
   taskToEdit?: Task | null;
   initialDraft?: Partial<Task> | null;
+  /** Date inherited from the planning surface that opened the sheet. */
+  initialDate?: string;
 }) => {
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
@@ -34,6 +37,7 @@ const NewTaskModal = ({
   const [showChecklist, setShowChecklist] = useState(false);
   const [newChecklistText, setNewChecklistText] = useState('');
   const [selectedTime, setSelectedTime] = useState('14:00');
+  const [isTimeEnabled, setIsTimeEnabled] = useState(true);
   const [selectedDate, setSelectedDate] = useState(getTodayString());
   const [selectedDuration, setSelectedDuration] = useState('30m');
   const [isReminderEnabled, setIsReminderEnabled] = useState(true);
@@ -57,6 +61,7 @@ const NewTaskModal = ({
         setShowChecklist(existing.length > 0);
         setNewChecklistText('');
         setSelectedTime(taskToEdit.time);
+        setIsTimeEnabled(Boolean(taskToEdit.time));
         setSelectedDate(taskToEdit.date || getTodayString());
         setSelectedDuration(taskToEdit.duration);
         setSelectedPriority(taskToEdit.priority.charAt(0).toUpperCase() + taskToEdit.priority.slice(1));
@@ -71,7 +76,8 @@ const NewTaskModal = ({
         setShowChecklist(false);
         setNewChecklistText('');
         setSelectedTime(initialDraft.time || getSmartDefaultTime());
-        setSelectedDate(initialDraft.date || getTodayString());
+        setIsTimeEnabled(initialDraft.time !== '');
+        setSelectedDate(initialDraft.date || initialDate || getTodayString());
         setSelectedDuration(initialDraft.duration || '30m');
         setIsReminderEnabled(initialDraft.reminderEnabled ?? true);
         setSelectedPriority(initialDraft.priority ? initialDraft.priority.charAt(0).toUpperCase() + initialDraft.priority.slice(1) : 'Medium');
@@ -84,7 +90,8 @@ const NewTaskModal = ({
         setShowChecklist(false);
         setNewChecklistText('');
         setSelectedTime(getSmartDefaultTime());
-        setSelectedDate(getTodayString());
+        setIsTimeEnabled(true);
+        setSelectedDate(initialDate || getTodayString());
         setSelectedDuration('30m');
         setIsReminderEnabled(true);
         setSelectedPriority('Medium');
@@ -92,7 +99,7 @@ const NewTaskModal = ({
         setIsAdvancedExpanded(false);
       }
     }
-  }, [isOpen, taskToEdit, initialDraft]);
+  }, [isOpen, taskToEdit, initialDraft, initialDate]);
 
   const addChecklistItem = () => {
     const text = newChecklistText.trim();
@@ -119,12 +126,12 @@ const NewTaskModal = ({
       description: notes.trim(), // keep for backwards compat
       notes: notes.trim(),
       checklistItems: checklistItems.length > 0 ? checklistItems : undefined,
-      time: selectedTime,
+      time: isTimeEnabled ? selectedTime : '',
       duration: selectedDuration,
-      timeBlock: deriveTimeBlock(selectedTime),
+      timeBlock: deriveTimeBlock(isTimeEnabled ? selectedTime : ''),
       priority: selectedPriority.toLowerCase() as Task['priority'],
       recurrence: selectedRecurrence,
-      reminderEnabled: isReminderEnabled,
+      reminderEnabled: isTimeEnabled && isReminderEnabled,
       date: selectedDate,
     });
 
@@ -133,6 +140,13 @@ const NewTaskModal = ({
 
   const today = getTodayString();
   const tomorrow = getTomorrowString();
+  const planningDateLabel = selectedDate === today
+    ? 'Heute'
+    : selectedDate === tomorrow
+      ? 'Morgen'
+      : selectedDate
+        ? formatDateLabel(selectedDate)
+        : 'Datum fehlt';
   const dateError = !selectedDate
     ? 'Bitte wähle ein Datum aus.'
     : selectedDate < today
@@ -313,6 +327,13 @@ const NewTaskModal = ({
               <h3 className="text-fg font-bold text-[17px]">Zeitplan</h3>
             </div>
 
+            <p
+              role="status"
+              className="mt-3 rounded-xl bg-primary-surface px-3 py-2 text-[13px] font-semibold text-primary-text"
+            >
+              {planningDateLabel} · {isTimeEnabled ? `${selectedTime} Uhr` : 'Ohne Zeit'}
+            </p>
+
             <div className="mt-4 grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -362,16 +383,45 @@ const NewTaskModal = ({
               </p>
             )}
 
-            <div className="mt-4 flex items-center justify-between border-t border-edge-accent pt-4">
-              <span className="text-fg font-medium text-[15px]">Startzeit</span>
-              <input
-                type="time"
-                id="task-time"
-                aria-label="Startzeit"
-                value={selectedTime}
-                onChange={(e) => setSelectedTime(e.target.value)}
-                className="bg-surface-inset text-fg text-[24px] font-bold tabular-nums tracking-tight px-3 py-2 rounded-xl w-32 [&::-webkit-calendar-picker-indicator]:opacity-0 cursor-pointer text-center"
-              />
+            <div className="mt-4 border-t border-edge-accent pt-4">
+              <span className="text-fg font-medium text-[15px]">Zeit</span>
+              <div className="mt-2 grid grid-cols-2 gap-2" aria-label="Zeitmodus">
+                <button
+                  type="button"
+                  onClick={() => setIsTimeEnabled(true)}
+                  aria-pressed={isTimeEnabled}
+                  className={`min-h-11 rounded-xl border text-[14px] font-semibold transition-colors ${isTimeEnabled
+                    ? 'bg-primary border-primary text-white'
+                    : 'bg-surface-inset border-edge-muted text-fg-secondary'
+                  }`}
+                >
+                  Mit Uhrzeit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsTimeEnabled(false)}
+                  aria-pressed={!isTimeEnabled}
+                  className={`min-h-11 rounded-xl border text-[14px] font-semibold transition-colors ${!isTimeEnabled
+                    ? 'bg-primary border-primary text-white'
+                    : 'bg-surface-inset border-edge-muted text-fg-secondary'
+                  }`}
+                >
+                  Ohne Zeit
+                </button>
+              </div>
+              {isTimeEnabled && (
+                <div className="mt-3 flex items-center justify-between">
+                  <label htmlFor="task-time" className="text-fg-secondary text-[14px]">Startzeit</label>
+                  <input
+                    type="time"
+                    id="task-time"
+                    aria-label="Startzeit"
+                    value={selectedTime}
+                    onChange={(e) => setSelectedTime(e.target.value)}
+                    className="bg-surface-inset text-fg text-[24px] font-bold tabular-nums tracking-tight px-3 py-2 rounded-xl w-32 [&::-webkit-calendar-picker-indicator]:opacity-0 cursor-pointer text-center"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Collapsible Advanced Options */}
@@ -386,7 +436,7 @@ const NewTaskModal = ({
                   <span className="text-fg font-medium text-[15px] block">Aufgabendetails</span>
                   {!isAdvancedExpanded && (
                     <span className="text-fg-muted text-[13px] mt-0.5 block">
-                      {selectedDuration} • {RECURRENCE_LABELS[selectedRecurrence]} • {isReminderEnabled ? 'Erinnerung an' : 'Erinnerung aus'} • {
+                      {selectedDuration} • {RECURRENCE_LABELS[selectedRecurrence]} • {isTimeEnabled && isReminderEnabled ? 'Erinnerung an' : 'Erinnerung aus'} • {
                         selectedPriority === 'High' ? 'Hoch' : selectedPriority === 'Medium' ? 'Mittel' : 'Niedrig'
                       }
                     </span>
@@ -444,19 +494,20 @@ const NewTaskModal = ({
                 <div className="flex items-center justify-between py-3 border-t border-edge-accent">
                   <span className="text-fg text-[15px] font-medium">Erinnern</span>
                   <div className="flex items-center gap-3">
-                    <span className="text-fg-secondary text-[13px]">{isReminderEnabled ? '10 Min vorher' : 'Aus'}</span>
+                    <span className="text-fg-secondary text-[13px]">{isTimeEnabled && isReminderEnabled ? '10 Min vorher' : 'Aus'}</span>
                     <button
                       type="button"
                       onClick={() => setIsReminderEnabled(v => !v)}
                       role="switch"
-                      aria-checked={isReminderEnabled}
+                      aria-checked={isTimeEnabled && isReminderEnabled}
+                      disabled={!isTimeEnabled}
                       aria-label="Erinnerung 10 Minuten vorher"
                       className={`tap-target-44 w-[46px] h-[26px] rounded-full relative transition-all duration-300 flex-shrink-0 ${
-                        isReminderEnabled ? 'bg-primary shadow-[0_0_10px_rgba(19,91,236,0.4)]' : 'bg-surface-control border border-edge-strong'
+                        isTimeEnabled && isReminderEnabled ? 'bg-primary shadow-[0_0_10px_rgba(19,91,236,0.4)]' : 'bg-surface-control border border-edge-strong'
                       }`}
                     >
                       <div className={`absolute top-[2px] w-[22px] h-[22px] bg-white rounded-full shadow transition-all duration-300 ${
-                        isReminderEnabled ? 'left-[22px]' : 'left-[2px]'
+                        isTimeEnabled && isReminderEnabled ? 'left-[22px]' : 'left-[2px]'
                       }`} aria-hidden="true" />
                     </button>
                   </div>
