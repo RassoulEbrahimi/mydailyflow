@@ -102,7 +102,7 @@ This track starts only after Phase 2.0 selects a platform and Phase 2A proves th
 | P2-1 | Schema v2 + `completedAt` + backup migration | Revert before any history UI |
 | P2-2 | Essential daily history slice — shipped with P2-1 | Independent storage slice |
 | P2-3 | Weekly Review UI — implemented | Read-only consumer of history |
-| P2-4 | Week planner and time-block movement | Planning UI isolated from focus |
+| P2-4 | Week planner and time-block movement — implemented | Planning UI isolated from focus |
 | P2-5 | Focus sessions | Separate persisted focus state |
 | P2-6 | Day/routine templates | Additive template slice |
 | P2-7 | Real-auth and sync spike | ADR/prototype only |
@@ -121,6 +121,6 @@ This track starts only after Phase 2.0 selects a platform and Phase 2A proves th
 
 ## Recommended next objective
 
-After P2-3 mobile acceptance, start **P2-4**: the week planner and accessible
-movement between days/time blocks. Keep focus sessions, templates, real identity
-and synchronization in their later independent increments.
+After P2-4 mobile acceptance, start **P2-5**: interruption-safe focus sessions
+linked to one task. Keep templates, real identity and synchronization in their
+later independent increments.

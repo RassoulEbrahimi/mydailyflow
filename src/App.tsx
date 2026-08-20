@@ -36,6 +36,7 @@ import NowFocusCard from './components/NowFocusCard';
 import CarryOverSection from './components/CarryOverSection';
 import TodayCompletedSection from './components/TodayCompletedSection';
 import WeeklyReviewView from './components/WeeklyReviewView';
+import WeekPlannerView from './components/WeekPlannerView';
 
 const TaskSection = ({ title, timeRange, accentClass, children }: { title: string, timeRange?: string, accentClass: string, children: React.ReactNode }) => {
   return (
@@ -56,10 +57,11 @@ const TaskSection = ({ title, timeRange, accentClass, children }: { title: strin
   );
 };
 
-type TabId = 'today' | 'all' | 'done' | 'reminders' | 'review';
+type PrimaryTabId = 'today' | 'all' | 'done' | 'reminders';
+type TabId = PrimaryTabId | 'review' | 'planner';
 
 /** Bottom-navigation destinations, in visual order. */
-const NAV_ITEMS: { id: Exclude<TabId, 'review'>; label: string; Icon: typeof Sun }[] = [
+const NAV_ITEMS: { id: PrimaryTabId; label: string; Icon: typeof Sun }[] = [
   { id: 'today',     label: 'Heute',         Icon: Sun },
   { id: 'all',       label: 'Alle Aufgaben', Icon: List },
   { id: 'reminders', label: 'Erinnerungen',  Icon: Bell },
@@ -231,7 +233,7 @@ function AppInner({ logout }: { logout: () => void }) {
     setIsModalOpen(true);
   };
 
-  const { tasks, saveTask, toggleTaskStatus, toggleChecklistItem, deleteTask, restoreTask, moveTaskToTomorrow } = useTasks();
+  const { tasks, saveTask, toggleTaskStatus, toggleChecklistItem, deleteTask, restoreTask, moveTaskToTomorrow, moveTaskInPlanner } = useTasks();
   const [pendingTaskDeletion, setPendingTaskDeletion] = useState<Task | null>(null);
   const [planningConfirmation, setPlanningConfirmation] = useState<Task | null>(null);
 
@@ -282,7 +284,8 @@ function AppInner({ logout }: { logout: () => void }) {
   const [carryOverExpanded, setCarryOverExpanded] = useState(true);
   const [todayCompletedExpanded, setTodayCompletedExpanded] = useState(false);
   const [reviewReferenceDate, setReviewReferenceDate] = useState(() => getTodayString());
-  const [reviewReturnTab, setReviewReturnTab] = useState<Exclude<TabId, 'review'>>('today');
+  const [plannerReferenceDate, setPlannerReferenceDate] = useState(() => getTodayString());
+  const [reviewReturnTab, setReviewReturnTab] = useState<PrimaryTabId>('today');
 
   // Keep the focus card aligned with the wall clock while the app remains open.
   useEffect(() => {
@@ -448,7 +451,7 @@ function AppInner({ logout }: { logout: () => void }) {
 
           {/* Right: search + settings icons */}
           <div className="flex items-center gap-3 flex-shrink-0">
-            {!isSearchActive && activeTab !== 'review' && (
+            {!isSearchActive && activeTab !== 'review' && activeTab !== 'planner' && (
               <button
                 type="button"
                 onClick={() => setIsSearchActive(true)}
@@ -458,11 +461,11 @@ function AppInner({ logout }: { logout: () => void }) {
                 <Search size={22} aria-hidden="true" />
               </button>
             )}
-            {activeTab !== 'review' && (
+            {activeTab !== 'review' && activeTab !== 'planner' && (
               <button
                 type="button"
                 onClick={() => {
-                  if (activeTab !== 'review') setReviewReturnTab(activeTab);
+                  setReviewReturnTab(activeTab);
                   setReviewReferenceDate(getTodayString());
                   setActiveTab('review');
                   setIsSearchActive(false);
@@ -692,7 +695,20 @@ function AppInner({ logout }: { logout: () => void }) {
             today={today}
             referenceDate={reviewReferenceDate}
             onReferenceDateChange={setReviewReferenceDate}
+            onOpenPlanner={() => {
+              setPlannerReferenceDate(reviewReferenceDate);
+              setActiveTab('planner');
+            }}
             onClose={() => setActiveTab(reviewReturnTab)}
+          />
+        ) : activeTab === 'planner' ? (
+          <WeekPlannerView
+            tasks={tasks}
+            today={today}
+            referenceDate={plannerReferenceDate}
+            onReferenceDateChange={setPlannerReferenceDate}
+            onMoveTask={moveTaskInPlanner}
+            onClose={() => setActiveTab('review')}
           />
         ) : (
           <div className="flex flex-col gap-5 px-5">
@@ -774,8 +790,8 @@ function AppInner({ logout }: { logout: () => void }) {
         </div>
       )}
 
-      {/* Floating Action Button — review is deliberately read-only. */}
-      {activeTab !== 'review' && <div className="fixed bottom-[5.5rem] right-5 z-20 flex flex-col items-end">
+      {/* Floating Action Button — review and planner use their own focused actions. */}
+      {activeTab !== 'review' && activeTab !== 'planner' && <div className="fixed bottom-[5.5rem] right-5 z-20 flex flex-col items-end">
         {showPlusMenu && (
           <div className="mb-3 bg-surface-raised border border-edge-muted rounded-2xl shadow-xl flex flex-col overflow-hidden animate-fade-in origin-bottom-right">
             <button

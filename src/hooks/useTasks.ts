@@ -4,6 +4,7 @@ import { isValidTaskArray } from '../types/task';
 import { STORAGE_KEYS, loadTasksSlice, serializeTasks } from '../utils/appStorage';
 import { blockReasonFor, isSliceBlocked, registerBlockedSlice, subscribeStorageHealth } from '../utils/storageHealth';
 import { buildNextOccurrence, getTodayString, nextRecurrenceDate, rolloverTasksForDate, withRecurrenceAnchor, withTaskCompletion } from '../utils/taskUtils';
+import { moveTaskToPlannerDestination, type PlannerDestination } from '../utils/weekPlanner';
 
 export function useTasks() {
   // Loaded once, synchronously, so the "may we persist?" answer exists before
@@ -198,5 +199,16 @@ export function useTasks() {
     }));
   };
 
-  return { tasks: sortedTasks, saveTask, toggleTaskStatus, toggleChecklistItem, deleteTask, restoreTask, moveTaskToTomorrow };
+  /**
+   * Applies a planner move to exactly one occurrence. The pure helper changes
+   * only its scheduling fields, so recurrence metadata and factual history are
+   * never reconstructed by the UI.
+   */
+  const moveTaskInPlanner = (id: string, destination: PlannerDestination) => {
+    setTasks(prev => prev.map(task =>
+      task.id === id ? moveTaskToPlannerDestination(task, destination) : task
+    ));
+  };
+
+  return { tasks: sortedTasks, saveTask, toggleTaskStatus, toggleChecklistItem, deleteTask, restoreTask, moveTaskToTomorrow, moveTaskInPlanner };
 }
