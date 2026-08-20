@@ -24,7 +24,7 @@ const NewTaskModal = ({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (task: Omit<Task, 'id' | 'createdAt' | 'completed' | 'rolledOverFrom' | 'recurrenceAnchorDay'>) => void;
+  onSave: (task: Omit<Task, 'id' | 'createdAt' | 'completed' | 'completedAt' | 'rolledOverFrom' | 'recurrenceAnchorDay'>) => void;
   taskToEdit?: Task | null;
   initialDraft?: Partial<Task> | null;
   /** Date inherited from the planning surface that opened the sheet. */

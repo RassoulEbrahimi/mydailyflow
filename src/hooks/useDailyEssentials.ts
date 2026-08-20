@@ -1,18 +1,22 @@
 import { useState, useEffect } from 'react';
 import { arrayMove } from '@dnd-kit/sortable';
-import type { DailyEssential, DailyEssentialState } from '../types/essential';
-import { isValidEssentialArray, isValidEssentialState } from '../types/essential';
+import type { DailyEssential, DailyEssentialState, EssentialHistoryDay } from '../types/essential';
+import { isValidEssentialArray, isValidEssentialHistory, isValidEssentialState } from '../types/essential';
 import {
     STORAGE_KEYS,
     loadEssentialsSlice,
     loadEssentialsStateSlice,
+    loadEssentialHistorySlice,
+    applyStorageTransaction,
     serializeEssentials,
     serializeEssentialsState,
+    serializeEssentialHistory,
 } from '../utils/appStorage';
 import type { SliceLoadResult } from '../utils/appStorage';
 import { blockReasonFor, isSliceBlocked, registerBlockedSlice, subscribeStorageHealth } from '../utils/storageHealth';
 import type { StorageSlice } from '../utils/storageHealth';
 import { getTodayString } from '../utils/taskUtils';
+import { closeEssentialHistoryDay } from '../utils/phase2Migration';
 
 /**
  * Registers a failed slice load and keeps its writes suppressed until an
@@ -21,20 +25,21 @@ import { getTodayString } from '../utils/taskUtils';
  * progress from being saved, and vice versa.
  */
 function useSliceGuard(slice: StorageSlice, load: SliceLoadResult<unknown>): boolean {
-    const [blocked, setBlocked] = useState(load.blocked);
+    const [blocked, setBlocked] = useState(load.blocked || isSliceBlocked(slice));
 
     useEffect(() => {
-        if (!load.blocked) return;
-
-        registerBlockedSlice({
-            slice,
-            reason: blockReasonFor(load.status),
-            recoveryKey: load.recoveryKey,
-            detail: load.detail,
-        });
+        if (load.blocked) {
+            registerBlockedSlice({
+                slice,
+                reason: blockReasonFor(load.status),
+                recoveryKey: load.recoveryKey,
+                detail: load.detail,
+            });
+        }
+        if (!load.blocked && !isSliceBlocked(slice)) return;
 
         return subscribeStorageHealth(() => {
-            if (!isSliceBlocked(slice)) setBlocked(false);
+            setBlocked(isSliceBlocked(slice));
         });
     }, [slice, load]);
 
@@ -45,9 +50,11 @@ export function useDailyEssentials() {
     // Both slices are loaded once, synchronously, before any effect can write.
     const [dataLoad] = useState(() => loadEssentialsSlice(localStorage, new Date().toISOString()));
     const [stateLoad] = useState(() => loadEssentialsStateSlice(localStorage, new Date().toISOString()));
+    const [historyLoad] = useState(() => loadEssentialHistorySlice(localStorage, new Date().toISOString()));
 
     const dataBlocked = useSliceGuard('essentials', dataLoad);
     const stateBlocked = useSliceGuard('essentialsState', stateLoad);
+    const historyBlocked = useSliceGuard('essentialHistory', historyLoad);
 
     const [essentials, setEssentials] = useState<DailyEssential[]>(() => {
         if (dataLoad.value) return dataLoad.value;
@@ -67,11 +74,18 @@ export function useDailyEssentials() {
         return { date: today, progressById: {} };
     });
 
+    const [history, setHistory] = useState<EssentialHistoryDay[]>(() => historyLoad.value ?? []);
+
+    const closeDay = (state: DailyEssentialState, recordedAt: string) => {
+        setHistory(previous => closeEssentialHistoryDay(previous, essentials, state, recordedAt));
+    };
+
     // Handle day rollover while app is open
     useEffect(() => {
         const checkRollover = () => {
             const today = getTodayString();
             if (dailyState.date !== today) {
+                closeDay(dailyState, new Date().toISOString());
                 setDailyState({ date: today, progressById: {} });
             }
         };
@@ -91,7 +105,7 @@ export function useDailyEssentials() {
             clearInterval(intervalId);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [dailyState.date]);
+    }, [dailyState.date, essentials]);
 
     // Persist essentials definitions
     useEffect(() => {
@@ -107,19 +121,29 @@ export function useDailyEssentials() {
         }
     }, [essentials, dataBlocked]);
 
-    // Persist daily state
+    // Progress and its immutable daily history are one consistency boundary.
+    // A verified transaction prevents a day reset from landing without its
+    // matching history record (or vice versa).
     useEffect(() => {
-        if (stateBlocked) return;
+        if (stateBlocked || historyBlocked) return;
         try {
-            if (isValidEssentialState(dailyState)) {
-                localStorage.setItem(STORAGE_KEYS.essentialsState, serializeEssentialsState(dailyState));
+            if (isValidEssentialState(dailyState) && isValidEssentialHistory(history)) {
+                const result = applyStorageTransaction(localStorage, [
+                    { key: STORAGE_KEYS.essentialsState, value: serializeEssentialsState(dailyState) },
+                    { key: STORAGE_KEYS.essentialHistory, value: serializeEssentialHistory(history) },
+                ]);
+                if (result.status === 'failed') {
+                    console.error('Failed to persist essentials state/history atomically', result.error);
+                    registerBlockedSlice({ slice: 'essentialsState', reason: 'quarantine-failed', detail: result.error });
+                    registerBlockedSlice({ slice: 'essentialHistory', reason: 'quarantine-failed', detail: result.error });
+                }
             } else {
-                console.error('Invalid essentials daily state detected, skipping save to protect localStorage');
+                console.error('Invalid essentials state/history detected, skipping save to protect localStorage');
             }
         } catch (e) {
-            console.error('Failed to save essentials daily state', e);
+            console.error('Failed to save essentials daily state/history', e);
         }
-    }, [dailyState, stateBlocked]);
+    }, [dailyState, history, stateBlocked, historyBlocked]);
 
     const addEssential = (title: string, targetCount: number) => {
         const newEssential: DailyEssential = {
@@ -193,6 +217,7 @@ export function useDailyEssentials() {
     return {
         essentials: sortedEssentials,
         progressById: dailyState.progressById,
+        history,
         addEssential,
         editEssential,
         deleteEssential,

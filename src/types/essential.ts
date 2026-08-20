@@ -11,6 +11,27 @@ export interface DailyEssentialState {
     progressById: Record<string, number>;
 }
 
+export type EssentialHistorySource = 'legacy-snapshot' | 'daily-close';
+
+export interface EssentialHistoryEntry {
+    essentialId: string;
+    title: string | null;
+    targetCount: number | null;
+    completedCount: number;
+}
+
+export interface EssentialHistoryDay {
+    date: string;
+    recordedAt: string | null;
+    source: EssentialHistorySource;
+    entries: EssentialHistoryEntry[];
+}
+
+export interface EssentialHistoryWrapper {
+    version: 2;
+    data: EssentialHistoryDay[];
+}
+
 export interface EssentialsDataWrapper {
     version: number;
     data: DailyEssential[];
@@ -82,4 +103,38 @@ export const isValidEssentialState = (data: unknown): data is DailyEssentialStat
 
     // Progress is a count of completions: finite, non-negative, whole.
     return Object.values(state.progressById as Record<string, unknown>).every(isNonNegativeInteger);
+};
+
+export const isValidEssentialHistory = (data: unknown): data is EssentialHistoryDay[] => {
+    if (!Array.isArray(data)) return false;
+    const dates = new Set<string>();
+    return data.every(dayValue => {
+        if (!dayValue || typeof dayValue !== 'object') return false;
+        const day = dayValue as Record<string, unknown>;
+        if (!isValidDateString(day.date) || dates.has(day.date)) return false;
+        dates.add(day.date);
+        if (day.recordedAt !== null && (
+            typeof day.recordedAt !== 'string'
+            || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(day.recordedAt)
+            || Number.isNaN(Date.parse(day.recordedAt))
+        )) return false;
+        if (day.source !== 'legacy-snapshot' && day.source !== 'daily-close') return false;
+        if (!Array.isArray(day.entries)) return false;
+        const ids = new Set<string>();
+        return day.entries.every(entryValue => {
+            if (!entryValue || typeof entryValue !== 'object') return false;
+            const entry = entryValue as Record<string, unknown>;
+            if (typeof entry.essentialId !== 'string' || ids.has(entry.essentialId)) return false;
+            ids.add(entry.essentialId);
+            return (entry.title === null || typeof entry.title === 'string')
+                && (entry.targetCount === null || isPositiveInteger(entry.targetCount))
+                && isNonNegativeInteger(entry.completedCount);
+        });
+    });
+};
+
+export const isEssentialHistoryWrapper = (data: unknown): data is EssentialHistoryWrapper => {
+    if (!data || typeof data !== 'object') return false;
+    const wrapper = data as Record<string, unknown>;
+    return wrapper.version === 2 && isValidEssentialHistory(wrapper.data);
 };

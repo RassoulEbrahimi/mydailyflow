@@ -29,7 +29,7 @@ test.describe('backup export / import round-trip', () => {
     await app.openSettings();
 
     const downloadPromise = app.page.waitForEvent('download');
-    await app.page.getByRole('button', { name: 'Exportieren' }).click();
+    await app.page.getByRole('button', { name: 'Exportieren', exact: true }).click();
     const download = await downloadPromise;
 
     const savedAt = path.join(testInfo.outputDir, download.suggestedFilename());
@@ -40,7 +40,7 @@ test.describe('backup export / import round-trip', () => {
 
     // ── Shape ────────────────────────────────────────────────────────────────
     expect(backup.app).toBe('mydailyflow');
-    expect(backup.schemaVersion).toBe(1);
+    expect(backup.schemaVersion).toBe(2);
     expect(download.suggestedFilename()).toMatch(/^mydailyflow-backup-.*\.json$/);
 
     // ── Data survives ────────────────────────────────────────────────────────
@@ -52,6 +52,13 @@ test.describe('backup export / import round-trip', () => {
 
     expect(backup.essentialsState.progressById['e2e-ess-multi']).toBe(2);
     expect(backup.essentialsState.date).toBe(TODAY);
+    expect(backup.essentialHistory).toEqual([
+      expect.objectContaining({
+        date: TODAY,
+        recordedAt: null,
+        source: 'legacy-snapshot',
+      }),
+    ]);
 
     // Preferences ride along, but only the four harmless UI ones.
     expect(Object.keys(backup.preferences).sort()).toEqual([
@@ -94,7 +101,7 @@ test.describe('backup export / import round-trip', () => {
     // 1. Export the seeded state.
     await app.openSettings();
     const downloadPromise = app.page.waitForEvent('download');
-    await app.page.getByRole('button', { name: 'Exportieren' }).click();
+    await app.page.getByRole('button', { name: 'Exportieren', exact: true }).click();
     const download = await downloadPromise;
     const savedAt = path.join(testInfo.outputDir, download.suggestedFilename());
     await download.saveAs(savedAt);
@@ -105,6 +112,7 @@ test.describe('backup export / import round-trip', () => {
       localStorage.removeItem(keys.tasks);
       localStorage.removeItem(keys.essentialsData);
       localStorage.removeItem(keys.essentialsState);
+      localStorage.removeItem(keys.essentialHistory);
     }, KEYS);
     await app.page.reload({ waitUntil: 'domcontentloaded' });
 
@@ -131,6 +139,7 @@ test.describe('backup export / import round-trip', () => {
     const storage = await app.readStorage();
     const tasks = JSON.parse(storage[KEYS.tasks] as string);
     const essentials = JSON.parse(storage[KEYS.essentialsData] as string);
+    const history = JSON.parse(storage[KEYS.essentialHistory] as string);
 
     expect(tasks.data.map((t: { id: string }) => t.id).sort()).toEqual(
       SEED_TASKS.map((t) => t.id).sort(),
@@ -138,6 +147,10 @@ test.describe('backup export / import round-trip', () => {
     expect(essentials.data.map((e: { id: string }) => e.id).sort()).toEqual(
       SEED_ESSENTIALS.map((e) => e.id).sort(),
     );
+    expect(history.version).toBe(2);
+    expect(history.data).toEqual([
+      expect.objectContaining({ date: TODAY, source: 'legacy-snapshot' }),
+    ]);
 
     // 5. Auth never entered localStorage, and the live session is untouched.
     expect(storage[KEYS.authSession]).toBeNull();

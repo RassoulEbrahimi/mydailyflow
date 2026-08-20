@@ -4,13 +4,13 @@
  * Pure: no DOM, no storage, no React. Everything here is directly testable.
  */
 
-import type { AppDataSnapshot, BackupFileV1, ValidationResult } from '../types/backup';
+import type { AppDataSnapshot, BackupFileV2, ValidationResult } from '../types/backup';
 import { BACKUP_APP_ID, BACKUP_SCHEMA_VERSION, isBackupPreferences, validateBackupObject } from '../types/backup';
-import { isValidEssentialArray, isValidEssentialState } from '../types/essential';
+import { isValidEssentialArray, isValidEssentialHistory, isValidEssentialState } from '../types/essential';
 import { isValidTaskArray } from '../types/task';
 
 /** Assembles the file contents. Only the four known sections are ever emitted. */
-export function buildBackup(snapshot: AppDataSnapshot, exportedAt: string): BackupFileV1 {
+export function buildBackup(snapshot: AppDataSnapshot, exportedAt: string): BackupFileV2 {
     return {
         app: BACKUP_APP_ID,
         schemaVersion: BACKUP_SCHEMA_VERSION,
@@ -18,11 +18,12 @@ export function buildBackup(snapshot: AppDataSnapshot, exportedAt: string): Back
         tasks: snapshot.tasks,
         essentials: snapshot.essentials,
         essentialsState: snapshot.essentialsState,
+        essentialHistory: snapshot.essentialHistory,
         preferences: snapshot.preferences,
     };
 }
 
-export const serializeBackup = (backup: BackupFileV1): string =>
+export const serializeBackup = (backup: BackupFileV2): string =>
     JSON.stringify(backup, null, 2);
 
 /** `mydailyflow-backup-2026-08-15-1204.json` */
@@ -42,13 +43,14 @@ export function validateSnapshot(snapshot: AppDataSnapshot): ValidationResult<Ap
     if (!isValidTaskArray(snapshot.tasks)) errors.push('invalid-tasks');
     if (!isValidEssentialArray(snapshot.essentials)) errors.push('invalid-essentials');
     if (!isValidEssentialState(snapshot.essentialsState)) errors.push('invalid-essentials-state');
+    if (!isValidEssentialHistory(snapshot.essentialHistory)) errors.push('invalid-essential-history');
     if (!isBackupPreferences(snapshot.preferences)) errors.push('invalid-preferences');
     if (errors.length > 0) return { status: 'invalid', errors };
     return { status: 'valid', value: snapshot };
 }
 
 /** Parses file text. Invalid JSON and unsupported versions are distinguished. */
-export function parseBackupText(raw: string): ValidationResult<BackupFileV1> {
+export function parseBackupText(raw: string): ValidationResult<BackupFileV2> {
     let parsed: unknown;
     try {
         parsed = JSON.parse(raw);
@@ -64,15 +66,17 @@ export interface BackupSummary {
     essentialCount: number;
     progressEntryCount: number;
     progressDate: string;
+    historyDayCount: number;
 }
 
 /** Counts shown in the import preview before anything is applied. */
-export function summarizeBackup(backup: BackupFileV1): BackupSummary {
+export function summarizeBackup(backup: BackupFileV2): BackupSummary {
     return {
         exportedAt: backup.exportedAt,
         taskCount: backup.tasks.length,
         essentialCount: backup.essentials.length,
         progressEntryCount: Object.keys(backup.essentialsState.progressById).length,
         progressDate: backup.essentialsState.date,
+        historyDayCount: backup.essentialHistory.length,
     };
 }

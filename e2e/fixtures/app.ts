@@ -110,7 +110,7 @@ export class AppHarness {
     // By role, not by label: PR3 named the Settings sheet "Einstellungen" too,
     // so a bare getByLabel now matches both the trigger and the dialog.
     await this.settingsButton().click();
-    await expect(this.page.getByRole('button', { name: 'Exportieren' })).toBeVisible();
+    await expect(this.page.getByRole('button', { name: 'Exportieren', exact: true })).toBeVisible();
   }
 
   /**

@@ -19,7 +19,7 @@
  * is always the true pre-import state.
  */
 
-import type { AppDataSnapshot, BackupFileV1, BackupPreferences } from '../types/backup';
+import type { AppDataSnapshot, BackupFileV2, BackupPreferences } from '../types/backup';
 import { isTheme } from '../types/backup';
 import type { DailyEssentialState } from '../types/essential';
 import {
@@ -29,10 +29,12 @@ import {
     applyStorageTransaction,
     parseEssentialsRaw,
     parseEssentialsStateRaw,
+    parseEssentialHistoryRaw,
     parseTasksRaw,
     readRaw,
     serializeEssentials,
     serializeEssentialsState,
+    serializeEssentialHistory,
     serializeTasks,
     uniqueRecoveryKey,
 } from './appStorage';
@@ -120,11 +122,13 @@ export function snapshotFromRaw(raw: RawLookup, today: string): SnapshotReadResu
     const tasks = parseTasksRaw(raw(STORAGE_KEYS.tasks));
     const essentials = parseEssentialsRaw(raw(STORAGE_KEYS.essentialsData));
     const state = parseEssentialsStateRaw(raw(STORAGE_KEYS.essentialsState));
+    const history = parseEssentialHistoryRaw(raw(STORAGE_KEYS.essentialHistory));
 
     const errors: string[] = [];
     if (tasks.status === 'invalid') errors.push(`invalid-tasks: ${tasks.detail}`);
     if (essentials.status === 'invalid') errors.push(`invalid-essentials: ${essentials.detail}`);
     if (state.status === 'invalid') errors.push(`invalid-essentials-state: ${state.detail}`);
+    if (history.status === 'invalid') errors.push(`invalid-essential-history: ${history.detail}`);
     if (errors.length > 0) return { status: 'invalid', errors };
 
     return {
@@ -134,6 +138,7 @@ export function snapshotFromRaw(raw: RawLookup, today: string): SnapshotReadResu
             essentials: essentials.value ?? [],
             // Yesterday's progress is never presented as today's.
             essentialsState: state.value && state.value.date === today ? state.value : emptyState(today),
+            essentialHistory: history.value ?? [],
             preferences: preferencesFromRaw(raw),
         },
     };
@@ -148,11 +153,13 @@ function lenientSnapshotFromRaw(raw: RawLookup, today: string): AppDataSnapshot 
     const tasks = parseTasksRaw(raw(STORAGE_KEYS.tasks));
     const essentials = parseEssentialsRaw(raw(STORAGE_KEYS.essentialsData));
     const state = parseEssentialsStateRaw(raw(STORAGE_KEYS.essentialsState));
+    const history = parseEssentialHistoryRaw(raw(STORAGE_KEYS.essentialHistory));
 
     return {
         tasks: tasks.value ?? [],
         essentials: essentials.value ?? [],
         essentialsState: state.value && state.value.date === today ? state.value : emptyState(today),
+        essentialHistory: history.value ?? [],
         preferences: preferencesFromRaw(raw),
     };
 }
@@ -250,6 +257,7 @@ export function snapshotToWrites(snapshot: AppDataSnapshot): StorageWrite[] {
         { key: STORAGE_KEYS.tasks, value: serializeTasks(snapshot.tasks) },
         { key: STORAGE_KEYS.essentialsData, value: serializeEssentials(snapshot.essentials) },
         { key: STORAGE_KEYS.essentialsState, value: serializeEssentialsState(snapshot.essentialsState) },
+        { key: STORAGE_KEYS.essentialHistory, value: serializeEssentialHistory(snapshot.essentialHistory) },
         { key: STORAGE_KEYS.theme, value: snapshot.preferences.theme },
         { key: STORAGE_KEYS.remindersEnabled, value: String(snapshot.preferences.remindersEnabled) },
         { key: STORAGE_KEYS.stickyHeroEnabled, value: String(snapshot.preferences.stickyHeroEnabled) },
@@ -259,7 +267,7 @@ export function snapshotToWrites(snapshot: AppDataSnapshot): StorageWrite[] {
 
 export function importBackup(
     storage: StorageLike,
-    backup: BackupFileV1,
+    backup: BackupFileV2,
     mode: ImportMode,
     today: string,
     nowISO: string,

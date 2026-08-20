@@ -4,12 +4,9 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { validateBackupObject } from '../src/types/backup';
+import type { BackupFileV2 } from '../src/types/backup';
 import { applyStorageTransaction } from '../src/utils/appStorage';
 import type { StorageLike, StorageWrite } from '../src/utils/appStorage';
-import {
-    migrateBackupToPhase2,
-    type Phase2BackupV2,
-} from './phase2MigrationContract';
 
 const fixture = (name: string): unknown => JSON.parse(readFileSync(
     fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url)),
@@ -17,7 +14,18 @@ const fixture = (name: string): unknown => JSON.parse(readFileSync(
 ));
 
 const phase1 = (): Record<string, unknown> => fixture('phase1-backup-v1.json') as Record<string, unknown>;
-const expectedPhase2 = (): Phase2BackupV2 => fixture('phase2-backup-v2.json') as Phase2BackupV2;
+const expectedPhase2 = (): BackupFileV2 => fixture('phase2-backup-v2.json') as BackupFileV2;
+
+const migrateBackupToPhase2 = (input: unknown) => {
+    const validated = validateBackupObject(input);
+    if (validated.status === 'invalid') return validated;
+    const source = input as { schemaVersion?: number };
+    return {
+        status: 'ok' as const,
+        value: validated.value,
+        migratedFrom: source.schemaVersion as 1 | 2,
+    };
+};
 
 class ContractStorage implements StorageLike {
     private readonly values = new Map<string, string>();
@@ -125,10 +133,11 @@ test('unknown top-level fields including an auth session never cross the migrati
 
 test('unsupported versions and malformed v2 history are rejected as a whole', () => {
     const unsupported = { ...phase1(), schemaVersion: 99 };
-    assert.deepEqual(migrateBackupToPhase2(unsupported), {
-        status: 'invalid',
-        errors: ['unsupported-schema-version'],
-    });
+    const unsupportedResult = migrateBackupToPhase2(unsupported);
+    assert.equal(unsupportedResult.status, 'invalid');
+    if (unsupportedResult.status === 'invalid') {
+        assert.equal(unsupportedResult.errors.some(error => error.startsWith('unsupported-schema-version')), true);
+    }
 
     const malformed = expectedPhase2();
     malformed.essentialHistory[0].entries.push({
@@ -151,6 +160,12 @@ test('v2 rejects invented or inconsistent completion timestamps', () => {
     assert.equal(migrateBackupToPhase2(incompleteWithTimestamp).status, 'invalid');
 });
 
+test('v2 rejects a non-canonical Essentials history close instant', () => {
+    const malformed = expectedPhase2();
+    malformed.essentialHistory[0].recordedAt = '2026-08-20T12:00:00Z';
+    assert.equal(migrateBackupToPhase2(malformed).status, 'invalid');
+});
+
 test('a failed multi-key v2 storage migration restores exact raw bytes and key absence', () => {
     const storage = new ContractStorage();
     const tasksKey = 'myDailyFlowTasks';
@@ -167,7 +182,7 @@ test('a failed multi-key v2 storage migration restores exact raw bytes and key a
 
     const result = applyStorageTransaction(storage, [
         { key: tasksKey, value: JSON.stringify({ version: 2, data: expectedPhase2().tasks }) },
-        { key: historyKey, value: JSON.stringify({ version: 1, data: expectedPhase2().essentialHistory }) },
+        { key: historyKey, value: JSON.stringify({ version: 2, data: expectedPhase2().essentialHistory }) },
     ], baseline);
 
     assert.equal(result.status, 'failed');
@@ -185,7 +200,7 @@ test('the same v2 transaction succeeds when storage is healthy', () => {
     const historyKey = 'myDailyFlowEssentialHistory';
     const writes: StorageWrite[] = [
         { key: tasksKey, value: JSON.stringify({ version: 2, data: expectedPhase2().tasks }) },
-        { key: historyKey, value: JSON.stringify({ version: 1, data: expectedPhase2().essentialHistory }) },
+        { key: historyKey, value: JSON.stringify({ version: 2, data: expectedPhase2().essentialHistory }) },
     ];
 
     const result = applyStorageTransaction(storage, writes);

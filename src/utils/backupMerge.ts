@@ -6,8 +6,8 @@
  * whether the result is safe to persist.
  */
 
-import type { AppDataSnapshot, BackupFileV1 } from '../types/backup';
-import type { DailyEssential, DailyEssentialState } from '../types/essential';
+import type { AppDataSnapshot, BackupFileV2 } from '../types/backup';
+import type { DailyEssential, DailyEssentialState, EssentialHistoryDay } from '../types/essential';
 import type { Task } from '../types/task';
 
 export type ImportMode = 'merge' | 'replace';
@@ -83,7 +83,7 @@ const currentStateForToday = (state: DailyEssentialState, today: string): DailyE
  */
 export function applyBackup(
     current: AppDataSnapshot,
-    backup: BackupFileV1,
+    backup: BackupFileV2,
     mode: ImportMode,
     today: string,
 ): AppDataSnapshot {
@@ -96,6 +96,7 @@ export function applyBackup(
                 .sort((a, b) => a.order - b.order)
                 .map((essential, index) => ({ ...essential, order: index })),
             essentialsState: importedState,
+            essentialHistory: backup.essentialHistory.map(day => ({ ...day, entries: day.entries.map(entry => ({ ...entry })) })),
             preferences: { ...backup.preferences },
         };
     }
@@ -111,6 +112,21 @@ export function applyBackup(
         tasks: mergeTasks(current.tasks, backup.tasks),
         essentials: mergeEssentials(current.essentials, backup.essentials),
         essentialsState: { date: today, progressById },
+        essentialHistory: mergeEssentialHistory(current.essentialHistory, backup.essentialHistory),
         preferences: { ...current.preferences },
     };
+}
+
+/** Current history wins on a date conflict; imported days can only fill gaps. */
+export function mergeEssentialHistory(
+    current: EssentialHistoryDay[],
+    incoming: EssentialHistoryDay[],
+): EssentialHistoryDay[] {
+    const byDate = new Map(current.map(day => [day.date, day]));
+    for (const day of incoming) {
+        if (!byDate.has(day.date)) byDate.set(day.date, day);
+    }
+    return [...byDate.values()]
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .map(day => ({ ...day, entries: day.entries.map(entry => ({ ...entry })) }));
 }

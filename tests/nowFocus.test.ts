@@ -11,6 +11,7 @@ const task = (id: string, time: string, completed = false): Task => ({
   duration: '30m',
   timeBlock: 'morning',
   completed,
+  completedAt: null,
   priority: 'medium',
   createdAt: '2026-05-20T06:00:00.000Z',
   date: '2026-05-20',

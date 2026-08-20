@@ -78,14 +78,18 @@ test.describe('safe destructive actions', () => {
     const settings = app.page.getByRole('dialog', { name: 'Einstellungen', exact: true });
     await app.settingsButton().click();
     await expect(settings.getByRole('button', { name: 'Exportieren', exact: true })).toBeVisible();
-    await settings.getByRole('button', { name: 'Wiederherstellungspunkt löschen', exact: true }).click();
+    const deleteSyntheticRecovery = settings.getByRole('button', {
+      name: `Wiederherstellungspunkt ${KEYS.tasks} löschen`,
+      exact: true,
+    });
+    await deleteSyntheticRecovery.click();
     await expect(settings.getByText('Wiederherstellungspunkt endgültig löschen?', { exact: true })).toBeVisible();
     expect(await app.page.evaluate(key => localStorage.getItem(key), RECOVERY_KEY)).not.toBeNull();
 
     await settings.getByRole('button', { name: 'Abbrechen', exact: true }).click();
     expect(await app.page.evaluate(key => localStorage.getItem(key), RECOVERY_KEY)).not.toBeNull();
 
-    await settings.getByRole('button', { name: 'Wiederherstellungspunkt löschen', exact: true }).click();
+    await deleteSyntheticRecovery.click();
     await settings.getByRole('button', { name: 'Endgültig löschen', exact: true }).click();
     await expect(settings.getByText('Wiederherstellungspunkt endgültig löschen?', { exact: true })).toBeHidden();
     expect(await app.page.evaluate(key => localStorage.getItem(key), RECOVERY_KEY)).toBeNull();

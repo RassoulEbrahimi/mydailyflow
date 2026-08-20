@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { AppDataSnapshot, BackupFileV1 } from '../src/types/backup';
+import type { AppDataSnapshot, BackupFileV2 } from '../src/types/backup';
 import { BACKUP_SCHEMA_VERSION, validateBackupObject } from '../src/types/backup';
 import type { DailyEssential } from '../src/types/essential';
 import {
@@ -36,6 +36,7 @@ const makeTask = (overrides: Partial<Task> = {}): Task => ({
   duration: '30m',
   timeBlock: 'morning',
   completed: false,
+  completedAt: null,
   priority: 'medium',
   createdAt: '2026-01-01T08:00:00.000Z',
   date: '2026-01-01',
@@ -55,6 +56,7 @@ const makeSnapshot = (overrides: Partial<AppDataSnapshot> = {}): AppDataSnapshot
   tasks: [makeTask()],
   essentials: [makeEssential()],
   essentialsState: { date: '2026-01-01', progressById: { 'essential-1': 1 } },
+  essentialHistory: [],
   preferences: {
     theme: 'dark',
     remindersEnabled: true,
@@ -64,7 +66,7 @@ const makeSnapshot = (overrides: Partial<AppDataSnapshot> = {}): AppDataSnapshot
   ...overrides,
 });
 
-const makeBackup = (overrides: Partial<BackupFileV1> = {}): BackupFileV1 => ({
+const makeBackup = (overrides: Partial<BackupFileV2> = {}): BackupFileV2 => ({
   ...buildBackup(makeSnapshot(), '2026-01-01T10:00:00.000Z'),
   ...overrides,
 });
@@ -80,6 +82,7 @@ test('a built backup carries the schema version, timestamp and every data sectio
   assert.equal(backup.tasks.length, 1);
   assert.equal(backup.essentials.length, 1);
   assert.deepEqual(backup.essentialsState, { date: '2026-01-01', progressById: { 'essential-1': 1 } });
+  assert.deepEqual(backup.essentialHistory, []);
   assert.deepEqual(backup.preferences, {
     theme: 'dark',
     remindersEnabled: true,
@@ -120,7 +123,7 @@ test('a backup never contains authentication or session data', () => {
   assert.equal(parsed.status, 'valid');
   if (parsed.status !== 'valid') return;
   assert.deepEqual(Object.keys(parsed.value).sort(), [
-    'app', 'essentials', 'essentialsState', 'exportedAt', 'preferences', 'schemaVersion', 'tasks',
+    'app', 'essentialHistory', 'essentials', 'essentialsState', 'exportedAt', 'preferences', 'schemaVersion', 'tasks',
   ]);
 });
 
@@ -152,6 +155,7 @@ test('the preview summarizes task and essential counts', () => {
   assert.equal(summary.essentialCount, 1);
   assert.equal(summary.progressEntryCount, 1);
   assert.equal(summary.progressDate, '2026-01-01');
+  assert.equal(summary.historyDayCount, 0);
 });
 
 // ─── Rejecting bad files ──────────────────────────────────────────────────────
@@ -174,7 +178,7 @@ test('a JSON file that is not a backup object is rejected', () => {
 });
 
 test('a newer schema version is rejected rather than guessed at', () => {
-  const result = validateBackupObject({ ...makeBackup(), schemaVersion: 2 });
+  const result = validateBackupObject({ ...makeBackup(), schemaVersion: 3 });
 
   assert.equal(result.status, 'invalid');
   if (result.status !== 'invalid') return;
@@ -362,6 +366,32 @@ test('merge adds without overwriting tasks, essentials, progress or preferences'
   assert.deepEqual(result.essentials.map(e => e.id), ['e1', 'e2']);
   assert.deepEqual(result.essentialsState, { date: '2026-01-02', progressById: { e1: 2, e2: 1 } });
   assert.deepEqual(result.preferences, current.preferences);
+});
+
+test('merge preserves current Essential history on date conflicts and adds new days', () => {
+  const current = makeSnapshot({
+    essentialHistory: [{
+      date: '2026-01-01', recordedAt: '2026-01-02T00:00:00.000Z', source: 'daily-close',
+      entries: [{ essentialId: 'e1', title: 'Current', targetCount: 1, completedCount: 1 }],
+    }],
+  });
+  const backup = makeBackup({
+    essentialHistory: [
+      {
+        date: '2026-01-01', recordedAt: '2026-01-02T01:00:00.000Z', source: 'daily-close',
+        entries: [{ essentialId: 'e1', title: 'Incoming conflict', targetCount: 1, completedCount: 0 }],
+      },
+      {
+        date: '2026-01-02', recordedAt: '2026-01-03T00:00:00.000Z', source: 'daily-close',
+        entries: [{ essentialId: 'e2', title: 'Incoming day', targetCount: 2, completedCount: 1 }],
+      },
+    ],
+  });
+
+  const result = applyBackup(current, backup, 'merge', '2026-01-02');
+  assert.deepEqual(result.essentialHistory.map(day => day.date), ['2026-01-01', '2026-01-02']);
+  assert.equal(result.essentialHistory[0].entries[0].title, 'Current');
+  assert.equal(result.essentialHistory[1].entries[0].title, 'Incoming day');
 });
 
 test('merge resets stale progress on both sides to zero', () => {
