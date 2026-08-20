@@ -107,6 +107,17 @@ export const groupTasksByDate = (
         }));
 };
 
+/**
+ * Builds the Completed view from the task's scheduled date. Completion time is
+ * deliberately not inferred: the current persisted Task shape has no
+ * `completedAt`, so the UI must be explicit about what this grouping means.
+ */
+export const groupCompletedTasksByDate = (
+    tasks: Task[],
+    fallbackDate: string,
+): Array<{ date: string; tasks: Task[] }> =>
+    groupTasksByDate(tasks.filter(task => task.completed), fallbackDate);
+
 export type TaskDatePeriod = 'today' | 'upcoming' | 'past';
 
 export interface TaskDatePeriodGroup {

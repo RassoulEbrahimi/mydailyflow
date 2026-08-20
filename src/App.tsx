@@ -7,6 +7,7 @@ import type { Task } from './types/task';
 import {
   getTodayString,
   filterTasksBySearch,
+  groupCompletedTasksByDate,
   groupTasksByDatePeriod,
   compareByTimeUntimedLast,
   getCurrentTimeString,
@@ -310,8 +311,10 @@ function AppInner({ logout }: { logout: () => void }) {
 
   const pendingTasks = todayTasks.filter(t => !t.completed);
   const nowTask = selectNowTask(todayTasks, currentTime);
-  // Done tab: all completed tasks, regardless of date
-  const doneTasks = filteredTasks.filter(t => t.completed).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  // Done tab: scheduled dates newest-first, with times ascending per day.
+  // The persisted task model intentionally has no completion timestamp yet.
+  const doneTaskGroups = groupCompletedTasksByDate(filteredTasks, today);
+  const doneTaskCount = doneTaskGroups.reduce((sum, group) => sum + group.tasks.length, 0);
 
   // Sort incomplete tasks first, then completed tasks. Existing time-based sort is preserved.
   const sortSectionTasks = (sectionTasks: Task[]) => {
@@ -572,11 +575,39 @@ function AppInner({ logout }: { logout: () => void }) {
             }}
           />
         ) : (
-          <div className="flex flex-col gap-8 px-5">
-            {doneTasks.length > 0 ? (
-              <TaskSection title="Erledigte Aufgaben" accentClass="text-block-done">
-                {doneTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />)}
-              </TaskSection>
+          <div className="flex flex-col gap-5 px-5">
+            {doneTaskGroups.length > 0 ? (
+              <section aria-labelledby="completed-tasks-heading" className="flex flex-col gap-5">
+                <div className="flex flex-col gap-2 pt-1">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-7 w-[3px] rounded-full bg-current accent-glow text-block-done" aria-hidden="true" />
+                    <h2
+                      id="completed-tasks-heading"
+                      aria-label={`Erledigte Aufgaben, ${doneTaskCount} Aufgabe${doneTaskCount !== 1 ? 'n' : ''}`}
+                      className="text-[16px] font-bold text-fg tracking-tight"
+                    >
+                      Erledigte Aufgaben
+                      <span className="ml-2 text-sm font-normal text-fg-secondary">
+                        · {doneTaskCount} Aufgabe{doneTaskCount !== 1 ? 'n' : ''}
+                      </span>
+                    </h2>
+                  </div>
+                  <p className="text-[13px] leading-5 text-fg-secondary">
+                    Neueste zuerst, gruppiert nach Datum. Ein Abschlusszeitpunkt wird nicht gespeichert.
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-7">
+                  {doneTaskGroups.map(group => (
+                    <div key={group.date} className="flex flex-col gap-3">
+                      <DateGroupHeader date={group.date} count={group.tasks.length} headingLevel={3} />
+                      <div className="flex flex-col gap-2.5">
+                        {group.tasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
             ) : (
               <div className="text-center py-12 text-fg-secondary mt-10">
                 <List size={48} className="mx-auto mb-4 text-fg-faint" aria-hidden="true" />
