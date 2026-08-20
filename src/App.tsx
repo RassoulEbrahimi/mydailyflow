@@ -6,9 +6,8 @@ import LoginPage from './components/LoginPage';
 import type { Task } from './types/task';
 import {
   getTodayString,
-  getYesterdayString,
   filterTasksBySearch,
-  groupTasksByDate,
+  groupTasksByDatePeriod,
   compareByTimeUntimedLast,
   getCurrentTimeString,
   selectNowTask,
@@ -16,6 +15,7 @@ import {
 } from './utils/taskUtils';
 import DateGroupHeader from './components/DateGroupHeader';
 import AllTasksFilterBar from './components/AllTasksFilterBar';
+import type { AllTasksDateFilter } from './components/AllTasksFilterBar';
 import TaskCard from './components/TaskCard';
 import HomeHero from './components/HomeHero';
 import NewTaskModal from './components/NewTaskModal';
@@ -274,8 +274,7 @@ function AppInner({ logout }: { logout: () => void }) {
     return () => window.clearInterval(intervalId);
   }, []);
 
-  // 'all' | 'today' | 'yesterday' | YYYY-MM-DD
-  const [allDateFilter, setAllDateFilter] = useState<string>('all');
+  const [allDateFilter, setAllDateFilter] = useState<AllTasksDateFilter>('all');
   const [allDatePicker, setAllDatePicker] = useState<string>('');
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -331,19 +330,16 @@ function AppInner({ logout }: { logout: () => void }) {
   const afternoonTasks = sortSectionTasks(timeBlockTasks.filter(t => t.timeBlock === 'afternoon'));
   const eveningTasks = sortSectionTasks(timeBlockTasks.filter(t => t.timeBlock === 'evening'));
 
-  // ─── All Tasks tab: resolve the effective date string for filtering ─────────
-  const resolvedDateFilter: string | null = (() => {
-    if (allDateFilter === 'all') return null;
-    if (allDateFilter === 'today') return today;
-    if (allDateFilter === 'yesterday') return getYesterdayString();
-    return allDateFilter; // specific YYYY-MM-DD
-  })();
-
-  // Apply search + date filter, then group by date
-  const allFilteredTasks = filteredTasks.filter(t =>
-    resolvedDateFilter === null || t.date === resolvedDateFilter
-  );
-  const allTaskGroups = groupTasksByDate(allFilteredTasks, today);
+  // Apply search + period/date filter, then anchor the result around Today.
+  const allFilteredTasks = filteredTasks.filter(task => {
+    if (allDateFilter === 'all') return true;
+    if (allDateFilter === 'today') return task.date === today;
+    if (allDateFilter === 'upcoming') return task.date > today;
+    if (allDateFilter === 'past') return task.date < today;
+    return task.date === allDatePicker;
+  });
+  const allTaskPeriods = groupTasksByDatePeriod(allFilteredTasks, today, today);
+  const periodLabel = { today: 'Heute', upcoming: 'Kommend', past: 'Vergangen' } as const;
 
   return (
     <div className="bg-page font-display text-fg h-screen flex flex-col overflow-hidden relative selection:bg-primary selection:text-white">
@@ -502,24 +498,41 @@ function AppInner({ logout }: { logout: () => void }) {
             />
 
             {/* Task groups */}
-            {allTaskGroups.length > 0 ? (
-              <div className="flex flex-col mt-2">
-                {allTaskGroups.map((group, idx) => (
-                  <div
-                    key={group.date}
-                    className={`flex flex-col gap-3 py-5 ${idx < allTaskGroups.length - 1
-                      ? 'border-b border-surface-raised'
-                      : ''
-                      }`}
+            {allTaskPeriods.length > 0 ? (
+              <div className="flex flex-col gap-7 mt-5">
+                {allTaskPeriods.map(period => (
+                  <section
+                    key={period.period}
+                    aria-labelledby={`all-tasks-${period.period}`}
+                    className="flex flex-col gap-3"
                   >
-                    <DateGroupHeader date={group.date} count={group.tasks.length} />
-                    {/* Task cards */}
-                    <div className="flex flex-col gap-2.5">
-                      {group.tasks.map(t => (
-                        <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />
-                      ))}
+                    <div className="flex items-center gap-3 border-b border-edge pb-3">
+                      <div className="h-7 w-[3px] rounded-full bg-primary" aria-hidden="true" />
+                      <h2
+                        id={`all-tasks-${period.period}`}
+                        aria-label={`${periodLabel[period.period]}, ${period.taskCount} Aufgabe${period.taskCount !== 1 ? 'n' : ''}`}
+                        className="text-base font-bold text-fg"
+                      >
+                        {periodLabel[period.period]}
+                        <span className="ml-2 text-sm font-normal text-fg-secondary">
+                          · {period.taskCount} Aufgabe{period.taskCount !== 1 ? 'n' : ''}
+                        </span>
+                      </h2>
                     </div>
-                  </div>
+
+                    {period.groups.map(group => (
+                      <div key={group.date} className="flex flex-col gap-3">
+                        {period.period !== 'today' && (
+                          <DateGroupHeader date={group.date} count={group.tasks.length} headingLevel={3} />
+                        )}
+                        <div className="flex flex-col gap-2.5">
+                          {group.tasks.map(t => (
+                            <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </section>
                 ))}
               </div>
             ) : (
@@ -527,8 +540,16 @@ function AppInner({ logout }: { logout: () => void }) {
                 <List size={44} className="text-fg-faint" aria-hidden="true" />
                 {allDateFilter !== 'all' ? (
                   <>
-                    <p className="text-fg font-semibold">Keine Aufgaben an diesem Datum</p>
-                    <p className="text-fg-secondary text-sm">Versuche ein anderes Datum oder lösche den Filter.</p>
+                    <p className="text-fg font-semibold">
+                      {allDateFilter === 'today'
+                        ? 'Keine Aufgaben heute'
+                        : allDateFilter === 'upcoming'
+                          ? 'Keine kommenden Aufgaben'
+                          : allDateFilter === 'past'
+                            ? 'Keine vergangenen Aufgaben'
+                            : 'Keine Aufgaben an diesem Datum'}
+                    </p>
+                    <p className="text-fg-secondary text-sm">Wähle einen anderen Zeitraum oder lösche den Filter.</p>
                   </>
                 ) : (
                   <>

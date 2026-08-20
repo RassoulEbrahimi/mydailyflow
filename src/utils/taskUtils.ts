@@ -107,6 +107,55 @@ export const groupTasksByDate = (
         }));
 };
 
+export type TaskDatePeriod = 'today' | 'upcoming' | 'past';
+
+export interface TaskDatePeriodGroup {
+    period: TaskDatePeriod;
+    groups: Array<{ date: string; tasks: Task[] }>;
+    taskCount: number;
+}
+
+/**
+ * Builds the date sections used by "Alle Aufgaben" around an explicit local
+ * today anchor: today first, future dates nearest-first, then past dates
+ * newest-first. The input is never mutated.
+ */
+export const groupTasksByDatePeriod = (
+    tasks: Task[],
+    fallbackDate: string,
+    today: string,
+): TaskDatePeriodGroup[] => {
+    const groups = groupTasksByDate(tasks, fallbackDate);
+    const sections: TaskDatePeriodGroup[] = [
+        {
+            period: 'today',
+            groups: groups.filter(group => group.date === today),
+            taskCount: 0,
+        },
+        {
+            period: 'upcoming',
+            groups: groups
+                .filter(group => group.date > today)
+                .sort((a, b) => a.date.localeCompare(b.date)),
+            taskCount: 0,
+        },
+        {
+            period: 'past',
+            groups: groups
+                .filter(group => group.date < today)
+                .sort((a, b) => b.date.localeCompare(a.date)),
+            taskCount: 0,
+        },
+    ];
+
+    return sections
+        .map(section => ({
+            ...section,
+            taskCount: section.groups.reduce((sum, group) => sum + group.tasks.length, 0),
+        }))
+        .filter(section => section.taskCount > 0);
+};
+
 // ─── "No time" as a first-class state ─────────────────────────────────────────
 //
 // `Task.time` is a "HH:MM" string, but the empty string is a legitimate value:
