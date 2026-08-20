@@ -107,16 +107,43 @@ export const groupTasksByDate = (
         }));
 };
 
-/**
- * Builds the Completed view from the task's scheduled date. Completion time is
- * deliberately not inferred: the current persisted Task shape has no
- * `completedAt`, so the UI must be explicit about what this grouping means.
- */
+export const localDateFromInstant = (instant: string): string => {
+    const date = new Date(instant);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+/** Legacy completed tasks have no trustworthy completion instant. */
+export const taskCompletionDate = (task: Task, fallbackDate: string): string =>
+    task.completedAt ? localDateFromInstant(task.completedAt) : (task.date ?? fallbackDate);
+
+export const withTaskCompletion = (
+    task: Task,
+    completed: boolean,
+    timestamp: () => string = () => new Date().toISOString(),
+): Task => ({
+    ...task,
+    completed,
+    completedAt: completed ? timestamp() : null,
+});
+
+/** Builds the Completed view from real completion dates, with a legacy fallback. */
 export const groupCompletedTasksByDate = (
     tasks: Task[],
     fallbackDate: string,
-): Array<{ date: string; tasks: Task[] }> =>
-    groupTasksByDate(tasks.filter(task => task.completed), fallbackDate);
+): Array<{ date: string; tasks: Task[] }> => {
+    const map = new Map<string, Task[]>();
+    for (const task of tasks.filter(item => item.completed)) {
+        const date = taskCompletionDate(task, fallbackDate);
+        if (!map.has(date)) map.set(date, []);
+        map.get(date)!.push(task);
+    }
+    return Array.from(map.entries())
+        .sort(([a], [b]) => b.localeCompare(a))
+        .map(([date, group]) => ({ date, tasks: [...group].sort(compareByTimeUntimedLast) }));
+};
 
 export type TaskDatePeriod = 'today' | 'upcoming' | 'past';
 
@@ -417,6 +444,7 @@ export const buildNextOccurrence = (
         id: newId(),
         createdAt: timestamp(),
         completed: false,
+        completedAt: null,
         date: nextRecurrenceDateAfter(anchorDate, recurrence, target.date, anchorDay),
         title: target.title,
         description: target.description,

@@ -3,7 +3,7 @@ import type { Task } from '../types/task';
 import { isValidTaskArray } from '../types/task';
 import { STORAGE_KEYS, loadTasksSlice, serializeTasks } from '../utils/appStorage';
 import { blockReasonFor, isSliceBlocked, registerBlockedSlice, subscribeStorageHealth } from '../utils/storageHealth';
-import { buildNextOccurrence, getTodayString, nextRecurrenceDate, rolloverTasksForDate, withRecurrenceAnchor } from '../utils/taskUtils';
+import { buildNextOccurrence, getTodayString, nextRecurrenceDate, rolloverTasksForDate, withRecurrenceAnchor, withTaskCompletion } from '../utils/taskUtils';
 
 export function useTasks() {
   // Loaded once, synchronously, so the "may we persist?" answer exists before
@@ -33,34 +33,36 @@ export function useTasks() {
 
     if (import.meta.env.DEV) {
       return [
-        { id: '1', title: 'Drink water', time: '07:00', duration: '5m', completed: true, timeBlock: 'morning', priority: 'medium', createdAt: new Date().toISOString(), date: today },
-        { id: '2', title: 'Going to work', time: '07:30', duration: '45m', completed: true, timeBlock: 'morning', priority: 'high', createdAt: new Date().toISOString(), date: today },
-        { id: '3', title: 'Eat lunch', time: '12:30', duration: '45m', completed: false, timeBlock: 'afternoon', priority: 'low', createdAt: new Date().toISOString(), date: today },
-        { id: '4', title: 'Gym', time: '17:00', duration: '1h', completed: false, timeBlock: 'afternoon', priority: 'high', createdAt: new Date().toISOString(), date: today },
-        { id: '5', title: 'Grocery shopping', time: '18:30', duration: '30m', completed: false, timeBlock: 'afternoon', priority: 'medium', createdAt: new Date().toISOString(), date: today },
-        { id: '6', title: 'Call mom', time: '20:00', duration: '15m', completed: false, timeBlock: 'evening', priority: 'high', createdAt: new Date().toISOString(), date: today },
-        { id: '7', title: 'Read book', time: '21:00', duration: '30m', completed: false, timeBlock: 'evening', priority: 'low', createdAt: new Date().toISOString(), date: today },
+        { id: '1', title: 'Drink water', time: '07:00', duration: '5m', completed: true, completedAt: new Date().toISOString(), timeBlock: 'morning', priority: 'medium', createdAt: new Date().toISOString(), date: today },
+        { id: '2', title: 'Going to work', time: '07:30', duration: '45m', completed: true, completedAt: new Date().toISOString(), timeBlock: 'morning', priority: 'high', createdAt: new Date().toISOString(), date: today },
+        { id: '3', title: 'Eat lunch', time: '12:30', duration: '45m', completed: false, completedAt: null, timeBlock: 'afternoon', priority: 'low', createdAt: new Date().toISOString(), date: today },
+        { id: '4', title: 'Gym', time: '17:00', duration: '1h', completed: false, completedAt: null, timeBlock: 'afternoon', priority: 'high', createdAt: new Date().toISOString(), date: today },
+        { id: '5', title: 'Grocery shopping', time: '18:30', duration: '30m', completed: false, completedAt: null, timeBlock: 'afternoon', priority: 'medium', createdAt: new Date().toISOString(), date: today },
+        { id: '6', title: 'Call mom', time: '20:00', duration: '15m', completed: false, completedAt: null, timeBlock: 'evening', priority: 'high', createdAt: new Date().toISOString(), date: today },
+        { id: '7', title: 'Read book', time: '21:00', duration: '30m', completed: false, completedAt: null, timeBlock: 'evening', priority: 'low', createdAt: new Date().toISOString(), date: today },
       ];
     }
     return [];
   });
 
   /** Write suppression for the task slice only — essentials are unaffected. */
-  const [persistBlocked, setPersistBlocked] = useState(initialLoad.blocked);
+  const [persistBlocked, setPersistBlocked] = useState(initialLoad.blocked || isSliceBlocked('tasks'));
 
   useEffect(() => {
-    if (!initialLoad.blocked) return;
+    if (initialLoad.blocked) {
+      registerBlockedSlice({
+        slice: 'tasks',
+        reason: blockReasonFor(initialLoad.status),
+        recoveryKey: initialLoad.recoveryKey,
+        detail: initialLoad.detail,
+      });
+    }
 
-    registerBlockedSlice({
-      slice: 'tasks',
-      reason: blockReasonFor(initialLoad.status),
-      recoveryKey: initialLoad.recoveryKey,
-      detail: initialLoad.detail,
-    });
+    if (!initialLoad.blocked && !isSliceBlocked('tasks')) return;
 
     // Lifted by an explicit user action in Settings, or by a successful import.
     return subscribeStorageHealth(() => {
-      if (!isSliceBlocked('tasks')) setPersistBlocked(false);
+      setPersistBlocked(isSliceBlocked('tasks'));
     });
   }, [initialLoad]);
 
@@ -107,7 +109,7 @@ export function useTasks() {
 
   // recurrenceAnchorDay is owned by this hook, not by callers: it is derived
   // from the task's own recurrence and scheduled date on every save.
-  const saveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed' | 'rolledOverFrom' | 'recurrenceAnchorDay'>, taskToEdit?: Task | null): Task => {
+  const saveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed' | 'completedAt' | 'rolledOverFrom' | 'recurrenceAnchorDay'>, taskToEdit?: Task | null): Task => {
     let savedTaskInner: Task;
 
     if (taskToEdit) {
@@ -118,6 +120,7 @@ export function useTasks() {
         ...taskData,
         id: Math.random().toString(36).substr(2, 9),
         completed: false,
+        completedAt: null,
         createdAt: new Date().toISOString(),
       });
       setTasks(prev => [...prev, savedTaskInner]);
@@ -131,7 +134,9 @@ export function useTasks() {
       if (!target) return prev;
 
       const nowCompleted = !target.completed;
-      const updated = prev.map(t => t.id === id ? { ...t, completed: nowCompleted } : t);
+      const updated = prev.map(t => t.id === id
+        ? withTaskCompletion(t, nowCompleted)
+        : t);
 
       if (nowCompleted) {
         const nextTask = buildNextOccurrence(

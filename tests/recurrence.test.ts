@@ -18,6 +18,7 @@ const makeTask = (overrides: Partial<Task> = {}): Task => ({
   duration: '30m',
   timeBlock: 'morning',
   completed: false,
+  completedAt: null,
   priority: 'medium',
   createdAt: '2026-01-01T08:00:00.000Z',
   date: '2026-01-01',

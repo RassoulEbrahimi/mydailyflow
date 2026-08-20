@@ -17,17 +17,21 @@
  */
 
 import type { Task, StorageWrapper } from '../types/task';
-import { isStorageWrapper, isValidTaskArray } from '../types/task';
+import { isStorageWrapper, isValidLegacyTaskArray, isValidTaskArray, migrateLegacyTasks } from '../types/task';
 import type {
     DailyEssential,
     DailyEssentialState,
     EssentialsDataWrapper,
     EssentialsStateWrapper,
+    EssentialHistoryDay,
+    EssentialHistoryWrapper,
 } from '../types/essential';
 import {
     isEssentialsDataWrapper,
     isEssentialsStateWrapper,
     isValidEssentialArray,
+    isEssentialHistoryWrapper,
+    isValidEssentialHistory,
 } from '../types/essential';
 
 // ─── Keys ─────────────────────────────────────────────────────────────────────
@@ -44,6 +48,7 @@ export const STORAGE_KEYS = {
     tasks: 'myDailyFlowTasks',
     essentialsData: 'myDailyFlowEssentialsData',
     essentialsState: 'myDailyFlowEssentialsState',
+    essentialHistory: 'myDailyFlowEssentialHistory',
     theme: 'myDailyFlow_theme',
     remindersEnabled: 'remindersEnabled',
     stickyHeroEnabled: 'stickyHeroEnabled',
@@ -57,6 +62,7 @@ export const MANAGED_KEYS: StorageKey[] = [
     STORAGE_KEYS.tasks,
     STORAGE_KEYS.essentialsData,
     STORAGE_KEYS.essentialsState,
+    STORAGE_KEYS.essentialHistory,
     STORAGE_KEYS.theme,
     STORAGE_KEYS.remindersEnabled,
     STORAGE_KEYS.stickyHeroEnabled,
@@ -349,10 +355,29 @@ export function parseTasksRaw(raw: string | null): SliceParseResult<Task[]> {
     }
 
     if (isStorageWrapper(parsed)) return { status: 'ok', value: parsed.data };
-    // Legacy migration path: a bare, fully valid task array.
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const wrapper = parsed as Record<string, unknown>;
+        if (wrapper.version === 1 && isValidLegacyTaskArray(wrapper.data)) {
+            return { status: 'migrated', value: migrateLegacyTasks(wrapper.data) };
+        }
+    }
+    if (isValidLegacyTaskArray(parsed)) return { status: 'migrated', value: migrateLegacyTasks(parsed) };
     if (isValidTaskArray(parsed)) return { status: 'migrated', value: parsed };
 
     return { status: 'invalid', value: null, detail: 'invalid task data format' };
+}
+
+export function parseEssentialHistoryRaw(raw: string | null): SliceParseResult<EssentialHistoryDay[]> {
+    if (raw === null) return { status: 'empty', value: null };
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(raw);
+    } catch (e) {
+        return { status: 'invalid', value: null, detail: `unparseable JSON: ${errorMessage(e)}` };
+    }
+    if (isEssentialHistoryWrapper(parsed)) return { status: 'ok', value: parsed.data };
+    if (isValidEssentialHistory(parsed)) return { status: 'migrated', value: parsed };
+    return { status: 'invalid', value: null, detail: 'invalid essential history format' };
 }
 
 export function parseEssentialsRaw(raw: string | null): SliceParseResult<DailyEssential[]> {
@@ -454,13 +479,19 @@ export const loadEssentialsSlice = (storage: StorageLike, nowISO: string): Slice
 export const loadEssentialsStateSlice = (storage: StorageLike, nowISO: string): SliceLoadResult<DailyEssentialState> =>
     loadSlice(storage, STORAGE_KEYS.essentialsState, nowISO, parseEssentialsStateRaw);
 
+export const loadEssentialHistorySlice = (storage: StorageLike, nowISO: string): SliceLoadResult<EssentialHistoryDay[]> =>
+    loadSlice(storage, STORAGE_KEYS.essentialHistory, nowISO, parseEssentialHistoryRaw);
+
 // ─── Wrapper helpers ──────────────────────────────────────────────────────────
 
 export const serializeTasks = (tasks: Task[]): string =>
-    JSON.stringify({ version: 1, data: tasks } satisfies StorageWrapper);
+    JSON.stringify({ version: 2, data: tasks } satisfies StorageWrapper);
 
 export const serializeEssentials = (essentials: DailyEssential[]): string =>
     JSON.stringify({ version: 1, data: essentials } satisfies EssentialsDataWrapper);
 
 export const serializeEssentialsState = (state: DailyEssentialState): string =>
     JSON.stringify({ version: 1, data: state } satisfies EssentialsStateWrapper);
+
+export const serializeEssentialHistory = (history: EssentialHistoryDay[]): string =>
+    JSON.stringify({ version: 2, data: history } satisfies EssentialHistoryWrapper);

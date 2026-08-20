@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { BackupFileV1 } from '../src/types/backup';
+import type { BackupFileV2 } from '../src/types/backup';
 import type { DailyEssential } from '../src/types/essential';
 import type { Task } from '../src/types/task';
 import {
@@ -91,6 +91,7 @@ const makeTask = (overrides: Partial<Task> = {}): Task => ({
   duration: '30m',
   timeBlock: 'morning',
   completed: false,
+  completedAt: null,
   priority: 'medium',
   createdAt: '2026-01-01T08:00:00.000Z',
   date: '2026-01-01',
@@ -106,12 +107,13 @@ const makeEssential = (overrides: Partial<DailyEssential> = {}): DailyEssential 
   ...overrides,
 });
 
-const makeBackup = (overrides: Partial<BackupFileV1> = {}): BackupFileV1 => ({
+const makeBackup = (overrides: Partial<BackupFileV2> = {}): BackupFileV2 => ({
   ...buildBackup(
     {
       tasks: [makeTask({ id: 'imported-task' })],
       essentials: [makeEssential({ id: 'imported-essential', title: 'Imported essential' })],
       essentialsState: { date: TODAY, progressById: { 'imported-essential': 1 } },
+      essentialHistory: [],
       preferences: {
         theme: 'light',
         remindersEnabled: true,
@@ -401,7 +403,7 @@ test('export produces a valid file from stored data', () => {
   assert.equal(result.essentialCount, 1);
   assert.equal(result.fileName, 'mydailyflow-backup-2026-01-02-1000.json');
   const parsed = JSON.parse(result.text);
-  assert.equal(parsed.schemaVersion, 1);
+  assert.equal(parsed.schemaVersion, 2);
   assert.deepEqual(parsed.preferences, {
     theme: 'dark',
     remindersEnabled: false,

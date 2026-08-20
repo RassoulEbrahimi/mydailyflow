@@ -8,6 +8,7 @@ import {
   getTodayString,
   filterTasksBySearch,
   groupCompletedTasksByDate,
+  taskCompletionDate,
   groupTasksByDatePeriod,
   compareByTimeUntimedLast,
   getCurrentTimeString,
@@ -308,7 +309,7 @@ function AppInner({ logout }: { logout: () => void }) {
     `${activeTab}|${allDateFilter}|${searchQuery}`,
   );
 
-  const handleSaveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed' | 'rolledOverFrom' | 'recurrenceAnchorDay'>) => {
+  const handleSaveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed' | 'completedAt' | 'rolledOverFrom' | 'recurrenceAnchorDay'>) => {
     const savedTask = saveTask(taskData, taskToEdit);
     setPlanningConfirmation(savedTask);
 
@@ -347,12 +348,12 @@ function AppInner({ logout }: { logout: () => void }) {
   const todaySummary = summarizeTodayWork(todayTasks);
 
   const pendingTasks = todayTasks.filter(t => !t.completed);
-  const completedTodayTasks = todayTasks
-    .filter(task => task.completed)
+  const completedTodayTasks = filteredTasks
+    .filter(task => task.completed && taskCompletionDate(task, today) === today)
     .sort(compareByTimeUntimedLast);
   const nowTask = selectNowTask(todayTasks, currentTime);
-  // Done tab: scheduled dates newest-first, with times ascending per day.
-  // The persisted task model intentionally has no completion timestamp yet.
+  // Done tab: real completion dates newest-first; migrated legacy records fall
+  // back to their scheduled date because no timestamp is invented for them.
   const doneTaskGroups = groupCompletedTasksByDate(filteredTasks, today);
   const doneTaskCount = doneTaskGroups.reduce((sum, group) => sum + group.tasks.length, 0);
 

@@ -29,6 +29,7 @@ export const KEYS = {
   tasks: 'myDailyFlowTasks',
   essentialsData: 'myDailyFlowEssentialsData',
   essentialsState: 'myDailyFlowEssentialsState',
+  essentialHistory: 'myDailyFlowEssentialHistory',
   theme: 'myDailyFlow_theme',
   remindersEnabled: 'remindersEnabled',
   stickyHeroEnabled: 'stickyHeroEnabled',

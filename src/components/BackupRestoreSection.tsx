@@ -1,7 +1,7 @@
 import React from 'react';
 import { AlertTriangle, Download, ShieldCheck, Trash2, Upload } from 'lucide-react';
 
-import type { BackupFileV1 } from '../types/backup';
+import type { BackupFileV2 } from '../types/backup';
 import { listRecoverySnapshots, safeGetItem } from '../utils/appStorage';
 import type { RecoverySnapshotInfo } from '../utils/appStorage';
 import { parseBackupText, summarizeBackup } from '../utils/backupFormat';
@@ -31,6 +31,7 @@ const SLICE_LABELS: Record<StorageSlice, string> = {
   tasks: 'Aufgaben',
   essentials: 'Tages-Essentials',
   essentialsState: 'Essentials-Fortschritt',
+  essentialHistory: 'Essentials-Verlauf',
 };
 
 const cardClass = 'bg-surface-raised rounded-[1.5rem] p-4 px-5 border border-edge/50';
@@ -38,7 +39,7 @@ const cardClass = 'bg-surface-raised rounded-[1.5rem] p-4 px-5 border border-edg
 const BackupRestoreSection = ({ onImported }: BackupRestoreSectionProps) => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [status, setStatus] = React.useState<Status>({ kind: 'idle' });
-  const [pending, setPending] = React.useState<{ backup: BackupFileV1; summary: BackupSummary } | null>(null);
+  const [pending, setPending] = React.useState<{ backup: BackupFileV2; summary: BackupSummary } | null>(null);
   const [mode, setMode] = React.useState<ImportMode>('merge');
   const [busy, setBusy] = React.useState(false);
   const [snapshots, setSnapshots] = React.useState<RecoverySnapshotInfo[]>([]);
@@ -247,6 +248,7 @@ const BackupRestoreSection = ({ onImported }: BackupRestoreSectionProps) => {
           <ul className="text-fg-secondary text-sm space-y-0.5 mb-3">
             <li>{pending.summary.taskCount} Aufgaben</li>
             <li>{pending.summary.essentialCount} Essentials</li>
+            <li>{pending.summary.historyDayCount} Tage Essentials-Verlauf</li>
             <li>
               Fortschritt vom {pending.summary.progressDate}
               {pending.summary.progressDate !== getTodayString() && ' — wird auf 0 zurückgesetzt'}
@@ -332,23 +334,23 @@ const BackupRestoreSection = ({ onImported }: BackupRestoreSectionProps) => {
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-fg text-[14px] font-semibold truncate">{snapshot.sourceKey}</p>
-                    <p className="text-fg-placeholder text-[11px] truncate">
+                    <p className="text-fg text-[11px] truncate">
                       {snapshot.capturedAt} · {snapshot.size} Zeichen
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => handleExportSnapshot(snapshot)}
-                    aria-label="Wiederherstellungspunkt exportieren"
-                    className="min-w-11 min-h-11 flex items-center justify-center rounded-xl bg-surface-inset text-fg-secondary hover:text-fg active:scale-95 transition-all"
-                  >
-                    <Download size={16} strokeWidth={2.5} aria-hidden="true" />
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => handleExportSnapshot(snapshot)}
+                      aria-label={`Wiederherstellungspunkt ${snapshot.sourceKey} exportieren`}
+                      className="min-w-11 min-h-11 flex items-center justify-center rounded-xl bg-surface-inset text-fg-secondary hover:text-fg active:scale-95 transition-all"
+                    >
+                      <Download size={16} strokeWidth={2.5} aria-hidden="true" />
+                    </button>
                     <button
                       type="button"
                       onClick={() => setConfirmDelete(snapshot.key)}
-                      aria-label="Wiederherstellungspunkt löschen"
+                      aria-label={`Wiederherstellungspunkt ${snapshot.sourceKey} löschen`}
                       aria-expanded={confirmDelete === snapshot.key}
                       className="min-w-11 min-h-11 flex items-center justify-center rounded-xl bg-surface-inset text-fg-secondary hover:text-danger active:scale-95 transition-all"
                     >

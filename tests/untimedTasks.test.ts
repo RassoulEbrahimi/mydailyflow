@@ -22,6 +22,7 @@ const task = (over: Partial<Task> & { id: string }): Task => ({
     duration: '30m',
     timeBlock: 'morning',
     completed: false,
+    completedAt: null,
     priority: 'medium',
     createdAt: '2026-01-01T00:00:00.000Z',
     date: today,
@@ -198,7 +199,7 @@ describe('groupTasksByDate — untimed tasks sort last within a group', () => {
     });
 });
 
-describe('groupCompletedTasksByDate — Completed history uses scheduled dates', () => {
+describe('groupCompletedTasksByDate — Completed history uses completion dates', () => {
     it('keeps only completed tasks, groups dates newest-first, and times ascending', () => {
         const groups = groupCompletedTasksByDate(
             [
@@ -216,14 +217,26 @@ describe('groupCompletedTasksByDate — Completed history uses scheduled dates',
         assert.deepEqual(groups[1].tasks.map(item => item.id), ['older-early', 'older-late']);
     });
 
-    it('does not mutate the task list or add a completion timestamp', () => {
+    it('does not mutate the task list or rewrite a completion timestamp', () => {
         const input = [task({ id: 'done', completed: true, date: '2026-05-19' })];
         const snapshot = structuredClone(input);
 
         groupCompletedTasksByDate(input, '2026-05-20');
 
         assert.deepEqual(input, snapshot);
-        assert.equal('completedAt' in input[0], false);
+        assert.equal(input[0].completedAt, null);
+    });
+
+    it('groups a newly completed task by completedAt rather than its scheduled date', () => {
+        const groups = groupCompletedTasksByDate([
+            task({
+                id: 'late-finish',
+                completed: true,
+                date: '2026-05-18',
+                completedAt: '2026-05-20T08:00:00.000Z',
+            }),
+        ], '2026-05-20');
+        assert.equal(groups[0].date, '2026-05-20');
     });
 });
 

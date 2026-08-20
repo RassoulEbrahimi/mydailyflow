@@ -18,6 +18,8 @@ export interface Task {
     duration: string;
     timeBlock: 'morning' | 'afternoon' | 'evening';
     completed: boolean;
+    /** Canonical UTC instant for v2 completions; legacy completed tasks remain null. */
+    completedAt: string | null;
     priority: 'low' | 'medium' | 'high';
     createdAt: string;
     date: string;               // YYYY-MM-DD, local timezone
@@ -33,9 +35,17 @@ export interface Task {
 }
 
 export interface StorageWrapper {
-    version: number;
+    version: 2;
     data: Task[];
 }
+
+/** The persisted v1 task shape, accepted only at migration boundaries. */
+export type LegacyTask = Omit<Task, 'completedAt'> & { completedAt?: never };
+
+export const isCanonicalUtcInstant = (value: unknown): value is string =>
+    typeof value === 'string'
+    && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)
+    && !Number.isNaN(Date.parse(value));
 
 // A monthly anchor must be a real day-of-month: an integer within 1..31.
 // Rejects 0, 32, fractions, NaN, Infinity, and non-numbers.
@@ -52,10 +62,7 @@ const isChecklistItem = (item: unknown): item is ChecklistItem => {
     );
 };
 
-export const isValidTaskArray = (data: unknown): data is Task[] => {
-    if (!Array.isArray(data)) return false;
-
-    return data.every(item => {
+const isValidTaskBase = (item: unknown): item is Record<string, unknown> => {
         if (!item || typeof item !== 'object') return false;
         const t = item as Record<string, unknown>;
         return (
@@ -68,7 +75,6 @@ export const isValidTaskArray = (data: unknown): data is Task[] => {
             typeof t.completed === 'boolean' &&
             ['low', 'medium', 'high'].includes(t.priority as string) &&
             typeof t.createdAt === 'string' &&
-            // date is optional here to support migration of old data
             (t.date === undefined || typeof t.date === 'string') &&
             (t.rolledOverFrom === undefined || typeof t.rolledOverFrom === 'string') &&
             (t.checklistItems === undefined || (Array.isArray(t.checklistItems) && t.checklistItems.every(isChecklistItem))) &&
@@ -78,11 +84,29 @@ export const isValidTaskArray = (data: unknown): data is Task[] => {
             (t.recurrenceAnchorDay === undefined || isValidAnchorDay(t.recurrenceAnchorDay)) &&
             (t.reminderEnabled === undefined || typeof t.reminderEnabled === 'boolean')
         );
+};
+
+export const isValidLegacyTaskArray = (data: unknown): data is LegacyTask[] => {
+    if (!Array.isArray(data)) return false;
+    return data.every(item => isValidTaskBase(item) && !('completedAt' in item));
+};
+
+export const migrateLegacyTasks = (tasks: LegacyTask[]): Task[] =>
+    tasks.map(task => ({ ...task, completedAt: null }));
+
+export const isValidTaskArray = (data: unknown): data is Task[] => {
+    if (!Array.isArray(data)) return false;
+
+    return data.every(item => {
+        if (!isValidTaskBase(item)) return false;
+        const t = item as Record<string, unknown>;
+        const completedAtValid = t.completedAt === null || isCanonicalUtcInstant(t.completedAt);
+        return completedAtValid && (t.completed === true || t.completedAt === null);
     });
 };
 
 export const isStorageWrapper = (data: unknown): data is StorageWrapper => {
     if (!data || typeof data !== 'object') return false;
     const w = data as Record<string, unknown>;
-    return typeof w.version === 'number' && isValidTaskArray(w.data);
+    return w.version === 2 && isValidTaskArray(w.data);
 };
