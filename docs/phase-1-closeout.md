@@ -1,8 +1,11 @@
 # My Daily Flow - Phase 1 closeout
 
-Status: **Accepted and closed**  
-Mobile acceptance: **PASS** on 20 August 2026  
-Production `main`: `3c5ef1a4d99ccdabe80d1078b592896dff7edb33`  
+Status: **Accepted and closed**
+
+Mobile acceptance: **PASS** on 20 August 2026
+
+Production `main`: `3c5ef1a4d99ccdabe80d1078b592896dff7edb33`
+
 Deployed `gh-pages`: `5401456af490b1a1c5b64fc848ec6900bb656db2`
 
 ## Outcome
