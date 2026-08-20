@@ -6,6 +6,7 @@ import {
     compareByTimeUntimedLast,
     getTodayString,
     groupTasksByDate,
+    groupTasksByDatePeriod,
     hasTime,
     isTaskOverdue,
 } from '../src/utils/taskUtils';
@@ -193,5 +194,54 @@ describe('groupTasksByDate — untimed tasks sort last within a group', () => {
         const order = input.map(t => t.id);
         groupTasksByDate(input, '2026-05-20');
         assert.deepEqual(input.map(t => t.id), order);
+    });
+});
+
+describe('groupTasksByDatePeriod — All Tasks is anchored on today', () => {
+    const anchor = '2026-05-20';
+
+    it('orders today first, future ascending, then past descending', () => {
+        const periods = groupTasksByDatePeriod(
+            [
+                task({ id: 'past-far', date: '2026-05-10' }),
+                task({ id: 'future-far', date: '2026-06-01' }),
+                task({ id: 'today', date: anchor }),
+                task({ id: 'future-near', date: '2026-05-21' }),
+                task({ id: 'past-near', date: '2026-05-19' }),
+            ],
+            anchor,
+            anchor,
+        );
+
+        assert.deepEqual(periods.map(period => period.period), ['today', 'upcoming', 'past']);
+        assert.deepEqual(periods[0].groups.map(group => group.date), [anchor]);
+        assert.deepEqual(periods[1].groups.map(group => group.date), ['2026-05-21', '2026-06-01']);
+        assert.deepEqual(periods[2].groups.map(group => group.date), ['2026-05-19', '2026-05-10']);
+    });
+
+    it('reports period counts and omits empty periods', () => {
+        const periods = groupTasksByDatePeriod(
+            [
+                task({ id: 'future-a', date: '2026-05-21' }),
+                task({ id: 'future-b', date: '2026-05-21' }),
+                task({ id: 'future-c', date: '2026-05-22' }),
+            ],
+            anchor,
+            anchor,
+        );
+
+        assert.deepEqual(periods.map(period => period.period), ['upcoming']);
+        assert.equal(periods[0].taskCount, 3);
+        assert.deepEqual(periods[0].groups.map(group => group.tasks.length), [2, 1]);
+    });
+
+    it('does not mutate the caller or its tasks', () => {
+        const input = [
+            task({ id: 'future', date: '2026-05-21', time: '14:00' }),
+            task({ id: 'today', date: anchor, time: '08:00' }),
+        ];
+        const snapshot = structuredClone(input);
+        groupTasksByDatePeriod(input, anchor, anchor);
+        assert.deepEqual(input, snapshot);
     });
 });

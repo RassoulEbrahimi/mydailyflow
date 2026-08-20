@@ -1,8 +1,10 @@
 import React from 'react';
 
+export type AllTasksDateFilter = 'all' | 'today' | 'upcoming' | 'past' | 'date';
+
 interface AllTasksFilterBarProps {
-    allDateFilter: string;
-    setAllDateFilter: (v: string) => void;
+    allDateFilter: AllTasksDateFilter;
+    setAllDateFilter: (v: AllTasksDateFilter) => void;
     allDatePicker: string;
     setAllDatePicker: (v: string) => void;
 }
@@ -17,7 +19,7 @@ const AllTasksFilterBar = ({
     <div className="pt-2 flex flex-col gap-2">
         {/* Row 1: quick-select pills */}
         <div className="flex flex-wrap items-center gap-2">
-            {(['all', 'today', 'yesterday'] as const).map(f => (
+            {(['all', 'today', 'upcoming', 'past'] as const).map(f => (
                 <button
                     key={f}
                     type="button"
@@ -28,7 +30,13 @@ const AllTasksFilterBar = ({
                             : 'bg-surface-raised text-fg-secondary border-edge hover:border-primary/50'
                         }`}
                 >
-                    {f === 'all' ? 'Alle Daten' : f === 'today' ? 'Heute' : 'Gestern'}
+                    {f === 'all'
+                        ? 'Alle Daten'
+                        : f === 'today'
+                            ? 'Heute'
+                            : f === 'upcoming'
+                                ? 'Kommend'
+                                : 'Vergangen'}
                 </button>
             ))}
         </div>
@@ -42,7 +50,7 @@ const AllTasksFilterBar = ({
                 onChange={e => {
                     const v = e.target.value;
                     setAllDatePicker(v);
-                    setAllDateFilter(v || 'all');
+                    setAllDateFilter(v ? 'date' : 'all');
                 }}
                 className="bg-surface-raised text-fg-secondary border border-edge hover:border-primary/50 rounded-full px-3 py-1.5 min-h-11 text-xs font-semibold cursor-pointer transition-all"
             />

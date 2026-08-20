@@ -193,7 +193,7 @@ test.describe('All Tasks date headers', () => {
           // Scrolling to a task must not park its title under a pinned header.
           const covered = await page.evaluate(async () => {
             const bad: string[] = [];
-            for (const title of Array.from(document.querySelectorAll('main h3'))) {
+            for (const title of Array.from(document.querySelectorAll('main [data-task-card] h3'))) {
               title.scrollIntoView({ block: 'start' });
               await new Promise((r) => setTimeout(r, 90));
               const t = title.getBoundingClientRect();

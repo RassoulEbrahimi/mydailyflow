@@ -82,7 +82,8 @@ test.describe('bottom navigation', () => {
     await app.navButton('all').click();
 
     await expect(app.page.getByRole('button', { name: 'Alle Daten' })).toBeVisible();
-    await expect(app.page.getByRole('button', { name: 'Gestern', exact: true })).toBeVisible();
+    await expect(app.page.getByRole('button', { name: 'Kommend', exact: true })).toBeVisible();
+    await expect(app.page.getByRole('button', { name: 'Vergangen', exact: true })).toBeVisible();
     // Today's tasks and yesterday's completed tasks are both grouped here.
     await expect(app.page.getByText('Synthetische Aufgabe — Morgen')).toBeVisible();
     await expect(app.page.getByText('Synthetische Aufgabe — gestern erledigt')).toBeVisible();
