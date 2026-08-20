@@ -31,6 +31,7 @@ import VoiceTaskModal from './components/VoiceTaskModal';
 import { useTheme } from './hooks/useTheme';
 import NowFocusCard from './components/NowFocusCard';
 import CarryOverSection from './components/CarryOverSection';
+import TodayCompletedSection from './components/TodayCompletedSection';
 
 const TaskSection = ({ title, timeRange, accentClass, children }: { title: string, timeRange?: string, accentClass: string, children: React.ReactNode }) => {
   return (
@@ -265,6 +266,7 @@ function AppInner({ logout }: { logout: () => void }) {
   const [activeTab, setActiveTab] = useState<TabId>('today');
   const [currentTime, setCurrentTime] = useState(() => getCurrentTimeString());
   const [carryOverExpanded, setCarryOverExpanded] = useState(true);
+  const [todayCompletedExpanded, setTodayCompletedExpanded] = useState(false);
 
   // Keep the focus card aligned with the wall clock while the app remains open.
   useEffect(() => {
@@ -310,25 +312,24 @@ function AppInner({ logout }: { logout: () => void }) {
   const todaySummary = summarizeTodayWork(todayTasks);
 
   const pendingTasks = todayTasks.filter(t => !t.completed);
+  const completedTodayTasks = todayTasks
+    .filter(task => task.completed)
+    .sort(compareByTimeUntimedLast);
   const nowTask = selectNowTask(todayTasks, currentTime);
   // Done tab: scheduled dates newest-first, with times ascending per day.
   // The persisted task model intentionally has no completion timestamp yet.
   const doneTaskGroups = groupCompletedTasksByDate(filteredTasks, today);
   const doneTaskCount = doneTaskGroups.reduce((sum, group) => sum + group.tasks.length, 0);
 
-  // Sort incomplete tasks first, then completed tasks. Existing time-based sort is preserved.
+  // Today time blocks contain active planned work only. Open carry-over and
+  // completed work each have their own truthful group.
   const sortSectionTasks = (sectionTasks: Task[]) => {
     return [...sectionTasks].sort((a, b) => {
-      if (a.completed !== b.completed) return a.completed ? 1 : -1;
-      // Within the same completion state, untimed tasks come after timed ones.
       return compareByTimeUntimedLast(a, b);
     });
   };
 
-  // Open carry-over has its own group. Completed carry-over remains in the
-  // time blocks until the later Phase 1B "Heute erledigt" group lands, so this
-  // PR never makes a completed task disappear from Today.
-  const timeBlockTasks = todayTasks.filter(t => !t.rolledOverFrom || t.completed);
+  const timeBlockTasks = todayTasks.filter(task => !task.rolledOverFrom && !task.completed);
   const morningTasks = sortSectionTasks(timeBlockTasks.filter(t => t.timeBlock === 'morning'));
   const afternoonTasks = sortSectionTasks(timeBlockTasks.filter(t => t.timeBlock === 'afternoon'));
   const eveningTasks = sortSectionTasks(timeBlockTasks.filter(t => t.timeBlock === 'evening'));
@@ -486,9 +487,22 @@ function AppInner({ logout }: { logout: () => void }) {
             {pendingTasks.length === 0 && (
               <div className="text-center py-12 text-fg-secondary mt-10">
                 <CheckCircle2 size={48} className="mx-auto mb-4 text-fg-faint" aria-hidden="true" />
-              <p className="text-fg-secondary mt-10">Alle Aufgaben für heute erledigt!</p>
+                <p className="text-fg-secondary mt-10">Alle Aufgaben für heute erledigt!</p>
               </div>
             )}
+
+            <TodayCompletedSection
+              tasks={completedTodayTasks}
+              expanded={todayCompletedExpanded}
+              onExpandedChange={setTodayCompletedExpanded}
+              onToggleComplete={toggleTaskStatus}
+              onDelete={handleDeleteTask}
+              onEdit={openEditTaskModal}
+              onToggleChecklistItem={toggleChecklistItem}
+              openSwipeId={openSwipeId}
+              setOpenSwipeId={setOpenSwipeId}
+              onMoveTomorrow={moveTaskToTomorrow}
+            />
             </div>
           </>
         ) : activeTab === 'all' ? (
