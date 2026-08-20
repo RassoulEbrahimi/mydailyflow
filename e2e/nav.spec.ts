@@ -95,6 +95,10 @@ test.describe('bottom navigation', () => {
     await app.navButton('done').click();
 
     await expect(app.page.getByRole('heading', { name: 'Erledigte Aufgaben' })).toBeVisible();
+    await expect(app.page.getByRole('heading', { level: 3, name: 'Gestern, 2 Aufgaben' })).toBeVisible();
+    await expect(
+      app.page.getByText('Neueste zuerst, gruppiert nach Datum. Ein Abschlusszeitpunkt wird nicht gespeichert.'),
+    ).toBeVisible();
     await expect(app.page.getByText('Synthetische Aufgabe — erledigt')).toBeVisible();
     // Incomplete work must not leak into Done.
     await expect(app.page.getByText('Synthetische Aufgabe — überfällig')).toBeHidden();

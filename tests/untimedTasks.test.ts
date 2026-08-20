@@ -5,6 +5,7 @@ import type { Task } from '../src/types/task';
 import {
     compareByTimeUntimedLast,
     getTodayString,
+    groupCompletedTasksByDate,
     groupTasksByDate,
     groupTasksByDatePeriod,
     hasTime,
@@ -194,6 +195,35 @@ describe('groupTasksByDate — untimed tasks sort last within a group', () => {
         const order = input.map(t => t.id);
         groupTasksByDate(input, '2026-05-20');
         assert.deepEqual(input.map(t => t.id), order);
+    });
+});
+
+describe('groupCompletedTasksByDate — Completed history uses scheduled dates', () => {
+    it('keeps only completed tasks, groups dates newest-first, and times ascending', () => {
+        const groups = groupCompletedTasksByDate(
+            [
+                task({ id: 'older-late', completed: true, date: '2026-05-18', time: '18:00' }),
+                task({ id: 'today-late', completed: true, date: '2026-05-20', time: '20:00' }),
+                task({ id: 'ignored-open', completed: false, date: '2026-05-20', time: '07:00' }),
+                task({ id: 'today-early', completed: true, date: '2026-05-20', time: '08:00' }),
+                task({ id: 'older-early', completed: true, date: '2026-05-18', time: '09:00' }),
+            ],
+            '2026-05-20',
+        );
+
+        assert.deepEqual(groups.map(group => group.date), ['2026-05-20', '2026-05-18']);
+        assert.deepEqual(groups[0].tasks.map(item => item.id), ['today-early', 'today-late']);
+        assert.deepEqual(groups[1].tasks.map(item => item.id), ['older-early', 'older-late']);
+    });
+
+    it('does not mutate the task list or add a completion timestamp', () => {
+        const input = [task({ id: 'done', completed: true, date: '2026-05-19' })];
+        const snapshot = structuredClone(input);
+
+        groupCompletedTasksByDate(input, '2026-05-20');
+
+        assert.deepEqual(input, snapshot);
+        assert.equal('completedAt' in input[0], false);
     });
 });
 
