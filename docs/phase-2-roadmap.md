@@ -105,7 +105,7 @@ This track starts only after Phase 2.0 selects a platform and Phase 2A proves th
 | P2-4 | Week planner and time-block movement — implemented | Planning UI isolated from focus |
 | P2-5 | Focus sessions — implemented | Separate persisted focus state + Backup v3 |
 | P2-6 | Day/routine templates — implemented | Independent template slice + Backup v4 |
-| P2-7 | Real-auth and sync spike | ADR/prototype only |
+| P2-7 | Real-auth and sync spike — implemented | Supabase decision + executable two-device protocol; no production SDK |
 | P2-8 | Real authentication + first-sign-in reconciliation | Feature flag and local backup gate |
 | P2-9 | Synchronization and conflict handling | Server capability flag |
 | P2-10 | Background reminders | Platform capability flag |
@@ -129,7 +129,15 @@ recurrence anchors. Templates live in the versioned `myDailyFlowTemplates`
 slice, are covered by Backup v4, and older backups migrate with an empty template
 library.
 
-The next objective is **P2-7**: a documentation/prototype-only spike for real
-authentication and synchronization. It must define identity, first-sign-in
-reconciliation, offline conflict handling, deletion/export safety, and rollout
-gates before any production auth or cloud-sync code is added.
+**P2-7 is implemented:** ADR 0005 selects Supabase Auth + Postgres/RLS in the
+Frankfurt region, with Firebase recorded as the rejected fallback because its
+default last-write-wins offline conflict behavior does not satisfy this app's
+visible-conflict contract. The executable spike proves idempotent mutation
+receipts, safe different-field merging, same-field and delete/edit conflicts,
+and all four first-sign-in manifest paths. No provider SDK, credential, storage
+key or production behavior changed.
+
+The next objective is **P2-8**: implement real authentication and the
+first-sign-in reconciliation preview behind a default-OFF feature flag. It may
+read only an account manifest until the user has a verified Backup v4 and makes
+an explicit data decision; normal multi-device sync remains P2-9.
