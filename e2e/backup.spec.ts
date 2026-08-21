@@ -40,7 +40,8 @@ test.describe('backup export / import round-trip', () => {
 
     // ── Shape ────────────────────────────────────────────────────────────────
     expect(backup.app).toBe('mydailyflow');
-    expect(backup.schemaVersion).toBe(2);
+    expect(backup.schemaVersion).toBe(3);
+    expect(backup.focusState).toEqual({ activeSession: null, history: [] });
     expect(download.suggestedFilename()).toMatch(/^mydailyflow-backup-.*\.json$/);
 
     // ── Data survives ────────────────────────────────────────────────────────

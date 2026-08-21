@@ -103,7 +103,7 @@ This track starts only after Phase 2.0 selects a platform and Phase 2A proves th
 | P2-2 | Essential daily history slice — shipped with P2-1 | Independent storage slice |
 | P2-3 | Weekly Review UI — implemented | Read-only consumer of history |
 | P2-4 | Week planner and time-block movement — implemented | Planning UI isolated from focus |
-| P2-5 | Focus sessions | Separate persisted focus state |
+| P2-5 | Focus sessions — implemented | Separate persisted focus state + Backup v3 |
 | P2-6 | Day/routine templates | Additive template slice |
 | P2-7 | Real-auth and sync spike | ADR/prototype only |
 | P2-8 | Real authentication + first-sign-in reconciliation | Feature flag and local backup gate |
@@ -121,6 +121,7 @@ This track starts only after Phase 2.0 selects a platform and Phase 2A proves th
 
 ## Recommended next objective
 
-After P2-4 mobile acceptance, start **P2-5**: interruption-safe focus sessions
-linked to one task. Keep templates, real identity and synchronization in their
-later independent increments.
+After P2-5 mobile acceptance, start **P2-6**: reusable day/routine templates.
+Templates must create independent Tasks and checklist items; they must never
+share mutable task state. Keep real identity and synchronization in their later
+independent increments.

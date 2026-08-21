@@ -4,13 +4,15 @@
  * Pure: no DOM, no storage, no React. Everything here is directly testable.
  */
 
-import type { AppDataSnapshot, BackupFileV2, ValidationResult } from '../types/backup';
+import type { AppDataSnapshot, BackupFileV3, ValidationResult } from '../types/backup';
 import { BACKUP_APP_ID, BACKUP_SCHEMA_VERSION, isBackupPreferences, validateBackupObject } from '../types/backup';
 import { isValidEssentialArray, isValidEssentialHistory, isValidEssentialState } from '../types/essential';
 import { isValidTaskArray } from '../types/task';
+import { isValidFocusState } from '../types/focus';
+import { pauseFocusForBackup } from './focusSessions';
 
-/** Assembles the file contents. Only the four known sections are ever emitted. */
-export function buildBackup(snapshot: AppDataSnapshot, exportedAt: string): BackupFileV2 {
+/** Assembles only the explicitly versioned, user-owned data sections. */
+export function buildBackup(snapshot: AppDataSnapshot, exportedAt: string): BackupFileV3 {
     return {
         app: BACKUP_APP_ID,
         schemaVersion: BACKUP_SCHEMA_VERSION,
@@ -19,11 +21,12 @@ export function buildBackup(snapshot: AppDataSnapshot, exportedAt: string): Back
         essentials: snapshot.essentials,
         essentialsState: snapshot.essentialsState,
         essentialHistory: snapshot.essentialHistory,
+        focusState: pauseFocusForBackup(snapshot.focusState, exportedAt),
         preferences: snapshot.preferences,
     };
 }
 
-export const serializeBackup = (backup: BackupFileV2): string =>
+export const serializeBackup = (backup: BackupFileV3): string =>
     JSON.stringify(backup, null, 2);
 
 /** `mydailyflow-backup-2026-08-15-1204.json` */
@@ -44,13 +47,14 @@ export function validateSnapshot(snapshot: AppDataSnapshot): ValidationResult<Ap
     if (!isValidEssentialArray(snapshot.essentials)) errors.push('invalid-essentials');
     if (!isValidEssentialState(snapshot.essentialsState)) errors.push('invalid-essentials-state');
     if (!isValidEssentialHistory(snapshot.essentialHistory)) errors.push('invalid-essential-history');
+    if (!isValidFocusState(snapshot.focusState)) errors.push('invalid-focus-state');
     if (!isBackupPreferences(snapshot.preferences)) errors.push('invalid-preferences');
     if (errors.length > 0) return { status: 'invalid', errors };
     return { status: 'valid', value: snapshot };
 }
 
 /** Parses file text. Invalid JSON and unsupported versions are distinguished. */
-export function parseBackupText(raw: string): ValidationResult<BackupFileV2> {
+export function parseBackupText(raw: string): ValidationResult<BackupFileV3> {
     let parsed: unknown;
     try {
         parsed = JSON.parse(raw);
@@ -67,10 +71,11 @@ export interface BackupSummary {
     progressEntryCount: number;
     progressDate: string;
     historyDayCount: number;
+    focusSessionCount: number;
 }
 
 /** Counts shown in the import preview before anything is applied. */
-export function summarizeBackup(backup: BackupFileV2): BackupSummary {
+export function summarizeBackup(backup: BackupFileV3): BackupSummary {
     return {
         exportedAt: backup.exportedAt,
         taskCount: backup.tasks.length,
@@ -78,5 +83,6 @@ export function summarizeBackup(backup: BackupFileV2): BackupSummary {
         progressEntryCount: Object.keys(backup.essentialsState.progressById).length,
         progressDate: backup.essentialsState.date,
         historyDayCount: backup.essentialHistory.length,
+        focusSessionCount: backup.focusState.history.length + (backup.focusState.activeSession ? 1 : 0),
     };
 }

@@ -4,7 +4,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { validateBackupObject } from '../src/types/backup';
-import type { BackupFileV2 } from '../src/types/backup';
+import type { BackupFileV2, BackupFileV3 } from '../src/types/backup';
 import { applyStorageTransaction } from '../src/utils/appStorage';
 import type { StorageLike, StorageWrite } from '../src/utils/appStorage';
 
@@ -15,15 +15,20 @@ const fixture = (name: string): unknown => JSON.parse(readFileSync(
 
 const phase1 = (): Record<string, unknown> => fixture('phase1-backup-v1.json') as Record<string, unknown>;
 const expectedPhase2 = (): BackupFileV2 => fixture('phase2-backup-v2.json') as BackupFileV2;
+const expectedCurrent = (): BackupFileV3 => ({
+    ...expectedPhase2(),
+    schemaVersion: 3,
+    focusState: { activeSession: null, history: [] },
+});
 
-const migrateBackupToPhase2 = (input: unknown) => {
+const migrateBackupToCurrent = (input: unknown) => {
     const validated = validateBackupObject(input);
     if (validated.status === 'invalid') return validated;
     const source = input as { schemaVersion?: number };
     return {
         status: 'ok' as const,
         value: validated.value,
-        migratedFrom: source.schemaVersion as 1 | 2,
+        migratedFrom: source.schemaVersion as 1 | 2 | 3,
     };
 };
 
@@ -68,18 +73,18 @@ test('the synthetic Phase 1 fixture remains a valid production v1 backup', () =>
     assert.equal(validation.status, 'valid');
 });
 
-test('v1 migrates to the reviewed v2 fixture exactly', () => {
+test('v1 migrates to the reviewed current fixture exactly', () => {
     const source = phase1();
-    const result = migrateBackupToPhase2(source);
+    const result = migrateBackupToCurrent(source);
 
     assert.equal(result.status, 'ok');
     if (result.status !== 'ok') return;
     assert.equal(result.migratedFrom, 1);
-    assert.deepEqual(result.value, expectedPhase2());
+    assert.deepEqual(result.value, expectedCurrent());
 });
 
 test('migration never invents a legacy completion instant', () => {
-    const result = migrateBackupToPhase2(phase1());
+    const result = migrateBackupToCurrent(phase1());
     assert.equal(result.status, 'ok');
     if (result.status !== 'ok') return;
 
@@ -90,7 +95,7 @@ test('migration never invents a legacy completion instant', () => {
 });
 
 test('migration preserves orphan Essential progress without inventing its deleted definition', () => {
-    const result = migrateBackupToPhase2(phase1());
+    const result = migrateBackupToCurrent(phase1());
     assert.equal(result.status, 'ok');
     if (result.status !== 'ok') return;
 
@@ -106,24 +111,24 @@ test('migration preserves orphan Essential progress without inventing its delete
 test('migration is deterministic, idempotent, and does not mutate its input', () => {
     const source = phase1();
     const untouched = structuredClone(source);
-    const first = migrateBackupToPhase2(source);
+    const first = migrateBackupToCurrent(source);
     assert.equal(first.status, 'ok');
     if (first.status !== 'ok') return;
 
-    const second = migrateBackupToPhase2(first.value);
+    const second = migrateBackupToCurrent(first.value);
     assert.equal(second.status, 'ok');
     if (second.status !== 'ok') return;
 
     assert.deepEqual(source, untouched);
     assert.deepEqual(second.value, first.value);
-    assert.equal(second.migratedFrom, 2);
+    assert.equal(second.migratedFrom, 3);
 });
 
 test('unknown top-level fields including an auth session never cross the migration boundary', () => {
     const source = phase1();
     source.mdf_auth_session = { username: 'synthetic-only', token: 'not-a-real-token' };
 
-    const result = migrateBackupToPhase2(source);
+    const result = migrateBackupToCurrent(source);
     assert.equal(result.status, 'ok');
     if (result.status !== 'ok') return;
 
@@ -133,7 +138,7 @@ test('unknown top-level fields including an auth session never cross the migrati
 
 test('unsupported versions and malformed v2 history are rejected as a whole', () => {
     const unsupported = { ...phase1(), schemaVersion: 99 };
-    const unsupportedResult = migrateBackupToPhase2(unsupported);
+    const unsupportedResult = migrateBackupToCurrent(unsupported);
     assert.equal(unsupportedResult.status, 'invalid');
     if (unsupportedResult.status === 'invalid') {
         assert.equal(unsupportedResult.errors.some(error => error.startsWith('unsupported-schema-version')), true);
@@ -144,7 +149,7 @@ test('unsupported versions and malformed v2 history are rejected as a whole', ()
         ...malformed.essentialHistory[0].entries[0],
         essentialId: malformed.essentialHistory[0].entries[0].essentialId,
     });
-    const result = migrateBackupToPhase2(malformed);
+    const result = migrateBackupToCurrent(malformed);
     assert.equal(result.status, 'invalid');
     if (result.status !== 'invalid') return;
     assert.equal(result.errors.includes('invalid-essential-history'), true);
@@ -153,17 +158,17 @@ test('unsupported versions and malformed v2 history are rejected as a whole', ()
 test('v2 rejects invented or inconsistent completion timestamps', () => {
     const nonCanonical = expectedPhase2();
     nonCanonical.tasks[0].completedAt = '2026-08-20T12:00:00Z';
-    assert.equal(migrateBackupToPhase2(nonCanonical).status, 'invalid');
+    assert.equal(migrateBackupToCurrent(nonCanonical).status, 'invalid');
 
     const incompleteWithTimestamp = expectedPhase2();
     incompleteWithTimestamp.tasks[1].completedAt = '2026-08-20T12:00:00.000Z';
-    assert.equal(migrateBackupToPhase2(incompleteWithTimestamp).status, 'invalid');
+    assert.equal(migrateBackupToCurrent(incompleteWithTimestamp).status, 'invalid');
 });
 
 test('v2 rejects a non-canonical Essentials history close instant', () => {
     const malformed = expectedPhase2();
     malformed.essentialHistory[0].recordedAt = '2026-08-20T12:00:00Z';
-    assert.equal(migrateBackupToPhase2(malformed).status, 'invalid');
+    assert.equal(migrateBackupToCurrent(malformed).status, 'invalid');
 });
 
 test('a failed multi-key v2 storage migration restores exact raw bytes and key absence', () => {

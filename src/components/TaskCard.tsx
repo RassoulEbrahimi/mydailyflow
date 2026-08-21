@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { Check, Clock, Pencil, Trash2, RepeatIcon, RotateCcw, ArrowRight, MoreVertical } from 'lucide-react';
+import { Check, Clock, Pencil, Trash2, RepeatIcon, RotateCcw, ArrowRight, MoreVertical, TimerReset } from 'lucide-react';
 import type { Task } from '../types/task';
 import { getRolloverLabel, hasTime, isTaskOverdue } from '../utils/taskUtils';
 
@@ -19,6 +19,7 @@ interface TaskCardProps {
   /** React key — declared to satisfy stricter tsconfig settings */
   key?: React.Key;
   onMoveTomorrow?: (id: string) => void;
+  onStartFocus?: (task: Task) => void;
 }
 
 const TaskCard = ({
@@ -30,6 +31,7 @@ const TaskCard = ({
   openSwipeId,
   setOpenSwipeId,
   onMoveTomorrow,
+  onStartFocus,
 }: TaskCardProps) => {
   const { id, title, time, duration, completed, priority } = task;
 
@@ -52,7 +54,11 @@ const TaskCard = ({
   const menuItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [activeMenuIndex, setActiveMenuIndex] = useState(0);
 
-  const menuItemCount = !completed && onMoveTomorrow ? 3 : 2;
+  const showsFocus = !completed && Boolean(onStartFocus);
+  const focusMenuIndex = showsFocus ? 0 : -1;
+  const editMenuIndex = showsFocus ? 1 : 0;
+  const tomorrowMenuIndex = editMenuIndex + 1;
+  const menuItemCount = 2 + (showsFocus ? 1 : 0) + (!completed && onMoveTomorrow ? 1 : 0);
 
   const focusMenuItem = useCallback((index: number) => {
     const normalizedIndex = (index + menuItemCount) % menuItemCount;
@@ -537,11 +543,24 @@ const TaskCard = ({
           className="absolute right-2 top-12 z-40 w-44 overflow-hidden rounded-xl border border-edge bg-surface-raised p-1.5 shadow-2xl"
           onKeyDown={handleMenuKeyDown}
         >
+          {showsFocus && (
+            <button
+              ref={element => { menuItemRefs.current[focusMenuIndex] = element; }}
+              type="button"
+              role="menuitem"
+              tabIndex={activeMenuIndex === focusMenuIndex ? 0 : -1}
+              onClick={() => runMenuAction(() => onStartFocus!(task))}
+              className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-semibold text-primary-text hover:bg-primary-surface focus-visible:bg-primary-surface"
+            >
+              <TimerReset size={17} aria-hidden="true" />
+              Fokus starten
+            </button>
+          )}
           <button
-            ref={element => { menuItemRefs.current[0] = element; }}
+            ref={element => { menuItemRefs.current[editMenuIndex] = element; }}
             type="button"
             role="menuitem"
-            tabIndex={activeMenuIndex === 0 ? 0 : -1}
+            tabIndex={activeMenuIndex === editMenuIndex ? 0 : -1}
             onClick={() => runMenuAction(() => onEdit(task))}
             className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium text-fg hover:bg-surface-control focus-visible:bg-surface-control"
           >
@@ -551,10 +570,10 @@ const TaskCard = ({
 
           {!completed && onMoveTomorrow && (
             <button
-              ref={element => { menuItemRefs.current[1] = element; }}
+              ref={element => { menuItemRefs.current[tomorrowMenuIndex] = element; }}
               type="button"
               role="menuitem"
-              tabIndex={activeMenuIndex === 1 ? 0 : -1}
+              tabIndex={activeMenuIndex === tomorrowMenuIndex ? 0 : -1}
               onClick={() => runMenuAction(() => onMoveTomorrow(id))}
               className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium text-fg hover:bg-surface-control focus-visible:bg-surface-control"
             >

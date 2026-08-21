@@ -14,6 +14,7 @@ interface CarryOverSectionProps {
   openSwipeId: string | null;
   setOpenSwipeId: (id: string | null) => void;
   onMoveTomorrow: (id: string) => void;
+  onStartFocus: (task: Task) => void;
 }
 
 const CarryOverSection = ({
@@ -27,6 +28,7 @@ const CarryOverSection = ({
   openSwipeId,
   setOpenSwipeId,
   onMoveTomorrow,
+  onStartFocus,
 }: CarryOverSectionProps) => {
   if (tasks.length === 0) return null;
 
@@ -70,6 +72,7 @@ const CarryOverSection = ({
                 openSwipeId={openSwipeId}
                 setOpenSwipeId={setOpenSwipeId}
                 onMoveTomorrow={onMoveTomorrow}
+                onStartFocus={onStartFocus}
               />
             ))}
           </div>

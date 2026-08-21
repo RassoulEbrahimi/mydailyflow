@@ -37,7 +37,8 @@ for (const viewport of VIEWPORTS) {
         const firstMenu = page.getByRole('menu', { name: `Aktionen für ${firstTaskTitle}` });
         await expect(firstMenu).toBeVisible();
         await expect(firstTrigger).toHaveAttribute('aria-expanded', 'true');
-        await expect(firstMenu.getByRole('menuitem')).toHaveCount(3);
+        await expect(firstMenu.getByRole('menuitem')).toHaveCount(4);
+        await expect(firstMenu.getByRole('menuitem', { name: 'Fokus starten' })).toBeVisible();
         await expect(firstMenu.getByRole('menuitem', { name: 'Bearbeiten' })).toBeVisible();
         await expect(firstMenu.getByRole('menuitem', { name: 'Morgen' })).toBeVisible();
         await expect(firstMenu.getByRole('menuitem', { name: 'Löschen' })).toBeVisible();
@@ -56,17 +57,20 @@ for (const viewport of VIEWPORTS) {
         await page.keyboard.press('Enter');
 
         const menu = page.getByRole('menu', { name: `Aktionen für ${firstTaskTitle}` });
+        const focus = menu.getByRole('menuitem', { name: 'Fokus starten' });
         const edit = menu.getByRole('menuitem', { name: 'Bearbeiten' });
         const tomorrow = menu.getByRole('menuitem', { name: 'Morgen' });
         const remove = menu.getByRole('menuitem', { name: 'Löschen' });
 
+        await expect(focus).toBeFocused();
+        await page.keyboard.press('ArrowDown');
         await expect(edit).toBeFocused();
         await page.keyboard.press('ArrowDown');
         await expect(tomorrow).toBeFocused();
         await page.keyboard.press('End');
         await expect(remove).toBeFocused();
         await page.keyboard.press('Tab');
-        await expect(edit).toBeFocused();
+        await expect(focus).toBeFocused();
         await page.keyboard.press('Shift+Tab');
         await expect(remove).toBeFocused();
         await page.keyboard.press('Escape');
