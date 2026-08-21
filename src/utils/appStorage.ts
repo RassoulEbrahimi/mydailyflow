@@ -81,6 +81,8 @@ export const RECOVERY_PREFIX = 'myDailyFlow_recovery__';
 
 /** Source label used for the snapshot taken right before an import. */
 export const PRE_IMPORT_SOURCE = 'preimport';
+/** Source label for the byte-exact snapshot made before first-sign-in intent. */
+export const FIRST_SIGN_IN_SOURCE = 'first-sign-in';
 
 // ─── Storage abstraction ──────────────────────────────────────────────────────
 
