@@ -33,6 +33,8 @@ import {
     isEssentialHistoryWrapper,
     isValidEssentialHistory,
 } from '../types/essential';
+import type { FocusState, FocusStateWrapper } from '../types/focus';
+import { isFocusStateWrapper, isValidFocusState } from '../types/focus';
 
 // ─── Keys ─────────────────────────────────────────────────────────────────────
 
@@ -49,6 +51,7 @@ export const STORAGE_KEYS = {
     essentialsData: 'myDailyFlowEssentialsData',
     essentialsState: 'myDailyFlowEssentialsState',
     essentialHistory: 'myDailyFlowEssentialHistory',
+    focusState: 'myDailyFlowFocusState',
     theme: 'myDailyFlow_theme',
     remindersEnabled: 'remindersEnabled',
     stickyHeroEnabled: 'stickyHeroEnabled',
@@ -63,6 +66,7 @@ export const MANAGED_KEYS: StorageKey[] = [
     STORAGE_KEYS.essentialsData,
     STORAGE_KEYS.essentialsState,
     STORAGE_KEYS.essentialHistory,
+    STORAGE_KEYS.focusState,
     STORAGE_KEYS.theme,
     STORAGE_KEYS.remindersEnabled,
     STORAGE_KEYS.stickyHeroEnabled,
@@ -380,6 +384,19 @@ export function parseEssentialHistoryRaw(raw: string | null): SliceParseResult<E
     return { status: 'invalid', value: null, detail: 'invalid essential history format' };
 }
 
+export function parseFocusStateRaw(raw: string | null): SliceParseResult<FocusState> {
+    if (raw === null) return { status: 'empty', value: null };
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(raw);
+    } catch (e) {
+        return { status: 'invalid', value: null, detail: `unparseable JSON: ${errorMessage(e)}` };
+    }
+    if (isFocusStateWrapper(parsed)) return { status: 'ok', value: parsed.data };
+    if (isValidFocusState(parsed)) return { status: 'migrated', value: parsed };
+    return { status: 'invalid', value: null, detail: 'invalid focus state format' };
+}
+
 export function parseEssentialsRaw(raw: string | null): SliceParseResult<DailyEssential[]> {
     if (raw === null) return { status: 'empty', value: null };
 
@@ -482,6 +499,9 @@ export const loadEssentialsStateSlice = (storage: StorageLike, nowISO: string): 
 export const loadEssentialHistorySlice = (storage: StorageLike, nowISO: string): SliceLoadResult<EssentialHistoryDay[]> =>
     loadSlice(storage, STORAGE_KEYS.essentialHistory, nowISO, parseEssentialHistoryRaw);
 
+export const loadFocusStateSlice = (storage: StorageLike, nowISO: string): SliceLoadResult<FocusState> =>
+    loadSlice(storage, STORAGE_KEYS.focusState, nowISO, parseFocusStateRaw);
+
 // ─── Wrapper helpers ──────────────────────────────────────────────────────────
 
 export const serializeTasks = (tasks: Task[]): string =>
@@ -495,3 +515,6 @@ export const serializeEssentialsState = (state: DailyEssentialState): string =>
 
 export const serializeEssentialHistory = (history: EssentialHistoryDay[]): string =>
     JSON.stringify({ version: 2, data: history } satisfies EssentialHistoryWrapper);
+
+export const serializeFocusState = (state: FocusState): string =>
+    JSON.stringify({ version: 1, data: state } satisfies FocusStateWrapper);

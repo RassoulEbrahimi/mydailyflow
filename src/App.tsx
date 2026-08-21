@@ -37,6 +37,10 @@ import CarryOverSection from './components/CarryOverSection';
 import TodayCompletedSection from './components/TodayCompletedSection';
 import WeeklyReviewView from './components/WeeklyReviewView';
 import WeekPlannerView from './components/WeekPlannerView';
+import FocusSetupModal from './components/FocusSetupModal';
+import FocusSessionPanel from './components/FocusSessionPanel';
+import FocusSessionBanner from './components/FocusSessionBanner';
+import { useFocusSessions } from './hooks/useFocusSessions';
 
 const TaskSection = ({ title, timeRange, accentClass, children }: { title: string, timeRange?: string, accentClass: string, children: React.ReactNode }) => {
   return (
@@ -234,6 +238,9 @@ function AppInner({ logout }: { logout: () => void }) {
   };
 
   const { tasks, saveTask, toggleTaskStatus, toggleChecklistItem, deleteTask, restoreTask, moveTaskToTomorrow, moveTaskInPlanner } = useTasks();
+  const { focusState, startFocus, pauseFocus, resumeFocus, finishFocus } = useFocusSessions();
+  const [focusSetupTask, setFocusSetupTask] = useState<Task | null>(null);
+  const [isFocusPanelOpen, setIsFocusPanelOpen] = useState(false);
   const [pendingTaskDeletion, setPendingTaskDeletion] = useState<Task | null>(null);
   const [planningConfirmation, setPlanningConfirmation] = useState<Task | null>(null);
 
@@ -264,6 +271,21 @@ function AppInner({ logout }: { logout: () => void }) {
     if (!pendingTaskDeletion) return;
     restoreTask(pendingTaskDeletion);
     setPendingTaskDeletion(null);
+  };
+
+  const openFocusForTask = (task: Task) => {
+    setOpenSwipeId(null);
+    if (focusState.activeSession) {
+      setIsFocusPanelOpen(true);
+      return;
+    }
+    setFocusSetupTask(task);
+  };
+
+  const handleStartFocus = (task: Task, minutes: number) => {
+    startFocus(task, minutes);
+    setFocusSetupTask(null);
+    setIsFocusPanelOpen(true);
   };
 
   useReminders(tasks, remindersEnabled);
@@ -491,6 +513,13 @@ function AppInner({ logout }: { logout: () => void }) {
           </div>
         </header>
 
+        {focusState.activeSession && !isFocusPanelOpen && (
+          <FocusSessionBanner
+            session={focusState.activeSession}
+            onOpen={() => setIsFocusPanelOpen(true)}
+          />
+        )}
+
         {/* Hero — only on Today tab; sticks to top once header scrolls off */}
         {activeTab === 'today' && (
           <HomeHero
@@ -512,6 +541,7 @@ function AppInner({ logout }: { logout: () => void }) {
                 currentTime={currentTime}
                 onComplete={toggleTaskStatus}
                 onEdit={openEditTaskModal}
+                onStartFocus={openFocusForTask}
               />
             )}
             <CarryOverSection
@@ -525,6 +555,7 @@ function AppInner({ logout }: { logout: () => void }) {
               openSwipeId={openSwipeId}
               setOpenSwipeId={setOpenSwipeId}
               onMoveTomorrow={moveTaskToTomorrow}
+              onStartFocus={openFocusForTask}
             />
             <DailyEssentialsSection
               essentials={essentials}
@@ -534,13 +565,13 @@ function AppInner({ logout }: { logout: () => void }) {
             />
             <div className="flex flex-col gap-8 px-5 pt-2">
             <TaskSection title="Morgen" timeRange="06:00 – 12:00" accentClass="text-block-morning">
-              {morningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />)}
+              {morningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} onStartFocus={openFocusForTask} />)}
             </TaskSection>
             <TaskSection title="Nachmittag" timeRange="12:00 – 18:00" accentClass="text-block-afternoon">
-              {afternoonTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />)}
+              {afternoonTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} onStartFocus={openFocusForTask} />)}
             </TaskSection>
             <TaskSection title="Abend" timeRange="18:00 – 23:00" accentClass="text-block-evening">
-              {eveningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />)}
+              {eveningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} onStartFocus={openFocusForTask} />)}
             </TaskSection>
 
             {pendingTasks.length === 0 && (
@@ -642,7 +673,7 @@ function AppInner({ logout }: { logout: () => void }) {
                         )}
                         <div className="flex flex-col gap-2.5">
                           {group.tasks.map(t => (
-                            <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} />
+                            <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} onStartFocus={openFocusForTask} />
                           ))}
                         </div>
                       </div>
@@ -865,6 +896,22 @@ function AppInner({ logout }: { logout: () => void }) {
         taskToEdit={taskToEdit}
         initialDraft={voiceDraft}
         initialDate={newTaskInitialDate}
+      />
+      <FocusSetupModal
+        task={focusSetupTask}
+        onClose={() => setFocusSetupTask(null)}
+        onStart={handleStartFocus}
+      />
+      <FocusSessionPanel
+        session={focusState.activeSession}
+        isOpen={isFocusPanelOpen}
+        onMinimize={() => setIsFocusPanelOpen(false)}
+        onPause={() => pauseFocus()}
+        onResume={() => resumeFocus()}
+        onFinish={() => {
+          finishFocus();
+          setIsFocusPanelOpen(false);
+        }}
       />
       <VoiceTaskModal
         isOpen={isVoiceModalOpen}

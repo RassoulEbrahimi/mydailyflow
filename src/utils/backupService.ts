@@ -19,7 +19,7 @@
  * is always the true pre-import state.
  */
 
-import type { AppDataSnapshot, BackupFileV2, BackupPreferences } from '../types/backup';
+import type { AppDataSnapshot, BackupFileV3, BackupPreferences } from '../types/backup';
 import { isTheme } from '../types/backup';
 import type { DailyEssentialState } from '../types/essential';
 import {
@@ -30,11 +30,13 @@ import {
     parseEssentialsRaw,
     parseEssentialsStateRaw,
     parseEssentialHistoryRaw,
+    parseFocusStateRaw,
     parseTasksRaw,
     readRaw,
     serializeEssentials,
     serializeEssentialsState,
     serializeEssentialHistory,
+    serializeFocusState,
     serializeTasks,
     uniqueRecoveryKey,
 } from './appStorage';
@@ -42,6 +44,7 @@ import type { StorageLike, StorageWrite } from './appStorage';
 import { backupFileName, buildBackup, serializeBackup, validateSnapshot } from './backupFormat';
 import { applyBackup } from './backupMerge';
 import type { ImportMode } from './backupMerge';
+import { EMPTY_FOCUS_STATE } from './focusSessions';
 
 // ─── Raw capture ──────────────────────────────────────────────────────────────
 
@@ -123,12 +126,14 @@ export function snapshotFromRaw(raw: RawLookup, today: string): SnapshotReadResu
     const essentials = parseEssentialsRaw(raw(STORAGE_KEYS.essentialsData));
     const state = parseEssentialsStateRaw(raw(STORAGE_KEYS.essentialsState));
     const history = parseEssentialHistoryRaw(raw(STORAGE_KEYS.essentialHistory));
+    const focus = parseFocusStateRaw(raw(STORAGE_KEYS.focusState));
 
     const errors: string[] = [];
     if (tasks.status === 'invalid') errors.push(`invalid-tasks: ${tasks.detail}`);
     if (essentials.status === 'invalid') errors.push(`invalid-essentials: ${essentials.detail}`);
     if (state.status === 'invalid') errors.push(`invalid-essentials-state: ${state.detail}`);
     if (history.status === 'invalid') errors.push(`invalid-essential-history: ${history.detail}`);
+    if (focus.status === 'invalid') errors.push(`invalid-focus-state: ${focus.detail}`);
     if (errors.length > 0) return { status: 'invalid', errors };
 
     return {
@@ -139,6 +144,7 @@ export function snapshotFromRaw(raw: RawLookup, today: string): SnapshotReadResu
             // Yesterday's progress is never presented as today's.
             essentialsState: state.value && state.value.date === today ? state.value : emptyState(today),
             essentialHistory: history.value ?? [],
+            focusState: focus.value ?? EMPTY_FOCUS_STATE,
             preferences: preferencesFromRaw(raw),
         },
     };
@@ -154,12 +160,14 @@ function lenientSnapshotFromRaw(raw: RawLookup, today: string): AppDataSnapshot 
     const essentials = parseEssentialsRaw(raw(STORAGE_KEYS.essentialsData));
     const state = parseEssentialsStateRaw(raw(STORAGE_KEYS.essentialsState));
     const history = parseEssentialHistoryRaw(raw(STORAGE_KEYS.essentialHistory));
+    const focus = parseFocusStateRaw(raw(STORAGE_KEYS.focusState));
 
     return {
         tasks: tasks.value ?? [],
         essentials: essentials.value ?? [],
         essentialsState: state.value && state.value.date === today ? state.value : emptyState(today),
         essentialHistory: history.value ?? [],
+        focusState: focus.value ?? EMPTY_FOCUS_STATE,
         preferences: preferencesFromRaw(raw),
     };
 }
@@ -258,6 +266,7 @@ export function snapshotToWrites(snapshot: AppDataSnapshot): StorageWrite[] {
         { key: STORAGE_KEYS.essentialsData, value: serializeEssentials(snapshot.essentials) },
         { key: STORAGE_KEYS.essentialsState, value: serializeEssentialsState(snapshot.essentialsState) },
         { key: STORAGE_KEYS.essentialHistory, value: serializeEssentialHistory(snapshot.essentialHistory) },
+        { key: STORAGE_KEYS.focusState, value: serializeFocusState(snapshot.focusState) },
         { key: STORAGE_KEYS.theme, value: snapshot.preferences.theme },
         { key: STORAGE_KEYS.remindersEnabled, value: String(snapshot.preferences.remindersEnabled) },
         { key: STORAGE_KEYS.stickyHeroEnabled, value: String(snapshot.preferences.stickyHeroEnabled) },
@@ -267,7 +276,7 @@ export function snapshotToWrites(snapshot: AppDataSnapshot): StorageWrite[] {
 
 export function importBackup(
     storage: StorageLike,
-    backup: BackupFileV2,
+    backup: BackupFileV3,
     mode: ImportMode,
     today: string,
     nowISO: string,

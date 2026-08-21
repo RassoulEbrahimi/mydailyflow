@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { AppDataSnapshot, BackupFileV2 } from '../src/types/backup';
+import type { AppDataSnapshot, BackupFileV3 } from '../src/types/backup';
 import { BACKUP_SCHEMA_VERSION, validateBackupObject } from '../src/types/backup';
 import type { DailyEssential } from '../src/types/essential';
 import {
@@ -57,6 +57,7 @@ const makeSnapshot = (overrides: Partial<AppDataSnapshot> = {}): AppDataSnapshot
   essentials: [makeEssential()],
   essentialsState: { date: '2026-01-01', progressById: { 'essential-1': 1 } },
   essentialHistory: [],
+  focusState: { activeSession: null, history: [] },
   preferences: {
     theme: 'dark',
     remindersEnabled: true,
@@ -66,7 +67,7 @@ const makeSnapshot = (overrides: Partial<AppDataSnapshot> = {}): AppDataSnapshot
   ...overrides,
 });
 
-const makeBackup = (overrides: Partial<BackupFileV2> = {}): BackupFileV2 => ({
+const makeBackup = (overrides: Partial<BackupFileV3> = {}): BackupFileV3 => ({
   ...buildBackup(makeSnapshot(), '2026-01-01T10:00:00.000Z'),
   ...overrides,
 });
@@ -123,7 +124,7 @@ test('a backup never contains authentication or session data', () => {
   assert.equal(parsed.status, 'valid');
   if (parsed.status !== 'valid') return;
   assert.deepEqual(Object.keys(parsed.value).sort(), [
-    'app', 'essentialHistory', 'essentials', 'essentialsState', 'exportedAt', 'preferences', 'schemaVersion', 'tasks',
+    'app', 'essentialHistory', 'essentials', 'essentialsState', 'exportedAt', 'focusState', 'preferences', 'schemaVersion', 'tasks',
   ]);
 });
 
@@ -156,6 +157,7 @@ test('the preview summarizes task and essential counts', () => {
   assert.equal(summary.progressEntryCount, 1);
   assert.equal(summary.progressDate, '2026-01-01');
   assert.equal(summary.historyDayCount, 0);
+  assert.equal(summary.focusSessionCount, 0);
 });
 
 // ─── Rejecting bad files ──────────────────────────────────────────────────────
@@ -178,7 +180,7 @@ test('a JSON file that is not a backup object is rejected', () => {
 });
 
 test('a newer schema version is rejected rather than guessed at', () => {
-  const result = validateBackupObject({ ...makeBackup(), schemaVersion: 3 });
+  const result = validateBackupObject({ ...makeBackup(), schemaVersion: 4 });
 
   assert.equal(result.status, 'invalid');
   if (result.status !== 'invalid') return;
@@ -433,6 +435,25 @@ test('replace swaps in the backup contents and preferences', () => {
   assert.deepEqual(result.essentials.map(e => e.order), [0, 1]);
   assert.deepEqual(result.essentialsState, { date: '2026-01-02', progressById: { e8: 1 } });
   assert.deepEqual(result.preferences, backup.preferences);
+});
+
+test('replace restores an imported running focus session in a paused state', () => {
+  const current = makeSnapshot();
+  const backup = makeBackup({
+    focusState: {
+      activeSession: {
+        id: 'focus-imported', taskId: 'task-1', taskTitle: 'Sample task',
+        plannedDurationMinutes: 25, startedAt: '2026-01-01T09:00:00.000Z',
+        activeStartedAt: '2026-01-01T09:05:00.000Z', elapsedMs: 300_000, status: 'running',
+      },
+      history: [],
+    },
+  });
+
+  const result = applyBackup(current, backup, 'replace', '2026-01-02');
+  assert.equal(result.focusState.activeSession?.status, 'paused');
+  assert.equal(result.focusState.activeSession?.activeStartedAt, null);
+  assert.equal(result.focusState.activeSession?.elapsedMs, 300_000);
 });
 
 test('replace with backup progress from another day starts today at zero', () => {

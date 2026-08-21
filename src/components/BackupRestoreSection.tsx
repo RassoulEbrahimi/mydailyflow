@@ -1,7 +1,7 @@
 import React from 'react';
 import { AlertTriangle, Download, ShieldCheck, Trash2, Upload } from 'lucide-react';
 
-import type { BackupFileV2 } from '../types/backup';
+import type { BackupFileV3 } from '../types/backup';
 import { listRecoverySnapshots, safeGetItem } from '../utils/appStorage';
 import type { RecoverySnapshotInfo } from '../utils/appStorage';
 import { parseBackupText, summarizeBackup } from '../utils/backupFormat';
@@ -32,6 +32,7 @@ const SLICE_LABELS: Record<StorageSlice, string> = {
   essentials: 'Tages-Essentials',
   essentialsState: 'Essentials-Fortschritt',
   essentialHistory: 'Essentials-Verlauf',
+  focusState: 'Fokus-Verlauf',
 };
 
 const cardClass = 'bg-surface-raised rounded-[1.5rem] p-4 px-5 border border-edge/50';
@@ -39,7 +40,7 @@ const cardClass = 'bg-surface-raised rounded-[1.5rem] p-4 px-5 border border-edg
 const BackupRestoreSection = ({ onImported }: BackupRestoreSectionProps) => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [status, setStatus] = React.useState<Status>({ kind: 'idle' });
-  const [pending, setPending] = React.useState<{ backup: BackupFileV2; summary: BackupSummary } | null>(null);
+  const [pending, setPending] = React.useState<{ backup: BackupFileV3; summary: BackupSummary } | null>(null);
   const [mode, setMode] = React.useState<ImportMode>('merge');
   const [busy, setBusy] = React.useState(false);
   const [snapshots, setSnapshots] = React.useState<RecoverySnapshotInfo[]>([]);
@@ -249,6 +250,7 @@ const BackupRestoreSection = ({ onImported }: BackupRestoreSectionProps) => {
             <li>{pending.summary.taskCount} Aufgaben</li>
             <li>{pending.summary.essentialCount} Essentials</li>
             <li>{pending.summary.historyDayCount} Tage Essentials-Verlauf</li>
+            <li>{pending.summary.focusSessionCount} Fokus-Sitzungen</li>
             <li>
               Fortschritt vom {pending.summary.progressDate}
               {pending.summary.progressDate !== getTodayString() && ' — wird auf 0 zurückgesetzt'}

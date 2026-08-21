@@ -1,4 +1,4 @@
-import { Check, Clock3, Pencil } from 'lucide-react';
+import { Check, Clock3, Pencil, TimerReset } from 'lucide-react';
 
 import type { Task } from '../types/task';
 
@@ -8,9 +8,10 @@ interface NowFocusCardProps {
   currentTime: string;
   onComplete: (id: string) => void;
   onEdit: (task: Task) => void;
+  onStartFocus: (task: Task) => void;
 }
 
-const NowFocusCard = ({ task, openCount, currentTime, onComplete, onEdit }: NowFocusCardProps) => {
+const NowFocusCard = ({ task, openCount, currentTime, onComplete, onEdit, onStartFocus }: NowFocusCardProps) => {
   const timing = task.time >= currentTime ? `ab ${task.time}` : `offen seit ${task.time}`;
 
   return (
@@ -35,11 +36,21 @@ const NowFocusCard = ({ task, openCount, currentTime, onComplete, onEdit }: NowF
         <span>{task.time} · {task.duration}</span>
       </p>
 
-      <div className="mt-3.5 grid grid-cols-2 gap-2.5">
+      <button
+        type="button"
+        onClick={() => onStartFocus(task)}
+        className="mt-3.5 flex min-h-12 w-full items-center justify-center gap-2 rounded-[14px] bg-primary px-3 text-[14px] font-bold text-white transition-opacity hover:opacity-90"
+        aria-label={`Fokus starten: ${task.title}`}
+      >
+        <TimerReset size={18} aria-hidden="true" />
+        Fokus starten
+      </button>
+
+      <div className="mt-2.5 grid grid-cols-2 gap-2.5">
         <button
           type="button"
           onClick={() => onComplete(task.id)}
-          className="min-h-11 rounded-[14px] bg-primary px-3 text-[14px] font-bold text-white transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg"
+          className="min-h-11 rounded-[14px] border border-edge-strong bg-surface-inset px-3 text-[14px] font-bold text-fg transition-colors hover:bg-surface-control"
           aria-label={`Aufgabe erledigen: ${task.title}`}
         >
           <span className="inline-flex items-center justify-center gap-2">

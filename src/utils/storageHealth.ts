@@ -8,7 +8,7 @@
  * user action that resolves it.
  */
 
-export type StorageSlice = 'tasks' | 'essentials' | 'essentialsState' | 'essentialHistory';
+export type StorageSlice = 'tasks' | 'essentials' | 'essentialsState' | 'essentialHistory' | 'focusState';
 
 export interface BlockedSlice {
     slice: StorageSlice;

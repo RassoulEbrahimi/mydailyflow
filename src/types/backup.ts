@@ -9,9 +9,11 @@ import type { LegacyTask, Task } from './task';
 import { isValidLegacyTaskArray, isValidTaskArray, migrateLegacyTasks } from './task';
 import type { DailyEssential, DailyEssentialState, EssentialHistoryDay } from './essential';
 import { isValidEssentialArray, isValidEssentialHistory, isValidEssentialState } from './essential';
+import type { FocusState } from './focus';
+import { isValidFocusState } from './focus';
 
 export const BACKUP_APP_ID = 'mydailyflow';
-export const BACKUP_SCHEMA_VERSION = 2;
+export const BACKUP_SCHEMA_VERSION = 3;
 
 export type Theme = 'light' | 'dark' | 'system';
 
@@ -43,12 +45,25 @@ export interface BackupFileV2 {
     preferences: BackupPreferences;
 }
 
+export interface BackupFileV3 {
+    app: typeof BACKUP_APP_ID;
+    schemaVersion: 3;
+    exportedAt: string;
+    tasks: Task[];
+    essentials: DailyEssential[];
+    essentialsState: DailyEssentialState;
+    essentialHistory: EssentialHistoryDay[];
+    focusState: FocusState;
+    preferences: BackupPreferences;
+}
+
 /** The in-app shape a backup is built from and restored into. */
 export interface AppDataSnapshot {
     tasks: Task[];
     essentials: DailyEssential[];
     essentialsState: DailyEssentialState;
     essentialHistory: EssentialHistoryDay[];
+    focusState: FocusState;
     preferences: BackupPreferences;
 }
 
@@ -108,7 +123,7 @@ const legacyHistory = (
  * There is no partial success: a file with valid tasks but an invalid essential
  * is rejected as a whole, so an import can never apply half a backup.
  */
-export function validateBackupObject(data: unknown): ValidationResult<BackupFileV2> {
+export function validateBackupObject(data: unknown): ValidationResult<BackupFileV3> {
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
         return { status: 'invalid', errors: ['not-an-object'] };
     }
@@ -121,7 +136,7 @@ export function validateBackupObject(data: unknown): ValidationResult<BackupFile
 
     if (typeof b.schemaVersion !== 'number' || !Number.isInteger(b.schemaVersion)) {
         errors.push('missing-schema-version');
-    } else if (b.schemaVersion !== 1 && b.schemaVersion !== BACKUP_SCHEMA_VERSION) {
+    } else if (b.schemaVersion !== 1 && b.schemaVersion !== 2 && b.schemaVersion !== BACKUP_SCHEMA_VERSION) {
         errors.push(
             `unsupported-schema-version: file is v${b.schemaVersion}, this app supports v${BACKUP_SCHEMA_VERSION}`,
         );
@@ -132,10 +147,12 @@ export function validateBackupObject(data: unknown): ValidationResult<BackupFile
     }
 
     const isV1 = b.schemaVersion === 1;
+    const isV3 = b.schemaVersion === 3;
     if (isV1 ? !isValidLegacyTaskArray(b.tasks) : !isValidTaskArray(b.tasks)) errors.push('invalid-tasks');
     if (!isValidEssentialArray(b.essentials)) errors.push('invalid-essentials');
     if (!isValidEssentialState(b.essentialsState)) errors.push('invalid-essentials-state');
     if (!isV1 && !isValidEssentialHistory(b.essentialHistory)) errors.push('invalid-essential-history');
+    if (isV3 && !isValidFocusState(b.focusState)) errors.push('invalid-focus-state');
     if (!isBackupPreferences(b.preferences)) errors.push('invalid-preferences');
 
     if (errors.length > 0) return { status: 'invalid', errors };
@@ -157,6 +174,9 @@ export function validateBackupObject(data: unknown): ValidationResult<BackupFile
             essentialHistory: isV1
                 ? legacyHistory(b.essentials as DailyEssential[], b.essentialsState as DailyEssentialState)
                 : b.essentialHistory as EssentialHistoryDay[],
+            focusState: isV3
+                ? b.focusState as FocusState
+                : { activeSession: null, history: [] },
             preferences: b.preferences as BackupPreferences,
         },
     };
