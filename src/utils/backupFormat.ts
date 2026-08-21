@@ -4,15 +4,16 @@
  * Pure: no DOM, no storage, no React. Everything here is directly testable.
  */
 
-import type { AppDataSnapshot, BackupFileV3, ValidationResult } from '../types/backup';
+import type { AppDataSnapshot, BackupFileV4, ValidationResult } from '../types/backup';
 import { BACKUP_APP_ID, BACKUP_SCHEMA_VERSION, isBackupPreferences, validateBackupObject } from '../types/backup';
 import { isValidEssentialArray, isValidEssentialHistory, isValidEssentialState } from '../types/essential';
 import { isValidTaskArray } from '../types/task';
 import { isValidFocusState } from '../types/focus';
 import { pauseFocusForBackup } from './focusSessions';
+import { isValidTemplateArray } from '../types/template';
 
 /** Assembles only the explicitly versioned, user-owned data sections. */
-export function buildBackup(snapshot: AppDataSnapshot, exportedAt: string): BackupFileV3 {
+export function buildBackup(snapshot: AppDataSnapshot, exportedAt: string): BackupFileV4 {
     return {
         app: BACKUP_APP_ID,
         schemaVersion: BACKUP_SCHEMA_VERSION,
@@ -22,11 +23,12 @@ export function buildBackup(snapshot: AppDataSnapshot, exportedAt: string): Back
         essentialsState: snapshot.essentialsState,
         essentialHistory: snapshot.essentialHistory,
         focusState: pauseFocusForBackup(snapshot.focusState, exportedAt),
+        templates: snapshot.templates,
         preferences: snapshot.preferences,
     };
 }
 
-export const serializeBackup = (backup: BackupFileV3): string =>
+export const serializeBackup = (backup: BackupFileV4): string =>
     JSON.stringify(backup, null, 2);
 
 /** `mydailyflow-backup-2026-08-15-1204.json` */
@@ -48,13 +50,14 @@ export function validateSnapshot(snapshot: AppDataSnapshot): ValidationResult<Ap
     if (!isValidEssentialState(snapshot.essentialsState)) errors.push('invalid-essentials-state');
     if (!isValidEssentialHistory(snapshot.essentialHistory)) errors.push('invalid-essential-history');
     if (!isValidFocusState(snapshot.focusState)) errors.push('invalid-focus-state');
+    if (!isValidTemplateArray(snapshot.templates)) errors.push('invalid-templates');
     if (!isBackupPreferences(snapshot.preferences)) errors.push('invalid-preferences');
     if (errors.length > 0) return { status: 'invalid', errors };
     return { status: 'valid', value: snapshot };
 }
 
 /** Parses file text. Invalid JSON and unsupported versions are distinguished. */
-export function parseBackupText(raw: string): ValidationResult<BackupFileV3> {
+export function parseBackupText(raw: string): ValidationResult<BackupFileV4> {
     let parsed: unknown;
     try {
         parsed = JSON.parse(raw);
@@ -72,10 +75,11 @@ export interface BackupSummary {
     progressDate: string;
     historyDayCount: number;
     focusSessionCount: number;
+    templateCount: number;
 }
 
 /** Counts shown in the import preview before anything is applied. */
-export function summarizeBackup(backup: BackupFileV3): BackupSummary {
+export function summarizeBackup(backup: BackupFileV4): BackupSummary {
     return {
         exportedAt: backup.exportedAt,
         taskCount: backup.tasks.length,
@@ -84,5 +88,6 @@ export function summarizeBackup(backup: BackupFileV3): BackupSummary {
         progressDate: backup.essentialsState.date,
         historyDayCount: backup.essentialHistory.length,
         focusSessionCount: backup.focusState.history.length + (backup.focusState.activeSession ? 1 : 0),
+        templateCount: backup.templates.length,
     };
 }

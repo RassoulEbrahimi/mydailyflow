@@ -40,8 +40,9 @@ test.describe('backup export / import round-trip', () => {
 
     // ── Shape ────────────────────────────────────────────────────────────────
     expect(backup.app).toBe('mydailyflow');
-    expect(backup.schemaVersion).toBe(3);
+    expect(backup.schemaVersion).toBe(4);
     expect(backup.focusState).toEqual({ activeSession: null, history: [] });
+    expect(backup.templates).toEqual([]);
     expect(download.suggestedFilename()).toMatch(/^mydailyflow-backup-.*\.json$/);
 
     // ── Data survives ────────────────────────────────────────────────────────
@@ -114,6 +115,7 @@ test.describe('backup export / import round-trip', () => {
       localStorage.removeItem(keys.essentialsData);
       localStorage.removeItem(keys.essentialsState);
       localStorage.removeItem(keys.essentialHistory);
+      localStorage.removeItem(keys.templates);
     }, KEYS);
     await app.page.reload({ waitUntil: 'domcontentloaded' });
 

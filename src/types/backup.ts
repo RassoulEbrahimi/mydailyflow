@@ -11,9 +11,11 @@ import type { DailyEssential, DailyEssentialState, EssentialHistoryDay } from '.
 import { isValidEssentialArray, isValidEssentialHistory, isValidEssentialState } from './essential';
 import type { FocusState } from './focus';
 import { isValidFocusState } from './focus';
+import type { TaskTemplate } from './template';
+import { isValidTemplateArray } from './template';
 
 export const BACKUP_APP_ID = 'mydailyflow';
-export const BACKUP_SCHEMA_VERSION = 3;
+export const BACKUP_SCHEMA_VERSION = 4;
 
 export type Theme = 'light' | 'dark' | 'system';
 
@@ -57,6 +59,19 @@ export interface BackupFileV3 {
     preferences: BackupPreferences;
 }
 
+export interface BackupFileV4 {
+    app: typeof BACKUP_APP_ID;
+    schemaVersion: 4;
+    exportedAt: string;
+    tasks: Task[];
+    essentials: DailyEssential[];
+    essentialsState: DailyEssentialState;
+    essentialHistory: EssentialHistoryDay[];
+    focusState: FocusState;
+    templates: TaskTemplate[];
+    preferences: BackupPreferences;
+}
+
 /** The in-app shape a backup is built from and restored into. */
 export interface AppDataSnapshot {
     tasks: Task[];
@@ -64,6 +79,7 @@ export interface AppDataSnapshot {
     essentialsState: DailyEssentialState;
     essentialHistory: EssentialHistoryDay[];
     focusState: FocusState;
+    templates: TaskTemplate[];
     preferences: BackupPreferences;
 }
 
@@ -123,7 +139,7 @@ const legacyHistory = (
  * There is no partial success: a file with valid tasks but an invalid essential
  * is rejected as a whole, so an import can never apply half a backup.
  */
-export function validateBackupObject(data: unknown): ValidationResult<BackupFileV3> {
+export function validateBackupObject(data: unknown): ValidationResult<BackupFileV4> {
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
         return { status: 'invalid', errors: ['not-an-object'] };
     }
@@ -136,7 +152,7 @@ export function validateBackupObject(data: unknown): ValidationResult<BackupFile
 
     if (typeof b.schemaVersion !== 'number' || !Number.isInteger(b.schemaVersion)) {
         errors.push('missing-schema-version');
-    } else if (b.schemaVersion !== 1 && b.schemaVersion !== 2 && b.schemaVersion !== BACKUP_SCHEMA_VERSION) {
+    } else if (![1, 2, 3, BACKUP_SCHEMA_VERSION].includes(b.schemaVersion)) {
         errors.push(
             `unsupported-schema-version: file is v${b.schemaVersion}, this app supports v${BACKUP_SCHEMA_VERSION}`,
         );
@@ -147,12 +163,14 @@ export function validateBackupObject(data: unknown): ValidationResult<BackupFile
     }
 
     const isV1 = b.schemaVersion === 1;
-    const isV3 = b.schemaVersion === 3;
+    const hasFocusState = b.schemaVersion === 3 || b.schemaVersion === 4;
+    const isV4 = b.schemaVersion === 4;
     if (isV1 ? !isValidLegacyTaskArray(b.tasks) : !isValidTaskArray(b.tasks)) errors.push('invalid-tasks');
     if (!isValidEssentialArray(b.essentials)) errors.push('invalid-essentials');
     if (!isValidEssentialState(b.essentialsState)) errors.push('invalid-essentials-state');
     if (!isV1 && !isValidEssentialHistory(b.essentialHistory)) errors.push('invalid-essential-history');
-    if (isV3 && !isValidFocusState(b.focusState)) errors.push('invalid-focus-state');
+    if (hasFocusState && !isValidFocusState(b.focusState)) errors.push('invalid-focus-state');
+    if (isV4 && !isValidTemplateArray(b.templates)) errors.push('invalid-templates');
     if (!isBackupPreferences(b.preferences)) errors.push('invalid-preferences');
 
     if (errors.length > 0) return { status: 'invalid', errors };
@@ -174,9 +192,10 @@ export function validateBackupObject(data: unknown): ValidationResult<BackupFile
             essentialHistory: isV1
                 ? legacyHistory(b.essentials as DailyEssential[], b.essentialsState as DailyEssentialState)
                 : b.essentialHistory as EssentialHistoryDay[],
-            focusState: isV3
+            focusState: hasFocusState
                 ? b.focusState as FocusState
                 : { activeSession: null, history: [] },
+            templates: isV4 ? b.templates as TaskTemplate[] : [],
             preferences: b.preferences as BackupPreferences,
         },
     };
