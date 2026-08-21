@@ -2,10 +2,8 @@
 <html lang="de" dir="ltr">
 
 <head>
-  <script>
-    // FOUC prevention — apply theme before first paint
-    (function(){var t=localStorage.getItem('myDailyFlow_theme');if(t!=='light'&&t!=='dark'&&t!=='system')t='dark';document.documentElement.setAttribute('data-theme',t)})();
-  </script>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://placehold.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.run.app; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <script src="/mydailyflow/theme-init.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>My Daily Flow</title>

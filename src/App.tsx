@@ -45,6 +45,9 @@ import { useTaskTemplates } from './hooks/useTaskTemplates';
 import TemplatesModal from './components/TemplatesModal';
 import type { TaskTemplate } from './types/template';
 import { instantiateTaskTemplate } from './utils/taskTemplates';
+import { getRealAuthConfig } from './config/features';
+
+const RealAuthRoot = React.lazy(() => import('./components/RealAuthRoot'));
 
 const TaskSection = ({ title, timeRange, accentClass, children }: { title: string, timeRange?: string, accentClass: string, children: React.ReactNode }) => {
   return (
@@ -137,7 +140,15 @@ function usePinnedTopContract(
   }, [scrollerRef, pinnedRef, isPinned, viewKey]);
 }
 
-function AppInner({ logout }: { logout: () => void }) {
+function AppInner({
+  logout,
+  authMode = 'demo',
+  accountLabel,
+}: {
+  logout: () => void;
+  authMode?: 'demo' | 'supabase';
+  accountLabel?: string;
+}) {
   const { theme, setTheme } = useTheme();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
@@ -1012,6 +1023,8 @@ function AppInner({ logout }: { logout: () => void }) {
         onStickyHeroChange={setStickyHeroEnabled}
         theme={theme}
         onThemeChange={setTheme}
+        authMode={authMode}
+        accountLabel={accountLabel}
       />
     </div>
   );
@@ -1020,10 +1033,35 @@ function AppInner({ logout }: { logout: () => void }) {
 // ─── Auth gate ────────────────────────────────────────────────────────────────
 // Thin wrapper that handles login state before rendering the full app.
 // ⚠️  Demo-only. Not secure.
-export default function App() {
+function DemoAuthGate() {
   const { user, login, logout } = useAuth();
   if (!user) {
     return <LoginPage onLogin={login} />;
   }
   return <AppInner logout={logout} />;
+}
+
+export default function App() {
+  const realAuth = getRealAuthConfig();
+  if (realAuth.status === 'disabled') return <DemoAuthGate />;
+  if (realAuth.status === 'misconfigured') {
+    return (
+      <main className="min-h-screen bg-page px-5 flex items-center justify-center text-center">
+        <div className="max-w-sm rounded-2xl border border-danger-border bg-danger-surface p-5">
+          <h1 className="font-bold text-danger">Real Auth ist nicht konfiguriert</h1>
+          <p className="mt-2 text-sm text-fg-secondary">{realAuth.reason} Der Feature-Flag wurde nicht automatisch zurückgesetzt.</p>
+        </div>
+      </main>
+    );
+  }
+  return (
+    <React.Suspense fallback={<div role="status" className="min-h-screen bg-page flex items-center justify-center text-fg-secondary">Real Auth wird geladen…</div>}>
+      <RealAuthRoot
+        config={realAuth.value}
+        renderApp={({ logout, accountLabel }) => (
+          <AppInner logout={logout} authMode="supabase" accountLabel={accountLabel} />
+        )}
+      />
+    </React.Suspense>
+  );
 }

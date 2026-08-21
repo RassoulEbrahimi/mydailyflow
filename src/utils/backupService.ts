@@ -239,16 +239,17 @@ export type ImportResult = ImportSuccess | ImportFailure;
  * key that cannot collide with an existing snapshot, and verifies it by
  * read-back before the caller may continue.
  */
-function writePreImportSnapshot(
+export function writeVerifiedRecoverySnapshot(
     storage: StorageLike,
     captured: StorageWrite[],
+    source: string,
     nowISO: string,
 ): { status: 'ok'; key: string } | { status: 'failed'; error: string } {
     const raw: Record<string, string | null> = {};
     for (const entry of captured) raw[entry.key] = entry.value;
 
     const payload = JSON.stringify({ capturedAt: nowISO, raw });
-    const key = uniqueRecoveryKey(storage, PRE_IMPORT_SOURCE, nowISO);
+    const key = uniqueRecoveryKey(storage, source, nowISO);
 
     try {
         storage.setItem(key, payload);
@@ -299,7 +300,7 @@ export function importBackup(
     const { captured } = capture;
 
     // 2 — preserve it, verified, before any managed key is touched.
-    const snapshotResult = writePreImportSnapshot(storage, captured, nowISO);
+    const snapshotResult = writeVerifiedRecoverySnapshot(storage, captured, PRE_IMPORT_SOURCE, nowISO);
     if (snapshotResult.status === 'failed') {
         return { status: 'failed', stage: 'snapshot', errors: [snapshotResult.error], rolledBack: true };
     }

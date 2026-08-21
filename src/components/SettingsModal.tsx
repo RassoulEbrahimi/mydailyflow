@@ -17,6 +17,8 @@ interface SettingsModalProps {
   onStickyHeroChange: (val: boolean) => void;
   theme: Theme;
   onThemeChange: (t: Theme) => void;
+  authMode?: 'demo' | 'supabase';
+  accountLabel?: string;
 }
 
 const SettingsModal = ({
@@ -32,6 +34,8 @@ const SettingsModal = ({
   onStickyHeroChange,
   theme,
   onThemeChange,
+  authMode = 'demo',
+  accountLabel,
 }: SettingsModalProps) => {
   const [requesting, setRequesting] = React.useState(false);
 
@@ -220,7 +224,11 @@ const SettingsModal = ({
             <LogOut size={20} strokeWidth={2.5} aria-hidden="true" />
             Abmelden
           </button>
-          <p className="text-center text-[11px] text-fg-placeholder mt-3">Demo-Umgebung · Nicht sicher</p>
+          <p className="text-center text-[11px] text-fg-placeholder mt-3">
+            {authMode === 'supabase'
+              ? `Supabase-Testzugang · Sync aus${accountLabel ? ` · ${accountLabel}` : ''}`
+              : 'Demo-Umgebung · Nicht sicher'}
+          </p>
         </div>
       </div>
     </>
