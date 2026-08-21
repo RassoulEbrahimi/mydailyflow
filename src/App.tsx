@@ -1,4 +1,4 @@
-import { Waves, Search, Bell, Sun, List, CheckCircle2, Settings, Plus, RotateCcw, CalendarPlus, BarChart3 } from 'lucide-react';
+import { Waves, Search, Bell, Sun, List, CheckCircle2, Settings, Plus, RotateCcw, CalendarPlus, BarChart3, Layers3 } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from './hooks/useAuth';
 import LoginPage from './components/LoginPage';
@@ -41,6 +41,10 @@ import FocusSetupModal from './components/FocusSetupModal';
 import FocusSessionPanel from './components/FocusSessionPanel';
 import FocusSessionBanner from './components/FocusSessionBanner';
 import { useFocusSessions } from './hooks/useFocusSessions';
+import { useTaskTemplates } from './hooks/useTaskTemplates';
+import TemplatesModal from './components/TemplatesModal';
+import type { TaskTemplate } from './types/template';
+import { instantiateTaskTemplate } from './utils/taskTemplates';
 
 const TaskSection = ({ title, timeRange, accentClass, children }: { title: string, timeRange?: string, accentClass: string, children: React.ReactNode }) => {
   return (
@@ -145,6 +149,7 @@ function AppInner({ logout }: { logout: () => void }) {
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isManageEssentialsOpen, setIsManageEssentialsOpen] = useState(false);
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   /** Sticky hero header preference — default on */
   const [stickyHeroEnabled, setStickyHeroEnabled] = useState<boolean>(
     () => localStorage.getItem('stickyHeroEnabled') !== 'false'
@@ -232,17 +237,24 @@ function AppInner({ logout }: { logout: () => void }) {
     setShowPlusMenu(false);
   };
 
+  const openTemplatesModal = () => {
+    setIsTemplatesOpen(true);
+    setShowPlusMenu(false);
+  };
+
   const openEditTaskModal = (task: Task) => {
     setTaskToEdit(task);
     setIsModalOpen(true);
   };
 
-  const { tasks, saveTask, toggleTaskStatus, toggleChecklistItem, deleteTask, restoreTask, moveTaskToTomorrow, moveTaskInPlanner } = useTasks();
+  const { tasks, saveTask, createTasks, toggleTaskStatus, toggleChecklistItem, deleteTask, restoreTask, moveTaskToTomorrow, moveTaskInPlanner } = useTasks();
+  const { templates, createTemplate, deleteTemplate } = useTaskTemplates();
   const { focusState, startFocus, pauseFocus, resumeFocus, finishFocus } = useFocusSessions();
   const [focusSetupTask, setFocusSetupTask] = useState<Task | null>(null);
   const [isFocusPanelOpen, setIsFocusPanelOpen] = useState(false);
   const [pendingTaskDeletion, setPendingTaskDeletion] = useState<Task | null>(null);
   const [planningConfirmation, setPlanningConfirmation] = useState<Task | null>(null);
+  const [templateConfirmation, setTemplateConfirmation] = useState<{ name: string; count: number } | null>(null);
 
   // Task deletion is immediate, but recoverable for eight seconds. The toast
   // lives at app-shell level so switching tabs cannot make the recovery action
@@ -258,6 +270,12 @@ function AppInner({ logout }: { logout: () => void }) {
     const timeoutId = window.setTimeout(() => setPlanningConfirmation(null), 6000);
     return () => window.clearTimeout(timeoutId);
   }, [planningConfirmation]);
+
+  useEffect(() => {
+    if (!templateConfirmation) return;
+    const timeoutId = window.setTimeout(() => setTemplateConfirmation(null), 6000);
+    return () => window.clearTimeout(timeoutId);
+  }, [templateConfirmation]);
 
   const handleDeleteTask = (id: string) => {
     const task = tasks.find(candidate => candidate.id === id);
@@ -353,6 +371,20 @@ function AppInner({ logout }: { logout: () => void }) {
       setAllDateFilter('today');
       setAllDatePicker('');
     }
+  };
+
+  const handleApplyTemplate = (template: TaskTemplate, date: string) => {
+    const drafts = instantiateTaskTemplate(
+      template,
+      date,
+      () => Math.random().toString(36).substr(2, 9),
+    );
+    createTasks(drafts);
+    setTemplateConfirmation({ name: template.name, count: drafts.length });
+    setIsTemplatesOpen(false);
+    setActiveTab('all');
+    setAllDateFilter('date');
+    setAllDatePicker(date);
   };
 
 
@@ -821,6 +853,21 @@ function AppInner({ logout }: { logout: () => void }) {
         </div>
       )}
 
+      {templateConfirmation && !pendingTaskDeletion && (
+        <div
+          role="status"
+          data-template-confirmation
+          aria-live="polite"
+          className="fixed bottom-[6.75rem] left-4 right-4 z-40 mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-edge bg-surface-overlay p-3 pl-4 shadow-2xl"
+        >
+          <Layers3 size={20} className="flex-shrink-0 text-success" aria-hidden="true" />
+          <p className="min-w-0 flex-1 text-[14px] text-fg-secondary">
+            <span dir="auto" className="font-semibold text-fg">{templateConfirmation.name}</span>
+            {' · '}{templateConfirmation.count} Aufgabe{templateConfirmation.count !== 1 ? 'n' : ''} unabhängig geplant
+          </p>
+        </div>
+      )}
+
       {/* Floating Action Button — review and planner use their own focused actions. */}
       {activeTab !== 'review' && activeTab !== 'planner' && <div className="fixed bottom-[5.5rem] right-5 z-20 flex flex-col items-end">
         {showPlusMenu && (
@@ -839,6 +886,14 @@ function AppInner({ logout }: { logout: () => void }) {
             >
               <div className="w-2 h-2 rounded-full bg-primary animate-pulse" aria-hidden="true" />
               Sprachaufgabe
+            </button>
+            <button
+              type="button"
+              onClick={openTemplatesModal}
+              className="flex min-h-11 items-center gap-2 whitespace-nowrap border-t border-edge-muted/50 px-5 py-3.5 text-left text-[15px] font-semibold text-fg transition-colors hover:bg-fg/5"
+            >
+              <Layers3 size={18} className="text-primary-text" aria-hidden="true" />
+              Vorlagen & Routinen
             </button>
           </div>
         )}
@@ -896,6 +951,16 @@ function AppInner({ logout }: { logout: () => void }) {
         taskToEdit={taskToEdit}
         initialDraft={voiceDraft}
         initialDate={newTaskInitialDate}
+      />
+      <TemplatesModal
+        isOpen={isTemplatesOpen}
+        onClose={() => setIsTemplatesOpen(false)}
+        templates={templates}
+        tasks={tasks}
+        initialDate={activeTab === 'all' ? allPlanningDate : today}
+        onCreate={createTemplate}
+        onDelete={deleteTemplate}
+        onApply={handleApplyTemplate}
       />
       <FocusSetupModal
         task={focusSetupTask}

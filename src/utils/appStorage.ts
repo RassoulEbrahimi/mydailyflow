@@ -35,6 +35,8 @@ import {
 } from '../types/essential';
 import type { FocusState, FocusStateWrapper } from '../types/focus';
 import { isFocusStateWrapper, isValidFocusState } from '../types/focus';
+import type { TaskTemplate, TemplatesWrapper } from '../types/template';
+import { isTemplatesWrapper, isValidTemplateArray } from '../types/template';
 
 // ─── Keys ─────────────────────────────────────────────────────────────────────
 
@@ -52,6 +54,7 @@ export const STORAGE_KEYS = {
     essentialsState: 'myDailyFlowEssentialsState',
     essentialHistory: 'myDailyFlowEssentialHistory',
     focusState: 'myDailyFlowFocusState',
+    templates: 'myDailyFlowTemplates',
     theme: 'myDailyFlow_theme',
     remindersEnabled: 'remindersEnabled',
     stickyHeroEnabled: 'stickyHeroEnabled',
@@ -67,6 +70,7 @@ export const MANAGED_KEYS: StorageKey[] = [
     STORAGE_KEYS.essentialsState,
     STORAGE_KEYS.essentialHistory,
     STORAGE_KEYS.focusState,
+    STORAGE_KEYS.templates,
     STORAGE_KEYS.theme,
     STORAGE_KEYS.remindersEnabled,
     STORAGE_KEYS.stickyHeroEnabled,
@@ -397,6 +401,19 @@ export function parseFocusStateRaw(raw: string | null): SliceParseResult<FocusSt
     return { status: 'invalid', value: null, detail: 'invalid focus state format' };
 }
 
+export function parseTemplatesRaw(raw: string | null): SliceParseResult<TaskTemplate[]> {
+    if (raw === null) return { status: 'empty', value: null };
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(raw);
+    } catch (e) {
+        return { status: 'invalid', value: null, detail: `unparseable JSON: ${errorMessage(e)}` };
+    }
+    if (isTemplatesWrapper(parsed)) return { status: 'ok', value: parsed.data };
+    if (isValidTemplateArray(parsed)) return { status: 'migrated', value: parsed };
+    return { status: 'invalid', value: null, detail: 'invalid templates format' };
+}
+
 export function parseEssentialsRaw(raw: string | null): SliceParseResult<DailyEssential[]> {
     if (raw === null) return { status: 'empty', value: null };
 
@@ -502,6 +519,9 @@ export const loadEssentialHistorySlice = (storage: StorageLike, nowISO: string):
 export const loadFocusStateSlice = (storage: StorageLike, nowISO: string): SliceLoadResult<FocusState> =>
     loadSlice(storage, STORAGE_KEYS.focusState, nowISO, parseFocusStateRaw);
 
+export const loadTemplatesSlice = (storage: StorageLike, nowISO: string): SliceLoadResult<TaskTemplate[]> =>
+    loadSlice(storage, STORAGE_KEYS.templates, nowISO, parseTemplatesRaw);
+
 // ─── Wrapper helpers ──────────────────────────────────────────────────────────
 
 export const serializeTasks = (tasks: Task[]): string =>
@@ -518,3 +538,6 @@ export const serializeEssentialHistory = (history: EssentialHistoryDay[]): strin
 
 export const serializeFocusState = (state: FocusState): string =>
     JSON.stringify({ version: 1, data: state } satisfies FocusStateWrapper);
+
+export const serializeTemplates = (templates: TaskTemplate[]): string =>
+    JSON.stringify({ version: 1, data: templates } satisfies TemplatesWrapper);

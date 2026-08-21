@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { AppDataSnapshot, BackupFileV3 } from '../src/types/backup';
+import type { AppDataSnapshot, BackupFileV4 } from '../src/types/backup';
 import { BACKUP_SCHEMA_VERSION, validateBackupObject } from '../src/types/backup';
 import type { DailyEssential } from '../src/types/essential';
 import {
@@ -58,6 +58,7 @@ const makeSnapshot = (overrides: Partial<AppDataSnapshot> = {}): AppDataSnapshot
   essentialsState: { date: '2026-01-01', progressById: { 'essential-1': 1 } },
   essentialHistory: [],
   focusState: { activeSession: null, history: [] },
+  templates: [],
   preferences: {
     theme: 'dark',
     remindersEnabled: true,
@@ -67,7 +68,7 @@ const makeSnapshot = (overrides: Partial<AppDataSnapshot> = {}): AppDataSnapshot
   ...overrides,
 });
 
-const makeBackup = (overrides: Partial<BackupFileV3> = {}): BackupFileV3 => ({
+const makeBackup = (overrides: Partial<BackupFileV4> = {}): BackupFileV4 => ({
   ...buildBackup(makeSnapshot(), '2026-01-01T10:00:00.000Z'),
   ...overrides,
 });
@@ -84,6 +85,7 @@ test('a built backup carries the schema version, timestamp and every data sectio
   assert.equal(backup.essentials.length, 1);
   assert.deepEqual(backup.essentialsState, { date: '2026-01-01', progressById: { 'essential-1': 1 } });
   assert.deepEqual(backup.essentialHistory, []);
+  assert.deepEqual(backup.templates, []);
   assert.deepEqual(backup.preferences, {
     theme: 'dark',
     remindersEnabled: true,
@@ -99,6 +101,36 @@ test('a serialized backup survives a full round trip', () => {
   assert.equal(parsed.status, 'valid');
   if (parsed.status !== 'valid') return;
   assert.deepEqual(parsed.value, backup);
+});
+
+test('a v3 backup migrates to v4 with an empty template slice', () => {
+  const current = buildBackup(makeSnapshot(), '2026-01-01T10:00:00.000Z');
+  const { templates: _templates, ...legacy } = current;
+  const parsed = validateBackupObject({ ...legacy, schemaVersion: 3 });
+  assert.equal(parsed.status, 'valid');
+  if (parsed.status !== 'valid') return;
+  assert.equal(parsed.value.schemaVersion, 4);
+  assert.deepEqual(parsed.value.templates, []);
+});
+
+test('v4 validates and round-trips task templates', () => {
+  const snapshot = makeSnapshot({
+    templates: [{
+      id: 'template-1',
+      name: 'Morning routine',
+      kind: 'routine',
+      createdAt: '2026-01-01T09:00:00.000Z',
+      items: [
+        { dayOffset: 0, title: 'Read', time: '08:00', duration: '30m', timeBlock: 'morning', priority: 'medium', recurrence: 'none', reminderEnabled: true, checklistItems: [{ text: 'Chapter one' }] },
+        { dayOffset: 0, title: 'Plan', time: '', duration: '15m', timeBlock: 'evening', priority: 'low', recurrence: 'none', reminderEnabled: false },
+      ],
+    }],
+  });
+  const backup = buildBackup(snapshot, '2026-01-01T10:00:00.000Z');
+  const parsed = parseBackupText(serializeBackup(backup));
+  assert.equal(parsed.status, 'valid');
+  if (parsed.status !== 'valid') return;
+  assert.deepEqual(parsed.value.templates, snapshot.templates);
 });
 
 test('the exported file name is derived from the export timestamp', () => {
@@ -124,7 +156,7 @@ test('a backup never contains authentication or session data', () => {
   assert.equal(parsed.status, 'valid');
   if (parsed.status !== 'valid') return;
   assert.deepEqual(Object.keys(parsed.value).sort(), [
-    'app', 'essentialHistory', 'essentials', 'essentialsState', 'exportedAt', 'focusState', 'preferences', 'schemaVersion', 'tasks',
+    'app', 'essentialHistory', 'essentials', 'essentialsState', 'exportedAt', 'focusState', 'preferences', 'schemaVersion', 'tasks', 'templates',
   ]);
 });
 
@@ -180,7 +212,7 @@ test('a JSON file that is not a backup object is rejected', () => {
 });
 
 test('a newer schema version is rejected rather than guessed at', () => {
-  const result = validateBackupObject({ ...makeBackup(), schemaVersion: 4 });
+  const result = validateBackupObject({ ...makeBackup(), schemaVersion: 5 });
 
   assert.equal(result.status, 'invalid');
   if (result.status !== 'invalid') return;

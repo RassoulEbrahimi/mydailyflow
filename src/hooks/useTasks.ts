@@ -5,6 +5,7 @@ import { STORAGE_KEYS, loadTasksSlice, serializeTasks } from '../utils/appStorag
 import { blockReasonFor, isSliceBlocked, registerBlockedSlice, subscribeStorageHealth } from '../utils/storageHealth';
 import { buildNextOccurrence, getTodayString, nextRecurrenceDate, rolloverTasksForDate, withRecurrenceAnchor, withTaskCompletion } from '../utils/taskUtils';
 import { moveTaskToPlannerDestination, type PlannerDestination } from '../utils/weekPlanner';
+import type { TemplateTaskDraft } from '../utils/taskTemplates';
 
 export function useTasks() {
   // Loaded once, synchronously, so the "may we persist?" answer exists before
@@ -129,6 +130,19 @@ export function useTasks() {
     return savedTaskInner;
   };
 
+  const createTasks = (drafts: TemplateTaskDraft[]): Task[] => {
+    const now = new Date().toISOString();
+    const created = drafts.map(draft => withRecurrenceAnchor({
+      ...draft,
+      id: Math.random().toString(36).substr(2, 9),
+      completed: false,
+      completedAt: null,
+      createdAt: now,
+    }));
+    setTasks(previous => [...previous, ...created]);
+    return created;
+  };
+
   const toggleTaskStatus = (id: string) => {
     setTasks(prev => {
       const target = prev.find(t => t.id === id);
@@ -210,5 +224,5 @@ export function useTasks() {
     ));
   };
 
-  return { tasks: sortedTasks, saveTask, toggleTaskStatus, toggleChecklistItem, deleteTask, restoreTask, moveTaskToTomorrow, moveTaskInPlanner };
+  return { tasks: sortedTasks, saveTask, createTasks, toggleTaskStatus, toggleChecklistItem, deleteTask, restoreTask, moveTaskToTomorrow, moveTaskInPlanner };
 }

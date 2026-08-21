@@ -6,10 +6,11 @@
  * whether the result is safe to persist.
  */
 
-import type { AppDataSnapshot, BackupFileV3 } from '../types/backup';
+import type { AppDataSnapshot, BackupFileV4 } from '../types/backup';
 import type { DailyEssential, DailyEssentialState, EssentialHistoryDay } from '../types/essential';
 import type { Task } from '../types/task';
 import { mergeFocusStates } from './focusSessions';
+import { mergeTemplates } from './taskTemplates';
 
 export type ImportMode = 'merge' | 'replace';
 
@@ -84,7 +85,7 @@ const currentStateForToday = (state: DailyEssentialState, today: string): DailyE
  */
 export function applyBackup(
     current: AppDataSnapshot,
-    backup: BackupFileV3,
+    backup: BackupFileV4,
     mode: ImportMode,
     today: string,
 ): AppDataSnapshot {
@@ -101,6 +102,13 @@ export function applyBackup(
             // Backup files are inert snapshots. Even a hand-authored v3 file
             // cannot make elapsed time accrue while it was outside this app.
             focusState: mergeFocusStates({ activeSession: null, history: [] }, backup.focusState),
+            templates: backup.templates.map(template => ({
+                ...template,
+                items: template.items.map(item => ({
+                    ...item,
+                    checklistItems: item.checklistItems?.map(entry => ({ ...entry })),
+                })),
+            })),
             preferences: { ...backup.preferences },
         };
     }
@@ -118,6 +126,7 @@ export function applyBackup(
         essentialsState: { date: today, progressById },
         essentialHistory: mergeEssentialHistory(current.essentialHistory, backup.essentialHistory),
         focusState: mergeFocusStates(current.focusState, backup.focusState),
+        templates: mergeTemplates(current.templates, backup.templates),
         preferences: { ...current.preferences },
     };
 }

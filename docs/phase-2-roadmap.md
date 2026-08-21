@@ -104,7 +104,7 @@ This track starts only after Phase 2.0 selects a platform and Phase 2A proves th
 | P2-3 | Weekly Review UI — implemented | Read-only consumer of history |
 | P2-4 | Week planner and time-block movement — implemented | Planning UI isolated from focus |
 | P2-5 | Focus sessions — implemented | Separate persisted focus state + Backup v3 |
-| P2-6 | Day/routine templates | Additive template slice |
+| P2-6 | Day/routine templates — implemented | Independent template slice + Backup v4 |
 | P2-7 | Real-auth and sync spike | ADR/prototype only |
 | P2-8 | Real authentication + first-sign-in reconciliation | Feature flag and local backup gate |
 | P2-9 | Synchronization and conflict handling | Server capability flag |
@@ -121,7 +121,15 @@ This track starts only after Phase 2.0 selects a platform and Phase 2A proves th
 
 ## Recommended next objective
 
-After P2-5 mobile acceptance, start **P2-6**: reusable day/routine templates.
-Templates must create independent Tasks and checklist items; they must never
-share mutable task state. Keep real identity and synchronization in their later
-independent increments.
+**P2-6 is implemented:** a selected Task can be saved as a reusable task
+template, while multiple selected open Tasks form a routine that preserves their
+relative day offsets. Running either on a chosen base date creates independent
+Tasks and checklist-item IDs, resets completion/source state, and derives fresh
+recurrence anchors. Templates live in the versioned `myDailyFlowTemplates`
+slice, are covered by Backup v4, and older backups migrate with an empty template
+library.
+
+The next objective is **P2-7**: a documentation/prototype-only spike for real
+authentication and synchronization. It must define identity, first-sign-in
+reconciliation, offline conflict handling, deletion/export safety, and rollout
+gates before any production auth or cloud-sync code is added.

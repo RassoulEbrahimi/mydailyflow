@@ -4,7 +4,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { validateBackupObject } from '../src/types/backup';
-import type { BackupFileV2, BackupFileV3 } from '../src/types/backup';
+import type { BackupFileV2, BackupFileV4 } from '../src/types/backup';
 import { applyStorageTransaction } from '../src/utils/appStorage';
 import type { StorageLike, StorageWrite } from '../src/utils/appStorage';
 
@@ -15,10 +15,11 @@ const fixture = (name: string): unknown => JSON.parse(readFileSync(
 
 const phase1 = (): Record<string, unknown> => fixture('phase1-backup-v1.json') as Record<string, unknown>;
 const expectedPhase2 = (): BackupFileV2 => fixture('phase2-backup-v2.json') as BackupFileV2;
-const expectedCurrent = (): BackupFileV3 => ({
+const expectedCurrent = (): BackupFileV4 => ({
     ...expectedPhase2(),
-    schemaVersion: 3,
+    schemaVersion: 4,
     focusState: { activeSession: null, history: [] },
+    templates: [],
 });
 
 const migrateBackupToCurrent = (input: unknown) => {
@@ -28,7 +29,7 @@ const migrateBackupToCurrent = (input: unknown) => {
     return {
         status: 'ok' as const,
         value: validated.value,
-        migratedFrom: source.schemaVersion as 1 | 2 | 3,
+        migratedFrom: source.schemaVersion as 1 | 2 | 3 | 4,
     };
 };
 
@@ -121,7 +122,7 @@ test('migration is deterministic, idempotent, and does not mutate its input', ()
 
     assert.deepEqual(source, untouched);
     assert.deepEqual(second.value, first.value);
-    assert.equal(second.migratedFrom, 3);
+    assert.equal(second.migratedFrom, 4);
 });
 
 test('unknown top-level fields including an auth session never cross the migration boundary', () => {
