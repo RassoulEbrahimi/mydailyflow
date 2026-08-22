@@ -54,7 +54,17 @@ test('real auth is disabled by default and requires complete public configuratio
     assert.equal(configured.status, 'configured');
     if (configured.status === 'configured') {
         assert.equal(configured.value.redirectUrl, 'https://example.test/mydailyflow/');
+        assert.equal(configured.value.syncEnabled, false);
     }
+
+    const syncConfigured = resolveRealAuthConfig({
+        VITE_REAL_AUTH_ENABLED: 'true',
+        VITE_SYNC_ENABLED: 'true',
+        VITE_SUPABASE_URL: 'https://synthetic.supabase.co',
+        VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_synthetic',
+    }, '/', 'https://example.test');
+    assert.equal(syncConfigured.status, 'configured');
+    if (syncConfigured.status === 'configured') assert.equal(syncConfigured.value.syncEnabled, true);
 });
 
 test('first-sign-in choices are explicit for all four manifest combinations', () => {

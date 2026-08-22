@@ -8,7 +8,7 @@ import PasswordRecoveryPage from './PasswordRecoveryPage';
 
 interface RealAuthRootProps {
     config: RealAuthConfig;
-    renderApp(props: { logout: () => void; accountLabel: string }): ReactNode;
+    renderApp(props: { logout: () => void; accountLabel: string; userId: string }): ReactNode;
 }
 
 export default function RealAuthRoot({ config, renderApp }: RealAuthRootProps) {
@@ -38,5 +38,5 @@ export default function RealAuthRoot({ config, renderApp }: RealAuthRootProps) {
             />
         );
     }
-    return <>{renderApp({ logout: () => void auth.signOut(), accountLabel: auth.user.email })}</>;
+    return <>{renderApp({ logout: () => void auth.signOut(), accountLabel: auth.user.email, userId: auth.user.id })}</>;
 }

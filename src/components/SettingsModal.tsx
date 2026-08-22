@@ -3,6 +3,8 @@ import { useDialogFocus } from '../hooks/useDialogFocus';
 import { Bell, LogOut, Monitor, Moon, Sun as SunIcon } from 'lucide-react';
 import type { Theme } from '../hooks/useTheme';
 import BackupRestoreSection from './BackupRestoreSection';
+import SyncSettingsSection from './SyncSettingsSection';
+import type { SyncConflict, SyncViewState } from '../sync/types';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -19,6 +21,10 @@ interface SettingsModalProps {
   onThemeChange: (t: Theme) => void;
   authMode?: 'demo' | 'supabase';
   accountLabel?: string;
+  sync?: SyncViewState & {
+    onSync(): void;
+    onResolve(conflictId: string, resolution: 'keep-server' | 'use-device'): void;
+  };
 }
 
 const SettingsModal = ({
@@ -36,6 +42,7 @@ const SettingsModal = ({
   onThemeChange,
   authMode = 'demo',
   accountLabel,
+  sync,
 }: SettingsModalProps) => {
   const [requesting, setRequesting] = React.useState(false);
 
@@ -211,6 +218,8 @@ const SettingsModal = ({
           </button>
         )}
 
+        {authMode === 'supabase' && sync && <SyncSettingsSection {...sync} />}
+
         {/* ── Backup & Restore ─────────────────────────────────────────── */}
         <BackupRestoreSection onImported={onDataImported} />
 
@@ -226,7 +235,7 @@ const SettingsModal = ({
           </button>
           <p className="text-center text-[11px] text-fg-placeholder mt-3">
             {authMode === 'supabase'
-              ? `Supabase-Testzugang · Sync aus${accountLabel ? ` · ${accountLabel}` : ''}`
+              ? `Supabase-Testzugang · ${sync ? 'Sync aktiv' : 'Sync nicht bereit'}${accountLabel ? ` · ${accountLabel}` : ''}`
               : 'Demo-Umgebung · Nicht sicher'}
           </p>
         </div>

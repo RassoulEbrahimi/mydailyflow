@@ -21,27 +21,35 @@ interface FirstSignInReconciliationProps {
     onLogout(): void;
 }
 
-const decisionCopy: Record<FirstSignInDecision, { title: string; detail: string }> = {
+const syncDecisionCopy: Record<FirstSignInDecision, { title: string; detail: string }> = {
     'start-empty': {
         title: 'Leer beginnen',
         detail: 'Gerät und Konto sind leer. Nur die Startentscheidung wird vorgemerkt.',
     },
     'upload-local': {
         title: 'Dieses Gerät als Startpunkt',
-        detail: 'Lokale Daten bleiben unverändert. Der spätere Upload gehört zu P2-9.',
+        detail: 'Die geprüfte lokale Kopie wird beim Fortfahren sicher in dein Konto übertragen.',
     },
     'download-account': {
         title: 'Kontodaten später verwenden',
-        detail: 'Es wird noch nichts heruntergeladen oder angewendet.',
+        detail: 'Die Kontodaten werden beim Fortfahren atomar auf diesem Gerät übernommen.',
     },
     'merge-with-conflicts': {
         title: 'Später mit Konfliktprüfung zusammenführen',
-        detail: 'Beide Seiten bleiben erhalten. P2-9 zeigt Konflikte vor jeder Übernahme.',
+        detail: 'Unabhängige Änderungen werden verbunden; gleiche Felder bleiben als sichtbarer Konflikt erhalten.',
     },
     'keep-device-separate': {
         title: 'Dieses Gerät getrennt halten',
         detail: 'Kein Upload, kein Download und keine automatische Zusammenführung.',
     },
+};
+
+const boundaryDecisionCopy: Record<FirstSignInDecision, { title: string; detail: string }> = {
+    'start-empty': { title: 'Leer beginnen', detail: 'Gerät und Konto sind leer. Die Startentscheidung wird sicher vorgemerkt.' },
+    'upload-local': { title: 'Dieses Gerät als Startpunkt', detail: 'Bereitet dieses Gerät als späteren Startpunkt vor; Sync bleibt noch ausgeschaltet.' },
+    'download-account': { title: 'Kontodaten später verwenden', detail: 'Merkt die Kontokopie als späteren Startpunkt vor; lokale Daten bleiben unverändert.' },
+    'merge-with-conflicts': { title: 'Zusammenführung vorbereiten', detail: 'Merkt eine spätere konfliktgeprüfte Zusammenführung vor; jetzt werden keine Daten übertragen.' },
+    'keep-device-separate': { title: 'Dieses Gerät getrennt halten', detail: 'Kein Upload, kein Download und keine automatische Zusammenführung.' },
 };
 
 const ManifestCard = ({ title, icon, manifest }: { title: string; icon: 'device' | 'cloud'; manifest: DatasetManifest }) => {
@@ -65,6 +73,7 @@ const ManifestCard = ({ title, icon, manifest }: { title: string; icon: 'device'
 };
 
 export default function FirstSignInReconciliation({ config, user, onContinueLocal, onLogout }: FirstSignInReconciliationProps) {
+    const decisionCopy = config.syncEnabled ? syncDecisionCopy : boundaryDecisionCopy;
     const transport = useMemo(() => reconciliationTransportFor(config), [config.url, config.publishableKey]);
     const [local, setLocal] = useState<DatasetManifest | null>(null);
     const [account, setAccount] = useState<DatasetManifest | null>(null);
@@ -148,7 +157,9 @@ export default function FirstSignInReconciliation({ config, user, onContinueLoca
                 </div>
 
                 <div className="mb-5 rounded-2xl border border-warning-border bg-warning-surface p-4 text-sm leading-6 text-fg-secondary">
-                    <strong className="text-fg">Noch keine Synchronisierung:</strong> P2-8 liest nur das Kontomanifest und merkt deine Entscheidung vor. Task-Inhalte werden erst in P2-9 übertragen.
+                    <strong className="text-fg">Du entscheidest vor dem ersten Sync:</strong> {config.syncEnabled
+                        ? 'Erst nach geprüftem Backup und deiner Auswahl werden Daten übertragen. Gleichzeitige Änderungen werden nie still überschrieben.'
+                        : 'Sync ist in diesem Build noch ausgeschaltet. Backup und Auswahl bereiten nur den sicheren späteren Start vor.'}
                 </div>
 
                 {status === 'loading' && <div role="status" className="py-12 text-center text-fg-secondary">Manifest wird sicher gelesen…</div>}
@@ -185,7 +196,7 @@ export default function FirstSignInReconciliation({ config, user, onContinueLoca
                 {status === 'ready' && safety && (
                     <section className="space-y-3">
                         <div role="status" className="rounded-2xl border border-success-border bg-success-surface p-4 text-sm text-success">
-                            Backup v4 und Wiederherstellungspunkt wurden verifiziert. Wähle jetzt den späteren P2-9-Pfad.
+                            Backup v4 und Wiederherstellungspunkt wurden verifiziert. Wähle jetzt den sicheren Startpfad.
                         </div>
                         {choices.map(choice => (
                             <button key={choice} type="button" onClick={() => void prepareChoice(choice)} className="w-full rounded-2xl border border-edge bg-surface-raised p-4 text-left active:scale-[0.99]">
@@ -202,8 +213,10 @@ export default function FirstSignInReconciliation({ config, user, onContinueLoca
                     <section className="rounded-2xl border border-success-border bg-success-surface p-5 text-center">
                         <CheckCircle2 className="mx-auto text-success" size={34} aria-hidden="true" />
                         <h2 className="mt-3 text-lg font-bold text-fg">Vorbereitung abgeschlossen</h2>
-                        <p className="mt-2 text-sm leading-5 text-fg-secondary">Die App bleibt lokal. Normale Synchronisierung ist weiterhin ausgeschaltet.</p>
-                        <button type="button" onClick={onContinueLocal} className="mt-5 min-h-12 w-full rounded-xl bg-primary px-4 font-semibold text-white">Lokal weiterarbeiten</button>
+                        <p className="mt-2 text-sm leading-5 text-fg-secondary">{config.syncEnabled
+                            ? 'Deine Auswahl ist gespeichert. Der erste Abgleich beginnt erst nach dem Fortfahren.'
+                            : 'Deine Auswahl ist gespeichert. Dieses Gerät arbeitet weiter lokal; Sync bleibt ausgeschaltet.'}</p>
+                        <button type="button" onClick={onContinueLocal} className="mt-5 min-h-12 w-full rounded-xl bg-primary px-4 font-semibold text-white">{config.syncEnabled ? 'Sicher synchronisieren' : 'Lokal fortfahren'}</button>
                     </section>
                 )}
             </div>

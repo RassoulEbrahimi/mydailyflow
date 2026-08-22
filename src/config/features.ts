@@ -2,6 +2,8 @@ export interface RealAuthConfig {
     url: string;
     publishableKey: string;
     redirectUrl: string;
+    /** Independent kill switch: authentication may run while sync stays inert. */
+    syncEnabled: boolean;
 }
 
 type FeatureConfig =
@@ -42,7 +44,12 @@ export function resolveRealAuthConfig(
 
     return {
         status: 'configured',
-        value: { url, publishableKey, redirectUrl: new URL(baseUrl, origin).toString() },
+        value: {
+            url,
+            publishableKey,
+            redirectUrl: new URL(baseUrl, origin).toString(),
+            syncEnabled: source.VITE_SYNC_ENABLED === 'true',
+        },
     };
 }
 
