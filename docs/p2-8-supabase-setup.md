@@ -35,6 +35,7 @@ Copy only the project URL and **publishable** key:
 
 ```dotenv
 VITE_REAL_AUTH_ENABLED=false
+VITE_SYNC_ENABLED=false
 VITE_SUPABASE_URL=https://PROJECT_REF.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_REPLACE_ME
 ```
@@ -55,3 +56,7 @@ to the demo gate without reading, migrating or deleting local app data.
    writes are revoked; the security-definer RPC owns the only P2-8 write path.
 6. User A cannot read, insert, update or delete User B rows.
 7. No SDK call exists in task, essential, focus or template hooks.
+
+P2-9 is documented separately in `docs/p2-9-multidevice-sync.md`. Authentication
+can be tested with `VITE_REAL_AUTH_ENABLED=true` while `VITE_SYNC_ENABLED=false`;
+that combination never initializes the sync transport.

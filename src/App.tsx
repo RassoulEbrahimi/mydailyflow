@@ -46,6 +46,8 @@ import TemplatesModal from './components/TemplatesModal';
 import type { TaskTemplate } from './types/template';
 import { instantiateTaskTemplate } from './utils/taskTemplates';
 import { getRealAuthConfig } from './config/features';
+import type { RealAuthConfig } from './config/features';
+import { useSyncCoordinator } from './hooks/useSyncCoordinator';
 
 const RealAuthRoot = React.lazy(() => import('./components/RealAuthRoot'));
 
@@ -144,10 +146,14 @@ function AppInner({
   logout,
   authMode = 'demo',
   accountLabel,
+  syncConfig,
+  syncUserId,
 }: {
   logout: () => void;
   authMode?: 'demo' | 'supabase';
   accountLabel?: string;
+  syncConfig?: RealAuthConfig;
+  syncUserId?: string;
 }) {
   const { theme, setTheme } = useTheme();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -319,7 +325,7 @@ function AppInner({
 
   useReminders(tasks, remindersEnabled);
   
-  const { 
+  const {
     essentials, 
     progressById, 
     addEssential, 
@@ -329,6 +335,10 @@ function AppInner({
     reorderEssentials,
     history: essentialHistory,
   } = useDailyEssentials();
+  const sync = useSyncCoordinator(
+    authMode === 'supabase' && syncConfig?.syncEnabled ? syncConfig : null,
+    syncUserId,
+  );
 
   const [activeTab, setActiveTab] = useState<TabId>('today');
   const [currentTime, setCurrentTime] = useState(() => getCurrentTimeString());
@@ -551,7 +561,16 @@ function AppInner({
               className="min-w-11 min-h-11 flex items-center justify-center rounded-full text-fg-faint hover:text-fg transition-colors"
               aria-label="Einstellungen"
             >
-              <Settings size={22} aria-hidden="true" />
+              <span className="relative">
+                <Settings size={22} aria-hidden="true" />
+                {authMode === 'supabase' && (
+                  <span
+                    data-sync-status={sync.status}
+                    className={`absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-surface-inset ${sync.status === 'synced' ? 'bg-success' : sync.status === 'conflict' || sync.status === 'error' ? 'bg-warning' : sync.status === 'offline' ? 'bg-fg-faint' : 'bg-primary'}`}
+                    aria-hidden="true"
+                  />
+                )}
+              </span>
             </button>
           </div>
         </header>
@@ -1025,6 +1044,15 @@ function AppInner({
         onThemeChange={setTheme}
         authMode={authMode}
         accountLabel={accountLabel}
+        sync={authMode === 'supabase' && syncConfig?.syncEnabled ? {
+          status: sync.status,
+          pendingCount: sync.pendingCount,
+          conflicts: sync.conflicts,
+          lastSyncedAt: sync.lastSyncedAt,
+          message: sync.message,
+          onSync: sync.syncNow,
+          onResolve: sync.resolveConflict,
+        } : undefined}
       />
     </div>
   );
@@ -1058,8 +1086,8 @@ export default function App() {
     <React.Suspense fallback={<div role="status" className="min-h-screen bg-page flex items-center justify-center text-fg-secondary">Real Auth wird geladen…</div>}>
       <RealAuthRoot
         config={realAuth.value}
-        renderApp={({ logout, accountLabel }) => (
-          <AppInner logout={logout} authMode="supabase" accountLabel={accountLabel} />
+        renderApp={({ logout, accountLabel, userId }) => (
+          <AppInner logout={logout} authMode="supabase" accountLabel={accountLabel} syncConfig={realAuth.value} syncUserId={userId} />
         )}
       />
     </React.Suspense>

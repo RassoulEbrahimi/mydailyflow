@@ -10,7 +10,7 @@ Mobile-first daily task manager. Deployed to GitHub Pages at `/mydailyflow/`.
 - **Drag-and-drop:** dnd-kit (@dnd-kit/core, @dnd-kit/sortable)
 - **Backend (voice only):** Express + Multer, Mistral/Voxtral for audio transcription
 - **PWA:** Service worker registered in main.tsx
-- **Optional identity (P2-8, default off):** Supabase Auth + manifest-only first-sign-in reconciliation
+- **Optional identity + sync (P2-8/P2-9, both default off):** Supabase Auth, local-first outbox, RLS-owned records and explicit conflicts
 
 ## Commands
 ```
@@ -24,9 +24,11 @@ npm start        # Express backend on port 3001 (voice API only)
 Run `npm run lint` and `npm run build` to verify correctness after any code change.
 
 ## Architecture
-All task and essentials data is stored in **browser localStorage**. P2-8 adds an
-optional Supabase identity/manifest boundary behind `VITE_REAL_AUTH_ENABLED=false`;
-it does not store task or Essential payloads remotely. Full sync remains P2-9.
+All task and essentials data remains **local-first in browser localStorage**.
+P2-8 adds optional Supabase identity and P2-9 adds account-owned remote records,
+an offline outbox and explicit conflict resolution. They are separately gated by
+`VITE_REAL_AUTH_ENABLED=false` and `VITE_SYNC_ENABLED=false`; without both exact
+opt-ins, no sync transport is constructed and no app payload leaves the device.
 
 ### localStorage keys
 `src/utils/appStorage.ts` is the single source of truth for every key the app owns.
@@ -42,6 +44,8 @@ it does not store task or Essential payloads remotely. Full sync remains P2-9.
 | `lastRolloverDate` | `useTasks.ts` | `YYYY-MM-DD`, write-only derived state | no |
 | `mdf_auth_session` | `fakeAuth.ts` | demo session | **never** |
 | `mdf_supabase_auth` | Supabase SDK | optional real-auth session | **never** |
+| `mdf_sync_device_v1` | P2-9 sync | random installation/device UUID | no |
+| `mdf_sync_state_v1_<user-id>` | P2-9 sync | per-account shadow, outbox and revision metadata | no |
 | `myDailyFlow_recovery__*` | `appStorage.ts` | quarantined raw values | never auto-restored |
 
 **Storage safety rules:** a value that fails parsing or validation is copied to a timestamped recovery key and only then removed; if the copy fails, the original stays put. Writes for that slice are suspended (independently per slice) until the user resolves it in Settings or an import succeeds. Multi-key writes go through `applyStorageTransaction`, which verifies each write by read-back and restores every affected key on failure. The Express backend (`server.js`, port 3001) exists solely to proxy audio blobs to Mistral/Voxtral for voice transcription (`POST /api/transcribe`). Vite proxies `/api` → `http://localhost:3001` during dev.
@@ -56,6 +60,7 @@ it does not store task or Essential payloads remotely. Full sync remains P2-9.
 | `useReminders.ts` | Schedules browser notifications 10 min before tasks |
 | `useAuth.ts` | Demo localStorage auth |
 | `useRealAuth.ts` | Optional Supabase session and password-recovery state |
+| `useSyncCoordinator.ts` | Flagged local-first sync, outbox replay, remote refresh and explicit conflict resolution |
 
 ### Components (src/components/)
 | File | Role |
