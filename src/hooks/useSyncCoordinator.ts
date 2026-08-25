@@ -51,7 +51,7 @@ export function useSyncCoordinator(config: RealAuthConfig | null, userId?: strin
             publish('syncing', state, undefined, reason === 'startup' ? 'Konto wird abgeglichen…' : null);
 
             await transport.registerDevice(deviceId, state.datasetRevision);
-            let bootstrap = await transport.fetchBootstrap();
+            let bootstrap = await transport.fetchBootstrap(deviceId);
             const reconciliationBaseShadow = bootstrap.records;
             if (bootstrap.reconciliationChoice === 'keep-device-separate') {
                 publish('local', state, bootstrap.conflicts, 'Dieses Gerät bleibt wie gewählt getrennt.');
@@ -97,7 +97,7 @@ export function useSyncCoordinator(config: RealAuthConfig | null, userId?: strin
                 persistClientState(localStorage, userId, state);
             }
 
-            bootstrap = await transport.fetchBootstrap();
+            bootstrap = await transport.fetchBootstrap(deviceId);
             const latestRead = readSnapshotStrict(localStorage, getTodayString());
             if (latestRead.status === 'invalid') throw new Error(`Lokale Daten sind nicht synchronisierbar: ${latestRead.errors.join(', ')}`);
             const latestLocalRecords = snapshotToSyncRecords(latestRead.snapshot);
@@ -171,7 +171,7 @@ export function useSyncCoordinator(config: RealAuthConfig | null, userId?: strin
                 present: Boolean(deviceEntry),
                 payload: deviceEntry?.payload ?? null,
             });
-            const bootstrap = await transport.fetchBootstrap();
+            const bootstrap = await transport.fetchBootstrap(deviceId);
             const remainingKeys = Array.from(new Set<string>(bootstrap.conflicts.map(conflict => conflict.key)));
             const read = readSnapshotStrict(localStorage, getTodayString());
             if (read.status === 'invalid') throw new Error(read.errors.join(', '));

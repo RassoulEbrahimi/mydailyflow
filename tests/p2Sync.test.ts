@@ -6,9 +6,14 @@ import {
     emptyClientState,
     enqueueLocalChanges,
     enqueueLocalChangesSince,
+    hasEstablishedSyncClient,
+    hasPreparedReconciliation,
     loadClientState,
     mergeRemoteForLocal,
+    persistPreparedReconciliation,
     persistClientState,
+    reconciliationStateKey,
+    SYNC_DEVICE_KEY,
 } from '../src/sync/clientState';
 import { snapshotToSyncRecords, syncRecordsToSnapshot } from '../src/sync/projection';
 import { applySyncedSnapshot, snapshotStorageWrites } from '../src/sync/storage';
@@ -198,6 +203,43 @@ test('sync client metadata is account-namespaced and invalid metadata fails clos
     assert.deepEqual(loadClientState(storage as unknown as Storage, 'user-a', state.deviceId), state);
 });
 
+test('only a completed sync state lets the same account and device bypass first-sign-in reconciliation', () => {
+    const storage = new MemoryStorage();
+    const deviceId = '11111111-1111-4111-8111-111111111111';
+    storage.setItem(SYNC_DEVICE_KEY, deviceId);
+    const state = emptyClientState(deviceId);
+    persistClientState(storage as unknown as Storage, 'user-a', state);
+    assert.equal(hasEstablishedSyncClient(storage as unknown as Storage, 'user-a'), false);
+
+    persistClientState(storage as unknown as Storage, 'user-a', {
+        ...state,
+        lastSyncedAt: '2026-08-25T10:00:00.000Z',
+    });
+    assert.equal(hasEstablishedSyncClient(storage as unknown as Storage, 'user-a'), true);
+    assert.equal(hasEstablishedSyncClient(storage as unknown as Storage, 'user-b'), false);
+
+    storage.setItem(SYNC_DEVICE_KEY, 'not-a-device-id');
+    assert.equal(hasEstablishedSyncClient(storage as unknown as Storage, 'user-a'), false);
+});
+
+test('a prepared first-sign-in decision is scoped to the exact account and device', () => {
+    const storage = new MemoryStorage();
+    const deviceA = '11111111-1111-4111-8111-111111111111';
+    const deviceB = '22222222-2222-4222-8222-222222222222';
+    storage.setItem(SYNC_DEVICE_KEY, deviceA);
+    persistPreparedReconciliation(storage as unknown as Storage, 'user-a', deviceA, 'download-account');
+
+    assert.equal(hasPreparedReconciliation(storage as unknown as Storage, 'user-a'), true);
+    assert.equal(hasPreparedReconciliation(storage as unknown as Storage, 'user-b'), false);
+
+    storage.setItem(SYNC_DEVICE_KEY, deviceB);
+    assert.equal(hasPreparedReconciliation(storage as unknown as Storage, 'user-a'), false);
+
+    storage.setItem(SYNC_DEVICE_KEY, deviceA);
+    storage.setItem(reconciliationStateKey('user-a'), JSON.stringify({ deviceId: deviceA, choice: 'unknown' }));
+    assert.equal(hasPreparedReconciliation(storage as unknown as Storage, 'user-a'), false);
+});
+
 test('remote snapshot applies all managed slices through one verified transaction', () => {
     const storage = new MemoryStorage();
     const source = snapshot();
@@ -219,4 +261,16 @@ test('P2-9 migration keeps direct writes revoked and scopes every exposed table 
     assert.match(sql, /payload = excluded\.payload/i);
     assert.match(sql, /security definer\s+set search_path = ''/gi);
     assert.doesNotMatch(sql, /service_role|secret[_-]?key/i);
+});
+
+test('P2-9 device reconciliation migration pins each decision to one browser device', () => {
+    const sql = readFileSync('supabase/migrations/202608250001_p2_9_device_reconciliation.sql', 'utf8');
+    assert.match(sql, /add column if not exists device_id uuid/i);
+    assert.match(sql, /reconciliation_intents_owner_device_created_idx/i);
+    assert.match(sql, /drop function if exists public\.prepare_first_sign_in_reconciliation\(text, jsonb, bigint\)/i);
+    assert.match(sql, /p_device_id uuid/i);
+    assert.match(sql, /if p_device_id is null then raise exception 'device id required'/i);
+    assert.match(sql, /owner_id, dataset_id, device_id, choice/i);
+    assert.match(sql, /revoke all on function public\.prepare_first_sign_in_reconciliation\(text, jsonb, bigint, uuid\) from public, anon/i);
+    assert.match(sql, /grant execute on function public\.prepare_first_sign_in_reconciliation\(text, jsonb, bigint, uuid\) to authenticated/i);
 });

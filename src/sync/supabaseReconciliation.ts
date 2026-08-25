@@ -14,12 +14,12 @@ interface DatasetRow {
     item_counts: ManifestCounts;
     digest: string | null;
     latest_activity: string | null;
-    reconciliation_status: 'none' | 'prepared';
+    reconciliation_status: 'none' | 'prepared' | 'active';
 }
 
 export interface ReconciliationTransport {
     getAccountManifest(): Promise<DatasetManifest>;
-    prepare(choice: FirstSignInDecision, local: DatasetManifest, account: DatasetManifest): Promise<string>;
+    prepare(choice: FirstSignInDecision, local: DatasetManifest, account: DatasetManifest, deviceId: string): Promise<string>;
 }
 
 const manifestFromRow = (row: DatasetRow): DatasetManifest => ({
@@ -42,11 +42,12 @@ export function createReconciliationTransport(client: SupabaseClient): Reconcili
             return data ? manifestFromRow(data as DatasetRow) : emptyManifest();
         },
 
-        async prepare(choice, local, account) {
+        async prepare(choice, local, account, deviceId) {
             const { data, error } = await client.rpc('prepare_first_sign_in_reconciliation', {
                 p_choice: choice,
                 p_local_manifest: local,
                 p_expected_remote_revision: account.revision,
+                p_device_id: deviceId,
             });
             if (error) throw new Error(error.message);
             if (typeof data !== 'string') throw new Error('Ungültige Reconciliation-Antwort.');

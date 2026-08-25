@@ -23,7 +23,7 @@ export interface DatasetManifest {
     digest: string | null;
     latestActivity: string | null;
     counts: ManifestCounts;
-    reconciliationStatus: 'none' | 'prepared';
+    reconciliationStatus: 'none' | 'prepared' | 'active';
 }
 
 export type FirstSignInDecision =
