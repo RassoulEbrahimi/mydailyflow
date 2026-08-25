@@ -5,6 +5,7 @@ import { useRealAuth } from '../hooks/useRealAuth';
 import FirstSignInReconciliation from './FirstSignInReconciliation';
 import RealLoginPage from './RealLoginPage';
 import PasswordRecoveryPage from './PasswordRecoveryPage';
+import { hasEstablishedSyncClient } from '../sync/clientState';
 
 interface RealAuthRootProps {
     config: RealAuthConfig;
@@ -23,12 +24,14 @@ export default function RealAuthRoot({ config, renderApp }: RealAuthRootProps) {
         return <div role="status" className="min-h-screen bg-page flex items-center justify-center text-fg-secondary">Sichere Sitzung wird geprüft…</div>;
     }
     if (!auth.user) {
-        return <RealLoginPage onSignIn={auth.signIn} onSignUp={auth.signUp} onReset={auth.sendPasswordReset} />;
+        return <RealLoginPage syncEnabled={config.syncEnabled} onSignIn={auth.signIn} onSignUp={auth.signUp} onReset={auth.sendPasswordReset} />;
     }
     if (auth.status === 'password-recovery') {
         return <PasswordRecoveryPage onUpdate={auth.updatePassword} onLogout={() => void auth.signOut()} />;
     }
-    if (!continueLocal) {
+    const establishedSyncClient = config.syncEnabled
+        && hasEstablishedSyncClient(localStorage, auth.user.id);
+    if (!continueLocal && !establishedSyncClient) {
         return (
             <FirstSignInReconciliation
                 config={config}

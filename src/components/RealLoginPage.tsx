@@ -3,6 +3,7 @@ import { KeyRound, LogIn, Mail, Waves } from 'lucide-react';
 import type { AuthActionResult } from '../auth/types';
 
 interface RealLoginPageProps {
+    syncEnabled?: boolean;
     onSignIn(email: string, password: string): Promise<AuthActionResult>;
     onSignUp(email: string, password: string): Promise<AuthActionResult>;
     onReset(email: string): Promise<AuthActionResult>;
@@ -20,7 +21,7 @@ const messageFor = (result: AuthActionResult, mode: Mode): string => {
         : '';
 };
 
-export default function RealLoginPage({ onSignIn, onSignUp, onReset }: RealLoginPageProps) {
+export default function RealLoginPage({ syncEnabled = false, onSignIn, onSignUp, onReset }: RealLoginPageProps) {
     const [mode, setMode] = useState<Mode>('sign-in');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -127,7 +128,7 @@ export default function RealLoginPage({ onSignIn, onSignUp, onReset }: RealLogin
             </div>
 
             <p className="mt-6 max-w-sm text-center text-[11px] leading-5 text-fg-placeholder">
-                P2-8 Testbetrieb · Frankfurt · Synchronisierung bleibt deaktiviert
+                P2-9 Testbetrieb · Frankfurt · {syncEnabled ? 'Synchronisierung aktiv' : 'Synchronisierung deaktiviert'}
             </p>
         </div>
     );

@@ -1,9 +1,14 @@
 import type { LocalSyncRecord } from './projection';
 import { changedFields, removedFieldNames } from './projection';
+import type { FirstSignInDecision } from './reconciliation';
 import { SYNC_SCHEMA_VERSION, type SyncClientState, type SyncMutation, type SyncRecord } from './types';
 
 export const SYNC_DEVICE_KEY = 'mdf_sync_device_v1';
 export const syncStateKey = (userId: string): string => `mdf_sync_state_v1_${userId}`;
+export const reconciliationStateKey = (userId: string): string => `mdf_reconciliation_state_v1_${userId}`;
+
+const isDeviceId = (value: string | null): value is string =>
+    Boolean(value && /^[0-9a-f-]{36}$/i.test(value));
 
 export const newOpaqueId = (): string =>
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -12,10 +17,65 @@ export const newOpaqueId = (): string =>
 
 export function loadOrCreateDeviceId(storage: Pick<Storage, 'getItem' | 'setItem'>): string {
     const existing = storage.getItem(SYNC_DEVICE_KEY);
-    if (existing && /^[0-9a-f-]{36}$/i.test(existing)) return existing;
+    if (isDeviceId(existing)) return existing;
     const created = newOpaqueId();
     storage.setItem(SYNC_DEVICE_KEY, created);
     return created;
+}
+
+/**
+ * True only after this exact browser/device has completed at least one sync for
+ * the signed-in account. A different browser has no matching device + state,
+ * so it still has to pass through first-sign-in reconciliation.
+ */
+export function hasEstablishedSyncClient(
+    storage: Pick<Storage, 'getItem'>,
+    userId: string,
+): boolean {
+    const deviceId = storage.getItem(SYNC_DEVICE_KEY);
+    if (!isDeviceId(deviceId)) return false;
+    const raw = storage.getItem(syncStateKey(userId));
+    if (!raw) return false;
+    try {
+        const parsed = JSON.parse(raw) as Partial<SyncClientState>;
+        return parsed.version === SYNC_SCHEMA_VERSION
+            && parsed.deviceId === deviceId
+            && typeof parsed.lastSyncedAt === 'string'
+            && parsed.lastSyncedAt.length > 0
+            && Boolean(parsed.shadow && typeof parsed.shadow === 'object')
+            && Array.isArray(parsed.outbox)
+            && Array.isArray(parsed.conflictedKeys);
+    } catch {
+        return false;
+    }
+}
+
+export function hasPreparedReconciliation(
+    storage: Pick<Storage, 'getItem'>,
+    userId: string,
+): boolean {
+    const deviceId = storage.getItem(SYNC_DEVICE_KEY);
+    if (!isDeviceId(deviceId)) return false;
+    const raw = storage.getItem(reconciliationStateKey(userId));
+    if (!raw) return false;
+    try {
+        const parsed = JSON.parse(raw) as { deviceId?: unknown; choice?: unknown };
+        return parsed.deviceId === deviceId
+            && typeof parsed.choice === 'string'
+            && ['start-empty', 'upload-local', 'download-account', 'merge-with-conflicts', 'keep-device-separate']
+                .includes(parsed.choice);
+    } catch {
+        return false;
+    }
+}
+
+export function persistPreparedReconciliation(
+    storage: Pick<Storage, 'setItem'>,
+    userId: string,
+    deviceId: string,
+    choice: FirstSignInDecision,
+): void {
+    storage.setItem(reconciliationStateKey(userId), JSON.stringify({ deviceId, choice }));
 }
 
 export const emptyClientState = (deviceId: string): SyncClientState => ({

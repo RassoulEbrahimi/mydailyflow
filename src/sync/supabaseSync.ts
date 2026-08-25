@@ -35,7 +35,7 @@ export interface SyncBootstrap {
 
 export interface SyncTransport {
     registerDevice(deviceId: string, revision: number): Promise<number>;
-    fetchBootstrap(): Promise<SyncBootstrap>;
+    fetchBootstrap(deviceId: string): Promise<SyncBootstrap>;
     applyMutation(mutation: SyncMutation): Promise<MutationReceipt>;
     resolveConflict(
         conflictId: string,
@@ -83,7 +83,7 @@ export function createSyncTransport(client: SupabaseClient): SyncTransport {
             return value.revision;
         },
 
-        async fetchBootstrap() {
+        async fetchBootstrap(deviceId) {
             const [datasetResult, recordsResult, conflictsResult, intentResult] = await Promise.all([
                 client.from('datasets').select('revision').single(),
                 client.from('sync_records').select('entity_key,kind,payload,field_revisions,revision,tombstone'),
@@ -91,7 +91,7 @@ export function createSyncTransport(client: SupabaseClient): SyncTransport {
                     .select('id,mutation_id,entity_key,kind,conflicting_fields,reason,server_payload,client_changes,client_removed_fields,client_operation,created_at')
                     .is('resolved_at', null)
                     .order('created_at', { ascending: true }),
-                client.from('reconciliation_intents').select('choice').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+                client.from('reconciliation_intents').select('choice').eq('device_id', deviceId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
             ]);
             for (const result of [datasetResult, recordsResult, conflictsResult, intentResult]) {
                 if (result.error) throw new Error(result.error.message);

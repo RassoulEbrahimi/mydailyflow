@@ -13,6 +13,11 @@ import {
 import { reconciliationTransportFor } from '../sync/supabaseReconciliation';
 import { downloadTextFile } from '../utils/downloadFile';
 import { getTodayString } from '../utils/taskUtils';
+import {
+    hasPreparedReconciliation,
+    loadOrCreateDeviceId,
+    persistPreparedReconciliation,
+} from '../sync/clientState';
 
 interface FirstSignInReconciliationProps {
     config: RealAuthConfig;
@@ -96,12 +101,12 @@ export default function FirstSignInReconciliation({ config, user, onContinueLoca
             }
             setLocal(localResult.value);
             setAccount(remote);
-            setStatus(remote.reconciliationStatus === 'prepared' ? 'prepared' : 'ready');
+            setStatus(hasPreparedReconciliation(localStorage, user.id) ? 'prepared' : 'ready');
         } catch {
             setError('Das Kontomanifest konnte nicht geladen werden. Lokale Daten wurden nicht verändert.');
             setStatus('error');
         }
-    }, [transport]);
+    }, [transport, user.id]);
 
     useEffect(() => { void load(); }, [load]);
 
@@ -129,7 +134,9 @@ export default function FirstSignInReconciliation({ config, user, onContinueLoca
         setStatus('preparing');
         setError('');
         try {
-            await transport.prepare(choice, safety.manifest, account);
+            const deviceId = loadOrCreateDeviceId(localStorage);
+            await transport.prepare(choice, safety.manifest, account, deviceId);
+            persistPreparedReconciliation(localStorage, user.id, deviceId, choice);
             setStatus('prepared');
         } catch {
             setError('Die Entscheidung wurde nicht gespeichert. Backup und lokale Daten bleiben erhalten.');
