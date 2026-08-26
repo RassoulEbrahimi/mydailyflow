@@ -65,6 +65,12 @@ choice controls the first sync:
   differences enter the ordinary visible conflict path.
 - `keep-device-separate`: no upload, download or automatic merge occurs.
 
+The preparation record also carries the installation UUID. A device may skip
+the reconciliation screen only when its own per-account client state has a valid
+device UUID and a completed sync timestamp. A prepared choice is likewise valid
+only for that exact account/device pair. This prevents a newly signed-in device
+from inheriting another installation's first-sign-in decision or backup gate.
+
 ## Acceptance
 
 1. Account A cannot select or mutate account B data.
@@ -82,3 +88,22 @@ choice controls the first sync:
 9. The disposable SQL test in `supabase/tests/p2_9_sync_rls.sql` proves RLS,
    idempotency, independent-field merge, explicit field removal and current-copy
    conflict resolution inside a transaction that always rolls back.
+
+## Controlled live acceptance
+
+On 2026-08-25 the Frankfurt test project was exercised with one synthetic
+account in two isolated browser contexts. The guarded
+`e2e/p2-live-sync.spec.ts` scenario verified:
+
+1. each device completed its own first-sign-in backup and reconciliation gate;
+2. a Device B title edit made while offline survived reconnect;
+3. a concurrent independent note edit from Device A merged without data loss;
+4. concurrent same-field title edits created a visible conflict;
+5. choosing `Dieses Gerät` advanced the canonical revision; and
+6. both devices converged on the chosen title while retaining the independent
+   note edit.
+
+The live test passed. Its credentials remain local and ignored, the synthetic
+account is not included in the repository, and both public feature flags were
+restored to `false` before the production build. The default build therefore
+keeps Supabase transport inert until a later staged rollout explicitly opts in.

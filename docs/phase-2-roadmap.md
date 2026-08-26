@@ -106,8 +106,8 @@ This track starts only after Phase 2.0 selects a platform and Phase 2A proves th
 | P2-5 | Focus sessions — implemented | Separate persisted focus state + Backup v3 |
 | P2-6 | Day/routine templates — implemented | Independent template slice + Backup v4 |
 | P2-7 | Real-auth and sync spike — implemented | Supabase decision + executable two-device protocol; no production SDK |
-| P2-8 | Real authentication + first-sign-in reconciliation | Feature flag and local backup gate |
-| P2-9 | Synchronization and conflict handling | Server capability flag |
+| P2-8 | Real authentication + first-sign-in reconciliation — implemented | Feature flag and local backup gate |
+| P2-9 | Synchronization and conflict handling — implemented and live-tested | Server capability flag |
 | P2-10 | Background reminders | Platform capability flag |
 | P2-11 | Phase 2 mobile acceptance and staged rollout | No new feature scope |
 
@@ -121,23 +121,26 @@ This track starts only after Phase 2.0 selects a platform and Phase 2A proves th
 
 ## Recommended next objective
 
-**P2-6 is implemented:** a selected Task can be saved as a reusable task
-template, while multiple selected open Tasks form a routine that preserves their
-relative day offsets. Running either on a chosen base date creates independent
-Tasks and checklist-item IDs, resets completion/source state, and derives fresh
-recurrence anchors. Templates live in the versioned `myDailyFlowTemplates`
-slice, are covered by Backup v4, and older backups migrate with an empty template
-library.
+**P2-8 is implemented:** Supabase Auth and the first-sign-in reconciliation
+preview are integrated behind a default-OFF feature flag. Every destructive or
+merging choice is preceded by a verified Backup v4 and byte-exact recovery gate.
+The Frankfurt test project enforces account ownership through RLS and narrowly
+granted RPCs; credentials and session material remain outside backups and sync
+payloads.
 
-**P2-7 is implemented:** ADR 0005 selects Supabase Auth + Postgres/RLS in the
-Frankfurt region, with Firebase recorded as the rejected fallback because its
-default last-write-wins offline conflict behavior does not satisfy this app's
-visible-conflict contract. The executable spike proves idempotent mutation
-receipts, safe different-field merging, same-field and delete/edit conflicts,
-and all four first-sign-in manifest paths. No provider SDK, credential, storage
-key or production behavior changed.
+**P2-9 is implemented and live-tested:** the local-first coordinator now keeps a
+per-account shadow and ordered outbox, replays idempotent mutations, merges
+independent-field edits, exposes same-field conflicts and resolves them only
+after an explicit user choice. First-sign-in decisions are scoped to the exact
+account and device, so a new installation cannot inherit another device's
+reconciliation result. A controlled two-browser test proved offline replay,
+independent-field merging, visible conflict creation, `Dieses Gerät` resolution
+and final convergence. Both production flags were restored to OFF after the
+test.
 
-The next objective is **P2-8**: implement real authentication and the
-first-sign-in reconciliation preview behind a default-OFF feature flag. It may
-read only an account manifest until the user has a verified Backup v4 and makes
-an explicit data decision; normal multi-device sync remains P2-9.
+The next objective is **P2-10**: design and implement server-backed background
+reminders behind a separate default-OFF platform capability flag. Start with an
+authenticated per-device Push subscription, server-side UTC scheduling,
+idempotent delivery and cancellation/update rules for edited, completed,
+deleted, recurring and rolled-over tasks. The foreground-only reminder remains
+the truthful fallback until physical Android testing proves the background path.
