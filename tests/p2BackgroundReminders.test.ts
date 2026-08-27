@@ -81,6 +81,18 @@ test('P2-10 migration protects capabilities, derives UTC, and leases deliveries 
     assert.doesNotMatch(sql, /task_title|task_notes|service[_-]?role[_-]?key|vapid_private/i);
 });
 
+test('P2-10 claim correction qualifies the expires_at collision and has an integration smoke call', () => {
+    const correction = readFileSync(
+        'supabase/migrations/202608270002_p2_10_fix_claim_due_ambiguity.sql',
+        'utf8',
+    );
+    const integration = readFileSync('supabase/tests/p2_10_background_reminders_rls.sql', 'utf8');
+    assert.match(correction, /update public\.reminder_schedules as rs/i);
+    assert.match(correction, /rs\.state = 'scheduled' and rs\.expires_at <= now\(\)/i);
+    assert.doesNotMatch(correction, /where state = 'scheduled' and expires_at <= now\(\)/i);
+    assert.match(integration, /set local role service_role;\s*select count\(\*\) from public\.claim_due_reminder_deliveries\(100, 45\)/i);
+});
+
 test('dispatcher and service worker keep notification content generic', () => {
     const dispatcher = readFileSync('supabase/functions/dispatch-reminders/index.ts', 'utf8');
     const worker = readFileSync('public/service-worker.js', 'utf8');
