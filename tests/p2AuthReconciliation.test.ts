@@ -55,6 +55,7 @@ test('real auth is disabled by default and requires complete public configuratio
     if (configured.status === 'configured') {
         assert.equal(configured.value.redirectUrl, 'https://example.test/mydailyflow/');
         assert.equal(configured.value.syncEnabled, false);
+        assert.deepEqual(configured.value.backgroundReminders, { status: 'disabled' });
     }
 
     const syncConfigured = resolveRealAuthConfig({
@@ -65,6 +66,33 @@ test('real auth is disabled by default and requires complete public configuratio
     }, '/', 'https://example.test');
     assert.equal(syncConfigured.status, 'configured');
     if (syncConfigured.status === 'configured') assert.equal(syncConfigured.value.syncEnabled, true);
+
+    const pushWithoutSync = resolveRealAuthConfig({
+        VITE_REAL_AUTH_ENABLED: 'true',
+        VITE_BACKGROUND_REMINDERS_ENABLED: 'true',
+        VITE_VAPID_PUBLIC_KEY: 'A'.repeat(88),
+        VITE_SUPABASE_URL: 'https://synthetic.supabase.co',
+        VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_synthetic',
+    }, '/', 'https://example.test');
+    assert.equal(pushWithoutSync.status, 'configured');
+    if (pushWithoutSync.status === 'configured') {
+        assert.equal(pushWithoutSync.value.backgroundReminders.status, 'misconfigured');
+    }
+
+    const pushConfigured = resolveRealAuthConfig({
+        VITE_REAL_AUTH_ENABLED: 'true',
+        VITE_SYNC_ENABLED: 'true',
+        VITE_BACKGROUND_REMINDERS_ENABLED: 'true',
+        VITE_VAPID_PUBLIC_KEY: 'A'.repeat(88),
+        VITE_SUPABASE_URL: 'https://synthetic.supabase.co',
+        VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_synthetic',
+    }, '/', 'https://example.test');
+    assert.equal(pushConfigured.status, 'configured');
+    if (pushConfigured.status === 'configured') {
+        assert.deepEqual(pushConfigured.value.backgroundReminders, {
+            status: 'configured', vapidPublicKey: 'A'.repeat(88),
+        });
+    }
 });
 
 test('first-sign-in choices are explicit for all four manifest combinations', () => {
