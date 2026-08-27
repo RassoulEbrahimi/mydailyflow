@@ -89,4 +89,11 @@ end;
 $$;
 
 reset role;
+
+-- The service dispatcher must be able to execute the claim RPC even when no
+-- deliveries are due. This catches PL/pgSQL output-column/column ambiguity.
+set local role service_role;
+select count(*) from public.claim_due_reminder_deliveries(100, 45);
+reset role;
+
 rollback;
