@@ -4,7 +4,15 @@ export interface RealAuthConfig {
     redirectUrl: string;
     /** Independent kill switch: authentication may run while sync stays inert. */
     syncEnabled: boolean;
+    /** Independent, fail-closed Web Push capability. It never turns on merely
+     * because real auth or sync is enabled. */
+    backgroundReminders: BackgroundReminderCapability;
 }
+
+export type BackgroundReminderCapability =
+    | { status: 'disabled' }
+    | { status: 'misconfigured'; reason: string }
+    | { status: 'configured'; vapidPublicKey: string };
 
 type FeatureConfig =
     | { status: 'disabled' }
@@ -42,13 +50,32 @@ export function resolveRealAuthConfig(
         return { status: 'misconfigured', reason: 'Supabase-Projekt-URL ist ungültig.' };
     }
 
+    const syncEnabled = source.VITE_SYNC_ENABLED === 'true';
+    const backgroundRequested = source.VITE_BACKGROUND_REMINDERS_ENABLED === 'true';
+    const vapidPublicKey = String(source.VITE_VAPID_PUBLIC_KEY ?? '').trim();
+    let backgroundReminders: BackgroundReminderCapability = { status: 'disabled' };
+    if (backgroundRequested && !syncEnabled) {
+        backgroundReminders = {
+            status: 'misconfigured',
+            reason: 'Hintergrund-Erinnerungen benötigen die Synchronisierung.',
+        };
+    } else if (backgroundRequested && !/^[A-Za-z0-9_-]{80,120}$/.test(vapidPublicKey)) {
+        backgroundReminders = {
+            status: 'misconfigured',
+            reason: 'Der öffentliche Web-Push-Schlüssel fehlt oder ist ungültig.',
+        };
+    } else if (backgroundRequested) {
+        backgroundReminders = { status: 'configured', vapidPublicKey };
+    }
+
     return {
         status: 'configured',
         value: {
             url,
             publishableKey,
             redirectUrl: new URL(baseUrl, origin).toString(),
-            syncEnabled: source.VITE_SYNC_ENABLED === 'true',
+            syncEnabled,
+            backgroundReminders,
         },
     };
 }

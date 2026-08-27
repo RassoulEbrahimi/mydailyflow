@@ -11,6 +11,7 @@ test('the default production build keeps P2-9 completely inert', async ({ app })
   await app.openSettings();
 
   await expect(app.page.getByRole('heading', { name: 'SYNCHRONISIERUNG' })).toHaveCount(0);
+  await expect(app.page.getByRole('heading', { name: 'HINTERGRUND-ERINNERUNGEN' })).toHaveCount(0);
   await expect(app.page.getByText('Demo-Umgebung · Nicht sicher')).toBeVisible();
-  expect(supabaseRequests, 'no identity or sync endpoint is contacted without explicit flags').toEqual([]);
+  expect(supabaseRequests, 'no identity, sync, or push endpoint is contacted without explicit flags').toEqual([]);
 });

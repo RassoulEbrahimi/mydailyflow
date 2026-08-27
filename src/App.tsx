@@ -26,6 +26,7 @@ import NewTaskModal from './components/NewTaskModal';
 import SettingsModal from './components/SettingsModal';
 import { useTasks } from './hooks/useTasks';
 import { useReminders } from './hooks/useReminders';
+import { useBackgroundReminders } from './hooks/useBackgroundReminders';
 import { useDailyEssentials } from './hooks/useDailyEssentials';
 import DailyEssentialsSection from './components/DailyEssentialsSection';
 import RemindersView from './components/RemindersView';
@@ -324,6 +325,13 @@ function AppInner({
   };
 
   useReminders(tasks, remindersEnabled);
+  const backgroundReminders = useBackgroundReminders(
+    authMode === 'supabase' && syncConfig?.syncEnabled ? syncConfig : null,
+    syncUserId,
+    tasks,
+    remindersEnabled,
+    setNotifPermission,
+  );
   
   const {
     essentials, 
@@ -778,6 +786,7 @@ function AppInner({
               setNotifPermission('Notification' in window ? Notification.permission : 'denied');
               setIsSettingsOpen(true);
             }}
+            backgroundStatus={backgroundReminders.status}
           />
         ) : activeTab === 'review' ? (
           <WeeklyReviewView
@@ -1037,7 +1046,10 @@ function AppInner({
         onRemindersEnabledChange={setRemindersEnabled}
         permission={notifPermission}
         onPermissionChange={setNotifPermission}
-        onLogout={logout}
+        onLogout={async () => {
+          await backgroundReminders.disable();
+          logout();
+        }}
         stickyHeroEnabled={stickyHeroEnabled}
         onStickyHeroChange={setStickyHeroEnabled}
         theme={theme}
@@ -1052,6 +1064,13 @@ function AppInner({
           message: sync.message,
           onSync: sync.syncNow,
           onResolve: sync.resolveConflict,
+        } : undefined}
+        backgroundReminders={authMode === 'supabase' && syncConfig?.backgroundReminders.status !== 'disabled' ? {
+          status: backgroundReminders.status,
+          message: backgroundReminders.message,
+          activeCount: backgroundReminders.activeCount,
+          onEnable: backgroundReminders.enable,
+          onDisable: backgroundReminders.disable,
         } : undefined}
       />
     </div>

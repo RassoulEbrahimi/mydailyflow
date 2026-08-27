@@ -4,7 +4,9 @@ import { Bell, LogOut, Monitor, Moon, Sun as SunIcon } from 'lucide-react';
 import type { Theme } from '../hooks/useTheme';
 import BackupRestoreSection from './BackupRestoreSection';
 import SyncSettingsSection from './SyncSettingsSection';
+import BackgroundRemindersSection from './BackgroundRemindersSection';
 import type { SyncConflict, SyncViewState } from '../sync/types';
+import type { BackgroundReminderStatus } from '../reminders/background';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -14,7 +16,7 @@ interface SettingsModalProps {
   onRemindersEnabledChange: (val: boolean) => void;
   permission: NotificationPermission;
   onPermissionChange: (p: NotificationPermission) => void;
-  onLogout: () => void;
+  onLogout: () => void | Promise<void>;
   stickyHeroEnabled: boolean;
   onStickyHeroChange: (val: boolean) => void;
   theme: Theme;
@@ -24,6 +26,13 @@ interface SettingsModalProps {
   sync?: SyncViewState & {
     onSync(): void;
     onResolve(conflictId: string, resolution: 'keep-server' | 'use-device'): void;
+  };
+  backgroundReminders?: {
+    status: BackgroundReminderStatus;
+    message: string;
+    activeCount: number;
+    onEnable(): Promise<void>;
+    onDisable(): Promise<void>;
   };
 }
 
@@ -43,6 +52,7 @@ const SettingsModal = ({
   authMode = 'demo',
   accountLabel,
   sync,
+  backgroundReminders,
 }: SettingsModalProps) => {
   const [requesting, setRequesting] = React.useState(false);
 
@@ -177,16 +187,14 @@ const SettingsModal = ({
         {/* Granted: show success + toggle */}
         {permission === 'granted' && (
           <div className="mb-6">
-            {/* Truthful by design: the app schedules reminders with an in-page
-                timer, so delivery stops when the app is closed. Never claim
-                background or exact-time delivery here. See
-                docs/adr/0001-background-reminders-feasibility.md. */}
+            {/* The foreground fallback remains truthful. A separately guarded
+                Web Push section below may add best-effort closed-app delivery. */}
             <div className="bg-surface-raised border border-edge/50 rounded-2xl p-4 mb-4">
               <p className="text-fg text-sm font-semibold">Benachrichtigungen sind erlaubt</p>
               <p className="text-fg-secondary text-sm mt-1 leading-relaxed">
-                Erinnerungen werden nur ausgelöst, solange My Daily Flow geöffnet ist.
-                Wenn du die App oder den Browser schließt, können geplante Erinnerungen
-                ausbleiben.
+                {backgroundReminders
+                  ? 'Die lokale Erinnerung funktioniert, solange My Daily Flow geöffnet ist. Eine aktivierte Hintergrund-Zustellung bleibt Best Effort und kann sich verzögern.'
+                  : 'Erinnerungen werden nur ausgelöst, solange My Daily Flow geöffnet ist. Wenn du die App oder den Browser schließt, können geplante Erinnerungen ausbleiben.'}
               </p>
             </div>
             {/* Reminders on/off toggle */}
@@ -218,6 +226,10 @@ const SettingsModal = ({
           </button>
         )}
 
+        {authMode === 'supabase' && backgroundReminders && (
+          <BackgroundRemindersSection {...backgroundReminders} />
+        )}
+
         {authMode === 'supabase' && sync && <SyncSettingsSection {...sync} />}
 
         {/* ── Backup & Restore ─────────────────────────────────────────── */}
@@ -227,7 +239,7 @@ const SettingsModal = ({
         <div className="mt-8 pt-6 border-t border-surface-raised">
           <button
             type="button"
-            onClick={() => { onClose(); onLogout(); }}
+            onClick={() => { onClose(); void onLogout(); }}
             className="w-full bg-surface-raised hover:bg-danger-surface border border-edge/50 hover:border-danger-border text-fg-secondary hover:text-danger font-semibold py-4 rounded-[1.5rem] flex items-center justify-center gap-2 transition-all active:scale-[0.98] text-[16px]"
           >
             <LogOut size={20} strokeWidth={2.5} aria-hidden="true" />

@@ -2,6 +2,7 @@ import React from 'react';
 import { AlertTriangle, BellOff, BellRing, Clock, Info } from 'lucide-react';
 import type { Task } from '../types/task';
 import { getTodayString, hasTime, compareByTimeUntimedLast, formatDateLabel } from '../utils/taskUtils';
+import type { BackgroundReminderStatus } from '../reminders/background';
 
 /**
  * RemindersView — the Erinnerungen screen.
@@ -25,6 +26,7 @@ interface RemindersViewProps {
     /** Opens the existing edit sheet — the app's established task interaction. */
     onEditTask: (task: Task) => void;
     onOpenSettings: () => void;
+    backgroundStatus?: BackgroundReminderStatus;
 }
 
 /** A reminder that the app can still deliver, if the app stays open. */
@@ -46,6 +48,7 @@ export default function RemindersView({
     permission,
     onEditTask,
     onOpenSettings,
+    backgroundStatus = 'disabled',
 }: RemindersViewProps) {
     const today = getTodayString();
 
@@ -92,9 +95,9 @@ export default function RemindersView({
                 <div className="bg-surface-raised border border-edge/50 rounded-2xl p-4 flex gap-3">
                     <Info size={18} strokeWidth={2.5} className="text-primary-text flex-shrink-0 mt-0.5" aria-hidden="true" />
                     <p className="text-fg-secondary text-[13.5px] leading-relaxed">
-                        Erinnerungen werden nur ausgelöst, solange My Daily Flow geöffnet ist.
-                        Wenn du die App oder den Browser schließt, können geplante Erinnerungen
-                        ausbleiben.
+                        {backgroundStatus === 'active'
+                            ? 'Hintergrund-Erinnerungen sind auf diesem Gerät als Best-Effort-Zustellung aktiv. Netzwerk, Browser und Energiesparen können sie verzögern oder verhindern.'
+                            : 'Erinnerungen werden nur ausgelöst, solange My Daily Flow geöffnet ist. Wenn du die App oder den Browser schließt, können geplante Erinnerungen ausbleiben.'}
                     </p>
                 </div>
 
@@ -138,7 +141,9 @@ export default function RemindersView({
                             title="Geplant"
                             count={planned.length}
                             accent="text-success"
-                            description={`Wird ${REMINDER_LEAD_MINUTES} Minuten vorher angezeigt, wenn die App dann geöffnet ist.`}
+                            description={backgroundStatus === 'active'
+                                ? `Wird ${REMINDER_LEAD_MINUTES} Minuten vorher geplant; Hintergrund-Zustellung bleibt Best Effort.`
+                                : `Wird ${REMINDER_LEAD_MINUTES} Minuten vorher angezeigt, wenn die App dann geöffnet ist.`}
                         >
                             {planned.map(({ task, isToday }) => (
                                 <ReminderRow

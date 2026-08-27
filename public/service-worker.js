@@ -1,6 +1,6 @@
 // ─── Cache versioning ────────────────────────────────────────────────────────
 // Bump CACHE_VERSION whenever you ship a new build.
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const CACHE_NAME = `mydailyflow-${CACHE_VERSION}`;
 
 // Minimal app shell that must be available offline
@@ -100,4 +100,35 @@ self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
     }
+});
+
+// ─── Web Push (P2-10, server capability is feature-flagged) ────────────────
+// Payloads intentionally contain generic copy only. Task titles, notes and
+// checklist text never need to transit the push service.
+self.addEventListener('push', (event) => {
+    let payload = {};
+    try {
+        payload = event.data ? event.data.json() : {};
+    } catch {
+        payload = {};
+    }
+    const tag = typeof payload.tag === 'string' ? payload.tag : 'mdf-background-reminder';
+    event.waitUntil(self.registration.showNotification('My Daily Flow', {
+        body: 'Eine geplante Aufgabe beginnt bald.',
+        tag,
+        renotify: false,
+        data: { url: '/mydailyflow/' },
+    }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const target = new URL(event.notification.data?.url || '/mydailyflow/', self.location.origin).href;
+    event.waitUntil(
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+            const existing = windows.find((client) => client.url.startsWith(target));
+            if (existing) return existing.focus();
+            return self.clients.openWindow(target);
+        })
+    );
 });
