@@ -11,6 +11,7 @@ export interface RealAuthState {
     sendPasswordReset(email: string): Promise<AuthActionResult>;
     updatePassword(password: string): Promise<AuthActionResult>;
     signOut(): Promise<void>;
+    signOutLocal(): Promise<void>;
 }
 
 export function useRealAuth(config: RealAuthConfig): RealAuthState {
@@ -57,5 +58,6 @@ export function useRealAuth(config: RealAuthConfig): RealAuthState {
         sendPasswordReset: adapter.sendPasswordReset,
         updatePassword,
         signOut: adapter.signOut,
+        signOutLocal: adapter.signOutLocal,
     };
 }

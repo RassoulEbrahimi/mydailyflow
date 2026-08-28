@@ -1,4 +1,4 @@
-import { expect, test, type BrowserContext, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import dotenv from 'dotenv';
 
 dotenv.config({ path: '.env.local', quiet: true });
@@ -12,131 +12,55 @@ const LIVE_SYNC_READY = Boolean(
   && process.env.VITE_SYNC_ENABLED === 'true',
 );
 
-const RUN_ID = Date.now().toString(36);
-const BASE_TITLE = `P2-9 Live Sync Basis ${RUN_ID}`;
-const OFFLINE_TITLE = `P2-9 Offline von Gerät B ${RUN_ID}`;
-const DEVICE_A_CONFLICT_TITLE = `P2-9 Konflikt von Gerät A ${RUN_ID}`;
-const DEVICE_B_CONFLICT_TITLE = `P2-9 Konflikt von Gerät B ${RUN_ID}`;
-const DEVICE_A_NOTE = `Unabhängige Online-Notiz von Gerät A ${RUN_ID}`;
-
 async function waitForShell(page: Page): Promise<void> {
-  for (let attempt = 0; attempt < 8; attempt += 1) {
+  for (let attempt = 0; attempt < 16; attempt += 1) {
     const nav = page.locator('nav');
     if (await nav.isVisible().catch(() => false)) return;
-
     const continueButton = page.getByRole('button', { name: 'Sicher synchronisieren' });
-    if (await continueButton.isVisible().catch(() => false)) {
-      await continueButton.click();
-    }
+    if (await continueButton.isVisible().catch(() => false)) await continueButton.click();
     await page.waitForTimeout(750);
   }
-  await expect(page.locator('nav')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('nav')).toBeVisible({ timeout: 20_000 });
 }
 
-async function signInAndReconcile(page: Page, decision: string): Promise<void> {
-  await page.goto('./', { waitUntil: 'domcontentloaded' });
+async function fillCredentialsAndSignIn(page: Page): Promise<void> {
   await page.getByLabel('E-MAIL').fill(TEST_EMAIL);
   await page.getByLabel('PASSWORT').fill(TEST_PASSWORD);
   await page.getByRole('button', { name: 'Anmelden', exact: true }).click();
+}
 
-  await expect(page.getByRole('heading', { name: 'Gerät und Konto abgleichen' })).toBeVisible({ timeout: 20_000 });
+async function reconcileAccountCopy(page: Page): Promise<void> {
+  const heading = page.getByRole('heading', { name: 'Gerät und Konto abgleichen' });
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    if (await page.locator('nav').isVisible().catch(() => false)) return;
+    if (await heading.isVisible().catch(() => false)) break;
+    await page.waitForTimeout(500);
+  }
+  await expect(heading).toBeVisible({ timeout: 5_000 });
+
   const backupButton = page.getByRole('button', { name: 'Backup erstellen und prüfen' });
   await expect(backupButton).toBeVisible();
   const download = page.waitForEvent('download');
   await backupButton.click();
   await download;
-
-  await page.getByRole('button', { name: new RegExp(`^${decision}`) }).click();
-  await expect(page.getByRole('button', { name: 'Sicher synchronisieren' })).toBeVisible();
+  await page.getByRole('button', { name: /^Kontodaten später verwenden/ }).click();
   await page.getByRole('button', { name: 'Sicher synchronisieren' }).click();
+}
+
+async function signIn(page: Page, reconcile = true): Promise<void> {
+  await page.goto('./', { waitUntil: 'domcontentloaded' });
+  await fillCredentialsAndSignIn(page);
+  if (reconcile) await reconcileAccountCopy(page);
   await waitForShell(page);
 }
 
-async function openSettings(page: Page) {
-  const existing = page.locator('[role="dialog"][aria-label="Einstellungen"]:not([inert])');
-  if (await existing.count()) return existing;
-  await page.getByRole('button', { name: 'Einstellungen' }).click();
-  await expect(existing).toBeVisible();
-  return existing;
-}
+test.describe('P2-12 live single-device lease', () => {
+  test.skip(!LIVE_SYNC_READY, 'Requires the ignored .env.local test account and enabled Real Auth + Sync flags.');
 
-async function closeSettings(page: Page): Promise<void> {
-  const dialog = page.locator('[role="dialog"][aria-label="Einstellungen"]:not([inert])');
-  for (let attempt = 0; attempt < 6; attempt += 1) {
-    if (!(await dialog.count())) return;
-    // A completed sync may atomically apply remote data and reload the shell.
-    // Dispatch the button's own click handler without a long pointer-action
-    // retry, then re-acquire the active sheet after any navigation.
-    await dialog.getByRole('button', { name: 'Schließen', exact: true })
-      .evaluate((button: HTMLButtonElement) => button.click())
-      .catch(() => undefined);
-    await page.waitForTimeout(300);
-  }
-  await expect(dialog).toHaveCount(0);
-}
-
-async function syncAndExpect(page: Page, status: 'Synchronisiert' | 'Offline' | 'Konflikt'): Promise<void> {
-  await waitForShell(page);
-  let dialog = await openSettings(page);
-  if (await dialog.getByText(status, { exact: true }).isVisible().catch(() => false)) return;
-
-  const syncButton = dialog.getByRole('button', { name: 'Jetzt synchronisieren' });
-  if (await syncButton.isEnabled().catch(() => false)) await syncButton.click();
-
-  for (let attempt = 0; attempt < 30; attempt += 1) {
-    const reconciliation = page.getByRole('button', { name: 'Sicher synchronisieren' });
-    if (await reconciliation.isVisible().catch(() => false)) {
-      await reconciliation.click();
-    }
-    await waitForShell(page);
-    if (!(await dialog.count())) dialog = await openSettings(page);
-    if (await dialog.getByText(status, { exact: true }).isVisible().catch(() => false)) return;
-    await page.waitForTimeout(500);
-  }
-  await expect(dialog.getByText(status, { exact: true })).toBeVisible();
-}
-
-async function createTask(page: Page, title: string): Promise<void> {
-  await page.getByRole('button', { name: 'Aufgabe hinzufügen' }).click();
-  await page.getByRole('button', { name: 'Manuelle Aufgabe' }).click();
-  const dialog = page.locator('[role="dialog"][aria-label="Neue Aufgabe"]:not([inert])');
-  await dialog.getByLabel('Aufgabentitel').fill(title);
-  await dialog.getByRole('button', { name: 'Speichern', exact: true }).click();
-  await expect(page.getByRole('heading', { name: title, exact: true }).last()).toBeVisible();
-}
-
-async function editTask(page: Page, currentTitle: string, update: { title?: string; note?: string }): Promise<void> {
-  await page.getByRole('button', { name: `Aktionen für ${currentTitle}`, exact: true }).click();
-  const menu = page.getByRole('menu', { name: `Aktionen für ${currentTitle}` });
-  await menu.getByRole('menuitem', { name: 'Bearbeiten', exact: true }).click();
-  const dialog = page.locator('[role="dialog"][aria-label="Aufgabe bearbeiten"]:not([inert])');
-  if (update.title) await dialog.getByLabel('Aufgabentitel').fill(update.title);
-  if (update.note) {
-    const note = dialog.getByLabel('Notiz', { exact: true });
-    if (!(await note.isVisible().catch(() => false))) {
-      await dialog.getByRole('button', { name: 'Notiz', exact: true }).click();
-    }
-    await dialog.getByLabel('Notiz', { exact: true }).fill(update.note);
-  }
-  await dialog.getByRole('button', { name: 'Speichern', exact: true }).click();
-}
-
-async function expectTask(page: Page, title: string, note?: string): Promise<void> {
-  await waitForShell(page);
-  await expect(page.getByRole('heading', { name: title, exact: true }).last()).toBeVisible({ timeout: 15_000 });
-  if (note) {
-    await expect(page.locator('p[dir="auto"]').filter({ hasText: note }).last()).toHaveText(note);
-  }
-}
-
-test.describe('P2-9 live two-device sync', () => {
-  test.skip(!LIVE_SYNC_READY, 'Requires the ignored .env.local live-sync test account and enabled Real Auth + Sync flags.');
-
-  test('syncs offline edits, preserves independent fields, exposes a conflict, and resolves it', async ({ browser }, testInfo) => {
-    test.setTimeout(240_000);
-    const baseURL = String(testInfo.project.use.baseURL);
+  test('new explicit login displaces the old device, survives reload, and fails closed offline', async ({ browser }, testInfo) => {
+    test.setTimeout(180_000);
     const shared = {
-      baseURL,
+      baseURL: String(testInfo.project.use.baseURL),
       serviceWorkers: 'block' as const,
       locale: 'de-DE',
       timezoneId: 'Europe/Berlin',
@@ -149,57 +73,35 @@ test.describe('P2-9 live two-device sync', () => {
     const pageB = await deviceB.newPage();
 
     try {
-      await signInAndReconcile(pageA, 'Kontodaten später verwenden');
-      await syncAndExpect(pageA, 'Synchronisiert');
-      await closeSettings(pageA);
-      await createTask(pageA, BASE_TITLE);
-      await syncAndExpect(pageA, 'Synchronisiert');
-      await closeSettings(pageA);
+      await signIn(pageA);
 
-      await signInAndReconcile(pageB, 'Kontodaten später verwenden');
-      await syncAndExpect(pageB, 'Synchronisiert');
-      await closeSettings(pageB);
-      await expectTask(pageB, BASE_TITLE);
+      await signIn(pageB);
+      await expect(pageA.getByRole('heading', { name: 'Konto auf einem anderen Gerät aktiv' }))
+        .toBeVisible({ timeout: 15_000 });
 
+      // Restoring the old persisted session must verify and stay displaced; a
+      // refresh is never an implicit takeover.
+      await pageA.reload({ waitUntil: 'domcontentloaded' });
+      await expect(pageA.getByRole('heading', { name: 'Konto auf einem anderen Gerät aktiv' }))
+        .toBeVisible({ timeout: 15_000 });
+      await expect(pageB.locator('nav')).toBeVisible();
+
+      // Strict one-device mode deliberately locks content without connectivity.
       await deviceB.setOffline(true);
-      await editTask(pageB, BASE_TITLE, { title: OFFLINE_TITLE });
-      await syncAndExpect(pageB, 'Offline');
-      await closeSettings(pageB);
-
-      await editTask(pageA, BASE_TITLE, { note: DEVICE_A_NOTE });
-      await syncAndExpect(pageA, 'Synchronisiert');
-      await closeSettings(pageA);
-
+      await expect(pageB.getByRole('heading', { name: 'Internetverbindung erforderlich' }))
+        .toBeVisible({ timeout: 10_000 });
       await deviceB.setOffline(false);
-      await syncAndExpect(pageB, 'Synchronisiert');
-      await closeSettings(pageB);
-      await syncAndExpect(pageA, 'Synchronisiert');
-      await closeSettings(pageA);
-      await expectTask(pageA, OFFLINE_TITLE, DEVICE_A_NOTE);
-      await expectTask(pageB, OFFLINE_TITLE, DEVICE_A_NOTE);
-
-      await deviceA.setOffline(true);
-      await deviceB.setOffline(true);
-      await editTask(pageA, OFFLINE_TITLE, { title: DEVICE_A_CONFLICT_TITLE });
-      await editTask(pageB, OFFLINE_TITLE, { title: DEVICE_B_CONFLICT_TITLE });
-
-      await deviceA.setOffline(false);
-      await syncAndExpect(pageA, 'Synchronisiert');
-      await closeSettings(pageA);
-
-      await deviceB.setOffline(false);
-      await syncAndExpect(pageB, 'Konflikt');
-      const settingsB = await openSettings(pageB);
-      await expect(settingsB.getByText('Auf beiden Geräten geändert: title', { exact: true })).toBeVisible();
-      await settingsB.getByRole('button', { name: 'Dieses Gerät', exact: true }).click();
+      await pageB.getByRole('button', { name: 'Erneut prüfen' }).click();
       await waitForShell(pageB);
-      await syncAndExpect(pageB, 'Synchronisiert');
-      await closeSettings(pageB);
 
-      await syncAndExpect(pageA, 'Synchronisiert');
-      await closeSettings(pageA);
-      await expectTask(pageA, DEVICE_B_CONFLICT_TITLE, DEVICE_A_NOTE);
-      await expectTask(pageB, DEVICE_B_CONFLICT_TITLE, DEVICE_A_NOTE);
+      // Only a fresh explicit login on A may create a newer Supabase session and
+      // atomically take the account back.
+      await pageA.getByRole('button', { name: 'Erneut anmelden' }).click();
+      await expect(pageA.getByRole('heading', { name: 'Mit deinem Konto anmelden' })).toBeVisible();
+      await fillCredentialsAndSignIn(pageA);
+      await waitForShell(pageA);
+      await expect(pageB.getByRole('heading', { name: 'Konto auf einem anderen Gerät aktiv' }))
+        .toBeVisible({ timeout: 15_000 });
     } finally {
       await Promise.allSettled([deviceA.close(), deviceB.close()]);
     }

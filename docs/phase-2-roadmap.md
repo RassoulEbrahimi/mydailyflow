@@ -108,8 +108,9 @@ This track starts only after Phase 2.0 selects a platform and Phase 2A proves th
 | P2-7 | Real-auth and sync spike — implemented | Supabase decision + executable two-device protocol; no production SDK |
 | P2-8 | Real authentication + first-sign-in reconciliation — implemented | Feature flag and local backup gate |
 | P2-9 | Synchronization and conflict handling — implemented and live-tested | Server capability flag |
-| P2-10 | Background reminders — implemented behind default-OFF flag; controlled activation pending | Platform capability flag |
-| P2-11 | Phase 2 mobile acceptance and staged rollout | No new feature scope |
+| P2-10 | Background reminders — implemented, activated and live-tested | Platform capability flag |
+| P2-11 | Phase 2 mobile acceptance and staged rollout — accepted | No new feature scope |
+| P2-12 | Single active device — implementation and controlled rollout | Session/device lease; no data-schema change |
 
 ## Explicitly deferred
 
@@ -138,15 +139,15 @@ independent-field merging, visible conflict creation, `Dieses Gerät` resolution
 and final convergence. Both production flags were restored to OFF after the
 test.
 
-**P2-10 is implemented but not activated:** the client capability, encrypted
+**P2-10 is implemented and activated:** the client capability, encrypted
 per-device subscription storage, timezone-derived UTC schedules, atomic
 claim/lease dispatcher, generic service-worker notification and cancellation
-rules are present behind a strict default-OFF flag. No VAPID key, dispatcher
-token, cron job or remote migration is created by the normal release. The
-foreground-only reminder remains the truthful fallback.
+rules remain independently gated. The foreground-only reminder remains the
+truthful fallback whenever the server-backed capability is unavailable.
 
-The next objective is the controlled P2-10 activation gate: apply the migration
-and function to the Frankfurt test project, enable one synthetic account, and
-run the Android PWA + desktop acceptance matrix in
-`docs/p2-10-background-reminders.md`. A pass moves the project to **P2-11**;
-a no-go leaves the feature disabled without weakening foreground reminders.
+**P2-12 changes the operating model by product decision:** only one authenticated
+device may use an account at a time. A newer explicit login atomically revokes
+the previous device; restored sessions cannot take over implicitly. RLS and sync
+RPCs enforce the lease server-side, while the client fails closed when offline.
+The implementation and rollout protocol live in
+`docs/p2-12-single-device-mode.md`.
