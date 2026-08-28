@@ -19,11 +19,16 @@ insert into auth.users (
     ('00000000-0000-0000-0000-000000000000', '29000000-0000-4000-8000-000000000002',
      'authenticated', 'authenticated', 'p2-9-b@example.invalid', '', now(), '{}', '{}', now(), now());
 
+insert into auth.sessions (id, user_id, created_at, updated_at) values
+    ('29000000-0000-4000-8000-000000000101', '29000000-0000-4000-8000-000000000001', now(), now()),
+    ('29000000-0000-4000-8000-000000000102', '29000000-0000-4000-8000-000000000002', now(), now());
+
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '29000000-0000-4000-8000-000000000001', true);
+select set_config('request.jwt.claims', '{"sub":"29000000-0000-4000-8000-000000000001","role":"authenticated","session_id":"29000000-0000-4000-8000-000000000101"}', true);
 
+select public.activate_single_device_session('29000000-0000-4000-8000-000000000011', false);
 select public.register_sync_device('29000000-0000-4000-8000-000000000011', 0);
-select public.register_sync_device('29000000-0000-4000-8000-000000000012', 0);
 select pg_temp.assert_true(
     not has_table_privilege('authenticated', 'public.sync_records', 'INSERT'),
     'authenticated must not write sync_records directly'
@@ -46,7 +51,7 @@ select pg_temp.assert_true(
 );
 select pg_temp.assert_true(
     public.apply_sync_mutation(
-        '29000000-0000-4000-8000-000000000023', '29000000-0000-4000-8000-000000000012',
+        '29000000-0000-4000-8000-000000000023', '29000000-0000-4000-8000-000000000011',
         'task:p2-9-test', 'task', 1, 'patch', '{"priority":"high"}', '{}'
     ) ->> 'status' = 'applied',
     'second independent edit should merge'
@@ -80,7 +85,7 @@ select pg_temp.assert_true(
 -- A stale same-field edit creates a visible conflict and leaves server data intact.
 select pg_temp.assert_true(
     public.apply_sync_mutation(
-        '29000000-0000-4000-8000-000000000025', '29000000-0000-4000-8000-000000000012',
+        '29000000-0000-4000-8000-000000000025', '29000000-0000-4000-8000-000000000011',
         'task:p2-9-test', 'task', 1, 'patch', '{"title":"Device B"}', '{}'
     ) ->> 'status' = 'conflict',
     'same-field stale edit must conflict'
@@ -91,7 +96,7 @@ select pg_temp.assert_true(
 );
 select public.resolve_sync_conflict(
     (select id from public.sync_conflicts where mutation_id = '29000000-0000-4000-8000-000000000025'),
-    'use-device', '29000000-0000-4000-8000-000000000012', true,
+    'use-device', '29000000-0000-4000-8000-000000000011', true,
     '{"title":"Current device value","notes":"kept as a whole record"}'
 );
 select pg_temp.assert_true(
@@ -102,6 +107,8 @@ select pg_temp.assert_true(
 
 -- A second authenticated user cannot see the first account's rows through RLS.
 select set_config('request.jwt.claim.sub', '29000000-0000-4000-8000-000000000002', true);
+select set_config('request.jwt.claims', '{"sub":"29000000-0000-4000-8000-000000000002","role":"authenticated","session_id":"29000000-0000-4000-8000-000000000102"}', true);
+select public.activate_single_device_session('29000000-0000-4000-8000-000000000013', false);
 select public.register_sync_device('29000000-0000-4000-8000-000000000013', 0);
 select pg_temp.assert_true(
     (select count(*) = 0 from public.sync_records),

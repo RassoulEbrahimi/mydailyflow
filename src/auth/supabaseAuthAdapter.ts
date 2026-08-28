@@ -60,5 +60,9 @@ export function createSupabaseAuthAdapter(config: RealAuthConfig): AuthAdapter {
         async signOut() {
             await client.auth.signOut();
         },
+
+        async signOutLocal() {
+            await client.auth.signOut({ scope: 'local' });
+        },
     };
 }

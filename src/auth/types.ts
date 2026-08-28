@@ -16,4 +16,5 @@ export interface AuthAdapter {
     sendPasswordReset(email: string): Promise<AuthActionResult>;
     updatePassword(password: string): Promise<AuthActionResult>;
     signOut(): Promise<void>;
+    signOutLocal(): Promise<void>;
 }

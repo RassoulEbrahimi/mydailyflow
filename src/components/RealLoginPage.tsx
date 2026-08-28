@@ -74,7 +74,7 @@ export default function RealLoginPage({ syncEnabled = false, onSignIn, onSignUp,
                         {mode === 'sign-in' ? 'Mit deinem Konto anmelden' : mode === 'sign-up' ? 'Testkonto erstellen' : 'Passwort zurücksetzen'}
                     </h1>
                     <p className="mt-2 text-sm leading-5 text-fg-secondary">
-                        Lokale Daten bleiben auf diesem Gerät, bis du die erste Anmeldung ausdrücklich vorbereitest.
+                        Lokale Daten bleiben auf diesem Gerät. Eine neue Anmeldung sperrt automatisch das zuvor aktive Gerät.
                     </p>
                 </div>
 
@@ -128,7 +128,7 @@ export default function RealLoginPage({ syncEnabled = false, onSignIn, onSignUp,
             </div>
 
             <p className="mt-6 max-w-sm text-center text-[11px] leading-5 text-fg-placeholder">
-                P2-9 Testbetrieb · Frankfurt · {syncEnabled ? 'Synchronisierung aktiv' : 'Synchronisierung deaktiviert'}
+                Sicherer Ein-Gerät-Betrieb · Frankfurt · {syncEnabled ? 'Synchronisierung aktiv' : 'Synchronisierung deaktiviert'}
             </p>
         </div>
     );
