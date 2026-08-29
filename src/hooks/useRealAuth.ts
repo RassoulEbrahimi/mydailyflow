@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createSupabaseAuthAdapter } from '../auth/supabaseAuthAdapter';
-import type { AuthActionResult, AuthUser } from '../auth/types';
+import type { AccountDeletionRequest, AuthActionResult, AuthUser } from '../auth/types';
 import type { RealAuthConfig } from '../config/features';
 
 export interface RealAuthState {
@@ -9,7 +9,10 @@ export interface RealAuthState {
     signIn(email: string, password: string): Promise<AuthActionResult>;
     signUp(email: string, password: string): Promise<AuthActionResult>;
     sendPasswordReset(email: string): Promise<AuthActionResult>;
+    resendConfirmation(email: string): Promise<AuthActionResult>;
     updatePassword(password: string): Promise<AuthActionResult>;
+    changePassword(currentPassword: string, password: string): Promise<AuthActionResult>;
+    deleteAccount(request: AccountDeletionRequest): Promise<AuthActionResult>;
     signOut(): Promise<void>;
     signOutLocal(): Promise<void>;
 }
@@ -56,7 +59,10 @@ export function useRealAuth(config: RealAuthConfig): RealAuthState {
         signIn: adapter.signIn,
         signUp: adapter.signUp,
         sendPasswordReset: adapter.sendPasswordReset,
+        resendConfirmation: adapter.resendConfirmation,
         updatePassword,
+        changePassword: adapter.changePassword,
+        deleteAccount: adapter.deleteAccount,
         signOut: adapter.signOut,
         signOutLocal: adapter.signOutLocal,
     };

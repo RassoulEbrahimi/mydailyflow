@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { LogIn, RefreshCw, ShieldAlert, WifiOff } from 'lucide-react';
 import type { AuthUser } from '../auth/types';
 import { singleDeviceSessionTransportFor } from '../auth/singleDeviceSession';
@@ -6,6 +6,16 @@ import type { RealAuthConfig } from '../config/features';
 import { loadOrCreateDeviceId } from '../sync/clientState';
 
 type GateState = 'checking' | 'active' | 'displaced' | 'offline' | 'error';
+
+export interface SingleDeviceStatus {
+    deviceId: string;
+    lastVerifiedAt: string;
+}
+
+const SingleDeviceStatusContext = createContext<SingleDeviceStatus | null>(null);
+
+export const useSingleDeviceStatus = (): SingleDeviceStatus | null =>
+    useContext(SingleDeviceStatusContext);
 
 interface SingleDeviceGateProps {
     config: RealAuthConfig;
@@ -41,6 +51,7 @@ export default function SingleDeviceGate({
     );
     const deviceId = useMemo(() => loadOrCreateDeviceId(localStorage), [user.id]);
     const [state, setState] = useState<GateState>('checking');
+    const [lastVerifiedAt, setLastVerifiedAt] = useState('');
 
     const check = useCallback(async (activate: boolean) => {
         if (!navigator.onLine) {
@@ -51,7 +62,12 @@ export default function SingleDeviceGate({
             const result = activate
                 ? await transport.activate(deviceId, allowTakeover)
                 : await transport.verify(deviceId);
-            setState(result.status === 'active' ? 'active' : 'displaced');
+            if (result.status === 'active') {
+                setLastVerifiedAt(new Date().toISOString());
+                setState('active');
+            } else {
+                setState('displaced');
+            }
         } catch (error) {
             console.error('Single-device session check failed', error instanceof Error ? error.message : 'unknown error');
             setState(navigator.onLine ? 'error' : 'offline');
@@ -87,7 +103,13 @@ export default function SingleDeviceGate({
         };
     }, [check]);
 
-    if (state === 'active') return <>{children}</>;
+    if (state === 'active') {
+        return (
+            <SingleDeviceStatusContext.Provider value={{ deviceId, lastVerifiedAt }}>
+                {children}
+            </SingleDeviceStatusContext.Provider>
+        );
+    }
     if (state === 'checking') {
         return statusPage(
             <RefreshCw size={28} className="animate-spin" aria-hidden="true" />,
