@@ -4,6 +4,8 @@ export interface RealAuthConfig {
     redirectUrl: string;
     /** Independent kill switch: authentication may run while sync stays inert. */
     syncEnabled: boolean;
+    /** P2-13A account lifecycle UI and privileged deletion function. */
+    accountLifecycleEnabled: boolean;
     /** Independent, fail-closed Web Push capability. It never turns on merely
      * because real auth or sync is enabled. */
     backgroundReminders: BackgroundReminderCapability;
@@ -51,6 +53,7 @@ export function resolveRealAuthConfig(
     }
 
     const syncEnabled = source.VITE_SYNC_ENABLED === 'true';
+    const accountLifecycleEnabled = source.VITE_ACCOUNT_LIFECYCLE_ENABLED === 'true';
     const backgroundRequested = source.VITE_BACKGROUND_REMINDERS_ENABLED === 'true';
     const vapidPublicKey = String(source.VITE_VAPID_PUBLIC_KEY ?? '').trim();
     let backgroundReminders: BackgroundReminderCapability = { status: 'disabled' };
@@ -75,6 +78,7 @@ export function resolveRealAuthConfig(
             publishableKey,
             redirectUrl: new URL(baseUrl, origin).toString(),
             syncEnabled,
+            accountLifecycleEnabled,
             backgroundReminders,
         },
     };

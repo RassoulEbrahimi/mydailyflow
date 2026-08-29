@@ -5,7 +5,12 @@ import { getSupabaseClient } from './supabaseClient';
 
 const toAuthUser = (user: User | null): AuthUser | null => {
     if (!user?.email) return null;
-    return { id: user.id, email: user.email };
+    return {
+        id: user.id,
+        email: user.email,
+        emailConfirmedAt: user.email_confirmed_at ?? null,
+        createdAt: user.created_at,
+    };
 };
 
 const errorResult = (message: string): AuthActionResult => ({
@@ -52,9 +57,35 @@ export function createSupabaseAuthAdapter(config: RealAuthConfig): AuthAdapter {
             return error ? errorResult(error.message) : { status: 'ok' };
         },
 
+        async resendConfirmation(email) {
+            const { error } = await client.auth.resend({
+                type: 'signup',
+                email,
+                options: { emailRedirectTo: config.redirectUrl },
+            });
+            return error ? errorResult(error.message) : { status: 'ok' };
+        },
+
         async updatePassword(password) {
             const { error } = await client.auth.updateUser({ password });
             return error ? errorResult(error.message) : { status: 'ok' };
+        },
+
+        async changePassword(currentPassword, password) {
+            const { error } = await client.auth.updateUser({
+                password,
+                current_password: currentPassword,
+            });
+            return error ? errorResult(error.message) : { status: 'ok' };
+        },
+
+        async deleteAccount(request) {
+            const { error } = await client.functions.invoke('delete-account', {
+                body: request,
+            });
+            if (error) return errorResult(error.message);
+            await client.auth.signOut({ scope: 'local' });
+            return { status: 'ok' };
         },
 
         async signOut() {

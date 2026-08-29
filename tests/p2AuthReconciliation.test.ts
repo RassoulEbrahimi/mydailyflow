@@ -55,7 +55,19 @@ test('real auth is disabled by default and requires complete public configuratio
     if (configured.status === 'configured') {
         assert.equal(configured.value.redirectUrl, 'https://example.test/mydailyflow/');
         assert.equal(configured.value.syncEnabled, false);
+        assert.equal(configured.value.accountLifecycleEnabled, false);
         assert.deepEqual(configured.value.backgroundReminders, { status: 'disabled' });
+    }
+
+    const accountLifecycleConfigured = resolveRealAuthConfig({
+        VITE_REAL_AUTH_ENABLED: 'true',
+        VITE_ACCOUNT_LIFECYCLE_ENABLED: 'true',
+        VITE_SUPABASE_URL: 'https://synthetic.supabase.co',
+        VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_synthetic',
+    }, '/', 'https://example.test');
+    assert.equal(accountLifecycleConfigured.status, 'configured');
+    if (accountLifecycleConfigured.status === 'configured') {
+        assert.equal(accountLifecycleConfigured.value.accountLifecycleEnabled, true);
     }
 
     const syncConfigured = resolveRealAuthConfig({

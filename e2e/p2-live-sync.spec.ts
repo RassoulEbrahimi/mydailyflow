@@ -11,6 +11,8 @@ const LIVE_SYNC_READY = Boolean(
   && process.env.VITE_REAL_AUTH_ENABLED === 'true'
   && process.env.VITE_SYNC_ENABLED === 'true',
 );
+const LIVE_ACCOUNT_LIFECYCLE_READY = LIVE_SYNC_READY
+  && process.env.VITE_ACCOUNT_LIFECYCLE_ENABLED === 'true';
 
 async function waitForShell(page: Page): Promise<void> {
   for (let attempt = 0; attempt < 16; attempt += 1) {
@@ -85,6 +87,20 @@ test.describe('P2-12 live single-device lease', () => {
       await expect(pageA.getByRole('heading', { name: 'Konto auf einem anderen Gerät aktiv' }))
         .toBeVisible({ timeout: 15_000 });
       await expect(pageB.locator('nav')).toBeVisible();
+
+      if (LIVE_ACCOUNT_LIFECYCLE_READY) {
+        await pageB.getByRole('button', { name: 'Einstellungen' }).click();
+        const accountHeading = pageB.getByRole('heading', { name: 'KONTO & SICHERHEIT' });
+        await accountHeading.scrollIntoViewIfNeeded();
+        await expect(accountHeading).toBeVisible();
+        await expect(pageB.getByText('E-Mail bestätigt', { exact: false })).toBeVisible();
+        await expect(pageB.getByText('Dieses Gerät aktiv', { exact: false })).toBeVisible();
+        await expect(pageB.getByRole('button', { name: 'Passwort ändern' })).toBeVisible();
+        await pageB.getByRole('button', { name: 'Konto löschen vorbereiten' }).click();
+        await expect(pageB.getByRole('button', { name: 'Konto endgültig löschen' })).toBeDisabled();
+        await pageB.getByRole('dialog', { name: 'Einstellungen' })
+          .getByRole('button', { name: 'Schließen' }).click();
+      }
 
       // Strict one-device mode deliberately locks content without connectivity.
       await deviceB.setOffline(true);

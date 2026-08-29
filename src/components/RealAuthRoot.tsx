@@ -7,11 +7,16 @@ import RealLoginPage from './RealLoginPage';
 import PasswordRecoveryPage from './PasswordRecoveryPage';
 import SingleDeviceGate from './SingleDeviceGate';
 import { hasEstablishedSyncClient } from '../sync/clientState';
-import type { AuthActionResult } from '../auth/types';
+import type { AccountLifecycleController, AuthActionResult } from '../auth/types';
 
 interface RealAuthRootProps {
     config: RealAuthConfig;
-    renderApp(props: { logout: () => void; accountLabel: string; userId: string }): ReactNode;
+    renderApp(props: {
+        logout: () => void;
+        accountLabel: string;
+        userId: string;
+        accountLifecycle?: AccountLifecycleController;
+    }): ReactNode;
 }
 
 export default function RealAuthRoot({ config, renderApp }: RealAuthRootProps) {
@@ -62,7 +67,17 @@ export default function RealAuthRoot({ config, renderApp }: RealAuthRootProps) {
             />
         );
     } else {
-        content = renderApp({ logout: () => void auth.signOut(), accountLabel: auth.user.email, userId: auth.user.id });
+        content = renderApp({
+            logout: () => void auth.signOut(),
+            accountLabel: auth.user.email,
+            userId: auth.user.id,
+            accountLifecycle: config.accountLifecycleEnabled ? {
+                user: auth.user,
+                resendConfirmation: auth.resendConfirmation,
+                changePassword: auth.changePassword,
+                deleteAccount: auth.deleteAccount,
+            } : undefined,
+        });
     }
     return (
         <SingleDeviceGate

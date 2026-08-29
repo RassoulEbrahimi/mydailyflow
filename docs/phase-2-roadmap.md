@@ -111,6 +111,7 @@ This track starts only after Phase 2.0 selects a platform and Phase 2A proves th
 | P2-10 | Background reminders — implemented, activated and live-tested | Platform capability flag |
 | P2-11 | Phase 2 mobile acceptance and staged rollout — accepted | No new feature scope |
 | P2-12 | Single active device — implementation and controlled rollout | Session/device lease; no data-schema change |
+| P2-13A | Account lifecycle and security controls — implementation | Default-OFF flag + authenticated deletion function; no data-schema change |
 
 ## Explicitly deferred
 
@@ -151,3 +152,13 @@ the previous device; restored sessions cannot take over implicitly. RLS and sync
 RPCs enforce the lease server-side, while the client fails closed when offline.
 The implementation and rollout protocol live in
 `docs/p2-12-single-device-mode.md`.
+
+**P2-13A completes the test-environment account lifecycle:** Settings exposes
+the signed-in email, verification status and active-device state; confirmation
+mail can be resent; password changes require the current password; and account
+deletion is gated by a fresh Backup v4, the exact account email, an explicit
+phrase and the active P2-12 device lease. The destructive operation runs in an
+authenticated Edge Function whose privileged key never enters the browser.
+The capability remains default-OFF and is documented in
+`docs/p2-13-account-lifecycle.md`. Production project separation, custom SMTP
+and operational monitoring remain the P2-13B release boundary.

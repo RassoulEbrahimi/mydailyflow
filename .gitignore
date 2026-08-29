@@ -20,3 +20,6 @@ myDailyFlow_recovery__*.json
 /blob-report/
 /playwright/.cache/
 /e2e/.auth/
+
+# Supabase CLI local state; project metadata never belongs in a commit.
+/supabase/.temp/

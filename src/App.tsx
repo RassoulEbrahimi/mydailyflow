@@ -49,6 +49,7 @@ import { instantiateTaskTemplate } from './utils/taskTemplates';
 import { getRealAuthConfig } from './config/features';
 import type { RealAuthConfig } from './config/features';
 import { useSyncCoordinator } from './hooks/useSyncCoordinator';
+import type { AccountLifecycleController } from './auth/types';
 
 const RealAuthRoot = React.lazy(() => import('./components/RealAuthRoot'));
 
@@ -147,12 +148,14 @@ function AppInner({
   logout,
   authMode = 'demo',
   accountLabel,
+  accountLifecycle,
   syncConfig,
   syncUserId,
 }: {
   logout: () => void;
   authMode?: 'demo' | 'supabase';
   accountLabel?: string;
+  accountLifecycle?: AccountLifecycleController;
   syncConfig?: RealAuthConfig;
   syncUserId?: string;
 }) {
@@ -1056,6 +1059,7 @@ function AppInner({
         onThemeChange={setTheme}
         authMode={authMode}
         accountLabel={accountLabel}
+        accountLifecycle={accountLifecycle}
         sync={authMode === 'supabase' && syncConfig?.syncEnabled ? {
           status: sync.status,
           pendingCount: sync.pendingCount,
@@ -1105,8 +1109,8 @@ export default function App() {
     <React.Suspense fallback={<div role="status" className="min-h-screen bg-page flex items-center justify-center text-fg-secondary">Real Auth wird geladen…</div>}>
       <RealAuthRoot
         config={realAuth.value}
-        renderApp={({ logout, accountLabel, userId }) => (
-          <AppInner logout={logout} authMode="supabase" accountLabel={accountLabel} syncConfig={realAuth.value} syncUserId={userId} />
+        renderApp={({ logout, accountLabel, userId, accountLifecycle }) => (
+          <AppInner logout={logout} authMode="supabase" accountLabel={accountLabel} accountLifecycle={accountLifecycle} syncConfig={realAuth.value} syncUserId={userId} />
         )}
       />
     </React.Suspense>

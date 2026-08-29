@@ -7,6 +7,8 @@ import SyncSettingsSection from './SyncSettingsSection';
 import BackgroundRemindersSection from './BackgroundRemindersSection';
 import type { SyncConflict, SyncViewState } from '../sync/types';
 import type { BackgroundReminderStatus } from '../reminders/background';
+import type { AccountLifecycleController } from '../auth/types';
+import AccountSecuritySection from './AccountSecuritySection';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -23,6 +25,7 @@ interface SettingsModalProps {
   onThemeChange: (t: Theme) => void;
   authMode?: 'demo' | 'supabase';
   accountLabel?: string;
+  accountLifecycle?: AccountLifecycleController;
   sync?: SyncViewState & {
     onSync(): void;
     onResolve(conflictId: string, resolution: 'keep-server' | 'use-device'): void;
@@ -51,6 +54,7 @@ const SettingsModal = ({
   onThemeChange,
   authMode = 'demo',
   accountLabel,
+  accountLifecycle,
   sync,
   backgroundReminders,
 }: SettingsModalProps) => {
@@ -231,6 +235,8 @@ const SettingsModal = ({
         )}
 
         {authMode === 'supabase' && sync && <SyncSettingsSection {...sync} />}
+
+        {authMode === 'supabase' && accountLifecycle && <AccountSecuritySection {...accountLifecycle} />}
 
         {/* ── Backup & Restore ─────────────────────────────────────────── */}
         <BackupRestoreSection onImported={onDataImported} />
