@@ -49,19 +49,27 @@ export const getRolloverLabel = (rolledOverFrom: string): string => {
     return `Von ${formatDateLabel(rolledOverFrom)}`;
 };
 
-// Moves incomplete tasks from earlier dates to the supplied local date.
-// The original scheduled date is retained across repeated rollovers.
-export const rolloverTasksForDate = (tasks: Task[], today: string): Task[] =>
-    tasks.map(task => {
-        if (!task.completed && task.date < today) {
-            return {
-                ...task,
-                date: today,
-                rolledOverFrom: task.rolledOverFrom ?? task.date,
-            };
-        }
-        return task;
-    });
+/**
+ * Open work that needs an explicit morning decision.
+ *
+ * New tasks qualify by keeping their original past date. The second clause
+ * keeps already-persisted automatic carry-over records visible during the
+ * transition without treating future work as triage.
+ */
+export const selectMorningTriageTasks = (tasks: Task[], today: string): Task[] =>
+    tasks.filter(task =>
+        !task.completed
+        && (task.date < today || (task.date === today && !!task.rolledOverFrom)),
+    );
+
+/** Accepts one triage item into today's plan without retaining carry-over state. */
+export const acceptTaskForToday = (task: Task, today: string): Task => {
+    const { rolledOverFrom: _previousDate, ...accepted } = task;
+    return {
+        ...accepted,
+        date: today,
+    };
+};
 
 /**
  * Accepts an intentional scheduling change as the task's new plan.
@@ -468,6 +476,7 @@ export const buildNextOccurrence = (
     tasks: Task[],
     newId: () => string,
     timestamp: () => string,
+    afterDate: string = target.date,
 ): Task | null => {
     const { recurrence } = target;
     if (!recurrence || recurrence === 'none') return null;
@@ -487,7 +496,7 @@ export const buildNextOccurrence = (
         createdAt: timestamp(),
         completed: false,
         completedAt: null,
-        date: nextRecurrenceDateAfter(anchorDate, recurrence, target.date, anchorDay),
+        date: nextRecurrenceDateAfter(anchorDate, recurrence, afterDate, anchorDay),
         title: target.title,
         description: target.description,
         notes: target.notes,
