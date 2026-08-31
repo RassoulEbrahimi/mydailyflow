@@ -3,7 +3,7 @@ import type { Task } from '../types/task';
 import { isValidTaskArray } from '../types/task';
 import { STORAGE_KEYS, loadTasksSlice, serializeTasks } from '../utils/appStorage';
 import { blockReasonFor, isSliceBlocked, registerBlockedSlice, subscribeStorageHealth } from '../utils/storageHealth';
-import { buildNextOccurrence, getTodayString, nextRecurrenceDate, rolloverTasksForDate, withRecurrenceAnchor, withTaskCompletion } from '../utils/taskUtils';
+import { acceptRescheduledTask, buildNextOccurrence, getTodayString, nextRecurrenceDate, rolloverTasksForDate, withRecurrenceAnchor, withTaskCompletion } from '../utils/taskUtils';
 import { moveTaskToPlannerDestination, type PlannerDestination } from '../utils/weekPlanner';
 import type { TemplateTaskDraft } from '../utils/taskTemplates';
 
@@ -115,7 +115,10 @@ export function useTasks() {
     let savedTaskInner: Task;
 
     if (taskToEdit) {
-      savedTaskInner = withRecurrenceAnchor({ ...taskToEdit, ...taskData });
+      savedTaskInner = acceptRescheduledTask(
+        taskToEdit,
+        withRecurrenceAnchor({ ...taskToEdit, ...taskData }),
+      );
       setTasks(prev => prev.map(t => t.id === taskToEdit.id ? savedTaskInner : t));
     } else {
       savedTaskInner = withRecurrenceAnchor({
@@ -207,7 +210,10 @@ export function useTasks() {
   const moveTaskToTomorrow = (id: string) => {
     setTasks(prev => prev.map(t => {
       if (t.id === id) {
-        return { ...t, date: nextRecurrenceDate(getTodayString(), 'daily') };
+        return acceptRescheduledTask(t, {
+          ...t,
+          date: nextRecurrenceDate(getTodayString(), 'daily'),
+        });
       }
       return t;
     }));

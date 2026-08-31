@@ -128,7 +128,9 @@ const NewTaskModal = ({
       checklistItems: checklistItems.length > 0 ? checklistItems : undefined,
       time: isTimeEnabled ? selectedTime : '',
       duration: selectedDuration,
-      timeBlock: deriveTimeBlock(isTimeEnabled ? selectedTime : ''),
+      // `timeBlock` remains a required legacy storage field. Untimed views use
+      // the empty `time` as the source of truth and ignore this fallback lane.
+      timeBlock: deriveTimeBlock(selectedTime),
       priority: selectedPriority.toLowerCase() as Task['priority'],
       recurrence: selectedRecurrence,
       reminderEnabled: isTimeEnabled && isReminderEnabled,

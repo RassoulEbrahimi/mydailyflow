@@ -208,10 +208,17 @@ test.describe('Erinnerungen tab', () => {
 
     await app.navButton('reminders').click();
 
-    // Seeded synthetic data: timed, future-dated tasks are deliverable today.
+    // Seeded synthetic data: future trigger times remain deliverable today.
     await expect(app.page.getByRole('heading', { name: 'Geplant', exact: true })).toBeVisible();
     await expect(
       app.page.getByRole('button', { name: /Synthetische Aufgabe — Abend/ }),
+    ).toBeVisible();
+
+    // It is 14:30 in the deterministic fixture. The 09:00 task's reminder was
+    // due at 08:50, so it is missed rather than misleadingly still planned.
+    await expect(app.page.getByRole('heading', { name: 'Verpasst', exact: true })).toBeVisible();
+    await expect(
+      app.page.getByRole('button', { name: /Synthetische Aufgabe — Morgen/ }),
     ).toBeVisible();
 
     // The untimed task cannot be reminded about, and says so rather than
@@ -250,6 +257,15 @@ test.describe('Erinnerungen tab', () => {
     }).first();
     await expect(card).toBeVisible();
     await expect(card.getByText('Überfällig')).toBeHidden();
+
+    await expect(
+      app.page.getByRole('region', { name: 'Ohne Zeit', exact: true })
+        .getByText('Synthetische Aufgabe — ohne Zeit'),
+    ).toBeVisible();
+    await expect(
+      app.page.getByRole('region', { name: /Nachmittag/ })
+        .getByText('Synthetische Aufgabe — ohne Zeit'),
+    ).toBeHidden();
 
     // And the meta row shows a real label instead of an orphan separator.
     const meta = await card.innerText();

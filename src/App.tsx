@@ -16,6 +16,7 @@ import {
   formatDateLabel,
   selectNowTask,
   summarizeTodayWork,
+  hasTime,
 } from './utils/taskUtils';
 import DateGroupHeader from './components/DateGroupHeader';
 import AllTasksFilterBar from './components/AllTasksFilterBar';
@@ -458,10 +459,12 @@ function AppInner({
     });
   };
 
-  const timeBlockTasks = todayTasks.filter(task => !task.rolledOverFrom && !task.completed);
-  const morningTasks = sortSectionTasks(timeBlockTasks.filter(t => t.timeBlock === 'morning'));
-  const afternoonTasks = sortSectionTasks(timeBlockTasks.filter(t => t.timeBlock === 'afternoon'));
-  const eveningTasks = sortSectionTasks(timeBlockTasks.filter(t => t.timeBlock === 'evening'));
+  const plannedOpenTasks = todayTasks.filter(task => !task.rolledOverFrom && !task.completed);
+  const timedTasks = plannedOpenTasks.filter(hasTime);
+  const untimedTasks = sortSectionTasks(plannedOpenTasks.filter(task => !hasTime(task)));
+  const morningTasks = sortSectionTasks(timedTasks.filter(t => t.timeBlock === 'morning'));
+  const afternoonTasks = sortSectionTasks(timedTasks.filter(t => t.timeBlock === 'afternoon'));
+  const eveningTasks = sortSectionTasks(timedTasks.filter(t => t.timeBlock === 'evening'));
 
   // Apply search + period/date filter, then anchor the result around Today.
   const allFilteredTasks = filteredTasks.filter(task => {
@@ -646,6 +649,11 @@ function AppInner({
             <TaskSection title="Abend" timeRange="18:00 – 23:00" accentClass="text-block-evening">
               {eveningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} onStartFocus={openFocusForTask} />)}
             </TaskSection>
+            {untimedTasks.length > 0 && (
+              <TaskSection title="Ohne Zeit" accentClass="text-fg-secondary">
+                {untimedTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} onStartFocus={openFocusForTask} />)}
+              </TaskSection>
+            )}
 
             {pendingTasks.length === 0 && (
               <div className="text-center py-12 text-fg-secondary mt-10">

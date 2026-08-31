@@ -63,6 +63,22 @@ export const rolloverTasksForDate = (tasks: Task[], today: string): Task[] =>
         return task;
     });
 
+/**
+ * Accepts an intentional scheduling change as the task's new plan.
+ *
+ * `rolledOverFrom` describes an automatic carry-over, so it remains useful
+ * while the user only edits authored content. Once the date or time changes,
+ * keeping that provenance would incorrectly continue to label the task as
+ * "Übernommen" even though the user has deliberately replanned it.
+ */
+export const acceptRescheduledTask = (before: Task, after: Task): Task => {
+    const scheduleChanged = before.date !== after.date || before.time !== after.time;
+    if (!scheduleChanged || after.rolledOverFrom === undefined) return after;
+
+    const { rolledOverFrom: _previousDate, ...accepted } = after;
+    return accepted;
+};
+
 // Returns the default start time for a given time block.
 export const defaultTimeForBlock = (block: Task['timeBlock']): string => {
     if (block === 'morning') return '09:00';
@@ -205,6 +221,32 @@ export const groupTasksByDatePeriod = (
 /** True when the task carries a usable "HH:MM" time. */
 export const hasTime = (task: Pick<Task, 'time'>): boolean =>
     typeof task.time === 'string' && task.time.trim().length > 0;
+
+/** Returns the local timestamp at which a foreground reminder becomes due. */
+export const reminderTriggerTimestamp = (
+    task: Pick<Task, 'date' | 'time'>,
+    leadMinutes = 10,
+): number | null => {
+    if (!task.date || !hasTime(task)) return null;
+
+    const [year, month, day] = task.date.split('-').map(Number);
+    const [hour, minute] = task.time.split(':').map(Number);
+    if (![year, month, day, hour, minute].every(Number.isFinite)) return null;
+
+    const scheduledAt = new Date(year, month - 1, day, hour, minute).getTime();
+    if (!Number.isFinite(scheduledAt)) return null;
+    return scheduledAt - leadMinutes * 60_000;
+};
+
+/** True once the reminder's delivery moment has been reached or missed. */
+export const isReminderTriggerPast = (
+    task: Pick<Task, 'date' | 'time'>,
+    now: Date = new Date(),
+    leadMinutes = 10,
+): boolean => {
+    const trigger = reminderTriggerTimestamp(task, leadMinutes);
+    return trigger !== null && trigger <= now.getTime();
+};
 
 /**
  * Orders tasks within one date group: timed tasks first, ascending by time,
@@ -454,6 +496,7 @@ export const buildNextOccurrence = (
         timeBlock: target.timeBlock,
         priority: target.priority,
         recurrence,
+        reminderEnabled: target.reminderEnabled,
         recurrenceSourceId: target.id,
         recurrenceAnchorDay: anchorDay,
         checklistItems: target.checklistItems
