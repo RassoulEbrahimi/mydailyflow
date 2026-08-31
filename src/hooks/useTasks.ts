@@ -3,7 +3,7 @@ import type { Task } from '../types/task';
 import { isValidTaskArray } from '../types/task';
 import { STORAGE_KEYS, loadTasksSlice, serializeTasks } from '../utils/appStorage';
 import { blockReasonFor, isSliceBlocked, registerBlockedSlice, subscribeStorageHealth } from '../utils/storageHealth';
-import { acceptRescheduledTask, buildNextOccurrence, getTodayString, nextRecurrenceDate, rolloverTasksForDate, withRecurrenceAnchor, withTaskCompletion } from '../utils/taskUtils';
+import { acceptRescheduledTask, acceptTaskForToday, buildNextOccurrence, getTodayString, nextRecurrenceDate, withRecurrenceAnchor, withTaskCompletion } from '../utils/taskUtils';
 import { moveTaskToPlannerDestination, type PlannerDestination } from '../utils/weekPlanner';
 import type { TemplateTaskDraft } from '../utils/taskTemplates';
 
@@ -81,34 +81,6 @@ export function useTasks() {
     }
   }, [tasks, persistBlocked]);
 
-  useEffect(() => {
-    let lastProcessedDate: string | null = null;
-
-    const checkRollover = () => {
-      const today = getTodayString();
-      if (lastProcessedDate === today) return;
-
-      lastProcessedDate = today;
-      setTasks(prev => rolloverTasksForDate(prev, today));
-      localStorage.setItem('lastRolloverDate', today);
-    };
-
-    checkRollover();
-
-    // Keep the Today view and task dates correct if the app stays open overnight.
-    const intervalId = window.setInterval(checkRollover, 60000);
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') checkRollover();
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      window.clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, []);
-
   // recurrenceAnchorDay is owned by this hook, not by callers: it is derived
   // from the task's own recurrence and scheduled date on every save.
   const saveTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'completed' | 'completedAt' | 'rolledOverFrom' | 'recurrenceAnchorDay'>, taskToEdit?: Task | null): Task => {
@@ -162,6 +134,7 @@ export function useTasks() {
           updated,
           () => Math.random().toString(36).substr(2, 9),
           () => new Date().toISOString(),
+          getTodayString(),
         );
         if (nextTask) return [...updated, nextTask];
       }
@@ -219,6 +192,13 @@ export function useTasks() {
     }));
   };
 
+  const acceptTaskToday = (id: string) => {
+    const today = getTodayString();
+    setTasks(prev => prev.map(task =>
+      task.id === id ? acceptTaskForToday(task, today) : task
+    ));
+  };
+
   /**
    * Applies a planner move to exactly one occurrence. The pure helper changes
    * only its scheduling fields, so recurrence metadata and factual history are
@@ -230,5 +210,5 @@ export function useTasks() {
     ));
   };
 
-  return { tasks: sortedTasks, saveTask, createTasks, toggleTaskStatus, toggleChecklistItem, deleteTask, restoreTask, moveTaskToTomorrow, moveTaskInPlanner };
+  return { tasks: sortedTasks, saveTask, createTasks, toggleTaskStatus, toggleChecklistItem, deleteTask, restoreTask, acceptTaskToday, moveTaskToTomorrow, moveTaskInPlanner };
 }

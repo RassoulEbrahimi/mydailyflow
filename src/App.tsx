@@ -17,6 +17,7 @@ import {
   selectNowTask,
   summarizeTodayWork,
   hasTime,
+  selectMorningTriageTasks,
 } from './utils/taskUtils';
 import DateGroupHeader from './components/DateGroupHeader';
 import AllTasksFilterBar from './components/AllTasksFilterBar';
@@ -269,7 +270,7 @@ function AppInner({
     setIsModalOpen(true);
   };
 
-  const { tasks, saveTask, createTasks, toggleTaskStatus, toggleChecklistItem, deleteTask, restoreTask, moveTaskToTomorrow, moveTaskInPlanner } = useTasks();
+  const { tasks, saveTask, createTasks, toggleTaskStatus, toggleChecklistItem, deleteTask, restoreTask, acceptTaskToday, moveTaskToTomorrow, moveTaskInPlanner } = useTasks();
   const { templates, createTemplate, deleteTemplate } = useTaskTemplates();
   const { focusState, startFocus, pauseFocus, resumeFocus, finishFocus } = useFocusSessions();
   const [focusSetupTask, setFocusSetupTask] = useState<Task | null>(null);
@@ -459,6 +460,8 @@ function AppInner({
     });
   };
 
+  const morningTriageTasks = sortSectionTasks(selectMorningTriageTasks(filteredTasks, today));
+
   const plannedOpenTasks = todayTasks.filter(task => !task.rolledOverFrom && !task.completed);
   const timedTasks = plannedOpenTasks.filter(hasTime);
   const untimedTasks = sortSectionTasks(plannedOpenTasks.filter(task => !hasTime(task)));
@@ -602,7 +605,7 @@ function AppInner({
             completed={todaySummary.completedPlanned}
             total={todaySummary.totalPlanned}
             percentage={todaySummary.percentage}
-            carried={todaySummary.carriedTasks.length}
+            needsTriage={morningTriageTasks.length}
             stickyEnabled={stickyHeroEnabled}
             panelRef={pinnedRef}
           />
@@ -621,9 +624,10 @@ function AppInner({
               />
             )}
             <CarryOverSection
-              tasks={sortSectionTasks(todaySummary.carriedTasks)}
+              tasks={morningTriageTasks}
               expanded={carryOverExpanded}
               onExpandedChange={setCarryOverExpanded}
+              onAcceptToday={acceptTaskToday}
               onToggleComplete={toggleTaskStatus}
               onDelete={handleDeleteTask}
               onEdit={openEditTaskModal}

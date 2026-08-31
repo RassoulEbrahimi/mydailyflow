@@ -45,7 +45,7 @@ test.describe('Today completed group', () => {
       app.page.getByRole('region', { name: 'Morgen (06:00 – 12:00)' })
         .getByRole('heading', { level: 3, name: 'Heute offen', exact: true }),
     ).toBeVisible();
-    await expect(app.page.getByRole('region', { name: 'Übernommen' })).toContainText('Übernommen und offen');
+    await expect(app.page.getByRole('region', { name: 'Morgen-Check' })).toContainText('Übernommen und offen');
     await expect(app.page.getByRole('heading', { name: 'Übernommen und erledigt', exact: true })).toHaveCount(0);
   });
 

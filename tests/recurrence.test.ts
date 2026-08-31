@@ -177,6 +177,26 @@ test('completing a rolled weekly task spawns the next occurrence on its weekday'
   assert.equal(next.time, target.time);
 });
 
+test('completing a stale recurring task during triage catches up beyond today', () => {
+  const target = makeTask({
+    id: 'stale-daily',
+    recurrence: 'daily',
+    date: '2026-08-03',
+    completed: true,
+  });
+
+  const next = buildNextOccurrence(
+    target,
+    [target],
+    newId,
+    timestamp,
+    '2026-08-12',
+  );
+
+  assert.ok(next);
+  assert.equal(next.date, '2026-08-13');
+});
+
 test('a spawned monthly occurrence carries the anchor day forward', () => {
   const target = makeTask({
     id: 'monthly-1',
