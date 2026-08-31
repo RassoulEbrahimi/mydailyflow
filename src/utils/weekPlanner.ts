@@ -1,6 +1,6 @@
 import type { Task } from '../types/task';
 import { addCalendarDays, startOfLocalWeek, weekDates } from './weeklyReview';
-import { compareByTimeUntimedLast, defaultTimeForBlock, deriveTimeBlock, hasTime } from './taskUtils';
+import { acceptRescheduledTask, compareByTimeUntimedLast, defaultTimeForBlock, deriveTimeBlock, hasTime } from './taskUtils';
 
 export type PlannerLane = Task['timeBlock'] | 'untimed';
 
@@ -60,8 +60,9 @@ export const buildWeekPlan = (tasks: Task[], referenceDate: string): PlannerDay[
 };
 
 /**
- * Moves one occurrence without touching recurrence cadence metadata, history,
- * completion state, checklist data or rollover provenance.
+ * Moves one occurrence without touching recurrence cadence metadata, factual
+ * completion history or authored content. A real schedule change accepts the
+ * destination as the new plan and therefore clears automatic rollover origin.
  *
  * - moving only to another day preserves its exact time;
  * - entering a different timed lane uses that lane's deterministic default,
@@ -76,11 +77,11 @@ export const moveTaskToPlannerDestination = (
     if (!canMoveTaskToPlannerDestination(task, destination)) return task;
 
     if (destination.lane === 'untimed') {
-        return {
+        return acceptRescheduledTask(task, {
             ...task,
             date: destination.date,
             time: '',
-        };
+        });
     }
 
     const currentLane = plannerLaneForTask(task);
@@ -91,12 +92,12 @@ export const moveTaskToPlannerDestination = (
             ? task.time
             : defaultTimeForBlock(destination.lane);
 
-    return {
+    return acceptRescheduledTask(task, {
         ...task,
         date: destination.date,
         timeBlock: deriveTimeBlock(nextTime),
         time: nextTime,
-    };
+    });
 };
 
 export const previousPlannerWeek = (referenceDate: string): string =>

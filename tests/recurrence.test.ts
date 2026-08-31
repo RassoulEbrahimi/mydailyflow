@@ -266,6 +266,21 @@ test('a spawned occurrence resets checklist items', () => {
   ]);
 });
 
+test('a spawned occurrence preserves the series reminder preference', () => {
+  for (const reminderEnabled of [true, false]) {
+    const target = makeTask({
+      id: `daily-${String(reminderEnabled)}`,
+      recurrence: 'daily',
+      completed: true,
+      reminderEnabled,
+    });
+
+    const next = buildNextOccurrence(target, [target], newId, timestamp);
+    assert.ok(next);
+    assert.equal(next.reminderEnabled, reminderEnabled);
+  }
+});
+
 // ─── Anchor lifecycle on create / edit ────────────────────────────────────────
 
 test('a new monthly task derives its anchor from its scheduled date', () => {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { AlertTriangle, BellOff, BellRing, Clock, Info } from 'lucide-react';
 import type { Task } from '../types/task';
-import { getTodayString, hasTime, compareByTimeUntimedLast, formatDateLabel } from '../utils/taskUtils';
+import { getTodayString, hasTime, compareByTimeUntimedLast, formatDateLabel, isReminderTriggerPast } from '../utils/taskUtils';
 import type { BackgroundReminderStatus } from '../reminders/background';
 
 /**
@@ -51,6 +51,7 @@ export default function RemindersView({
     backgroundStatus = 'disabled',
 }: RemindersViewProps) {
     const today = getTodayString();
+    const now = new Date();
 
     const candidates = tasks.filter(wantsReminder);
 
@@ -66,7 +67,7 @@ export default function RemindersView({
             untimed.push(task);
             continue;
         }
-        if (!task.date || task.date < today) {
+        if (!task.date || isReminderTriggerPast(task, now, REMINDER_LEAD_MINUTES)) {
             past.push(task);
             continue;
         }
@@ -177,10 +178,10 @@ export default function RemindersView({
 
                     {past.length > 0 && (
                         <ReminderGroup
-                            title="Zeitpunkt vergangen"
+                            title="Verpasst"
                             count={past.length}
                             accent="text-fg-secondary"
-                            description="Der geplante Zeitpunkt liegt in der Vergangenheit. Diese Erinnerungen werden nicht mehr ausgelöst."
+                            description="Der Erinnerungszeitpunkt liegt in der Vergangenheit. Diese Erinnerungen werden nicht mehr ausgelöst."
                         >
                             {past.map(task => (
                                 <ReminderRow

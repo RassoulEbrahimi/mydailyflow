@@ -98,7 +98,7 @@ describe('moveTaskToPlannerDestination', () => {
         assert.equal(moved.reminderEnabled, true, 'planner movement does not rewrite unrelated settings');
     });
 
-    it('preserves recurrence cadence fields, rollover provenance, history and authored content byte-for-byte within its series day', () => {
+    it('accepts a new planner slot while preserving recurrence, history and authored content', () => {
         const original = task('monthly', {
             date: '2026-08-31',
             recurrence: 'monthly',
@@ -115,7 +115,6 @@ describe('moveTaskToPlannerDestination', () => {
             recurrence: moved.recurrence,
             recurrenceAnchorDay: moved.recurrenceAnchorDay,
             recurrenceSourceId: moved.recurrenceSourceId,
-            rolledOverFrom: moved.rolledOverFrom,
             checklistItems: moved.checklistItems,
             notes: moved.notes,
             completedAt: moved.completedAt,
@@ -123,11 +122,12 @@ describe('moveTaskToPlannerDestination', () => {
             recurrence: original.recurrence,
             recurrenceAnchorDay: original.recurrenceAnchorDay,
             recurrenceSourceId: original.recurrenceSourceId,
-            rolledOverFrom: original.rolledOverFrom,
             checklistItems: original.checklistItems,
             notes: original.notes,
             completedAt: original.completedAt,
         });
+        assert.equal(moved.rolledOverFrom, undefined);
+        assert.equal(Object.prototype.hasOwnProperty.call(moved, 'rolledOverFrom'), false);
     });
 
     it('protects a recurring series from accidental cross-day movement', () => {
