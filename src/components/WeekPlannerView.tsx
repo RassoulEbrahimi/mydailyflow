@@ -22,6 +22,7 @@ import {
     RepeatIcon,
 } from 'lucide-react';
 import type { Task } from '../types/task';
+import { hasTime } from '../utils/taskUtils';
 import { startOfLocalWeek } from '../utils/weeklyReview';
 import {
     buildWeekPlan,
@@ -85,9 +86,12 @@ function PlannerTask({ task, onMoveClick }: { task: Task; onMoveClick: (task: Ta
                 </button>
                 <div className="min-w-0 flex-1 py-1">
                     <h3 dir="auto" className="text-start text-[13px] font-semibold leading-5 text-fg break-words">{task.title}</h3>
-                    <div dir="ltr" className="mt-1 flex items-center gap-1.5 text-[11px] text-fg-secondary">
+                    <div dir="ltr" className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-fg-secondary">
                         <Clock3 size={12} aria-hidden="true" />
                         <span>{task.time || 'Ohne Zeit'}</span>
+                        <span className="rounded-md border border-edge px-1 py-0.5 text-[9px] font-semibold">
+                            {hasTime(task) ? 'Fester Termin' : 'Flexibel'}
+                        </span>
                         {task.recurrence && task.recurrence !== 'none' && (
                             <span role="img" className="flex items-center gap-1 rounded-md border border-edge px-1 py-0.5" aria-label="Wiederholende Aufgabe">
                                 <RepeatIcon size={9} aria-hidden="true" />

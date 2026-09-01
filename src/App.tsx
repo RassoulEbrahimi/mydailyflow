@@ -46,6 +46,7 @@ import FocusSessionBanner from './components/FocusSessionBanner';
 import { useFocusSessions } from './hooks/useFocusSessions';
 import { useTaskTemplates } from './hooks/useTaskTemplates';
 import TemplatesModal from './components/TemplatesModal';
+import PlanningCapacityCard from './components/PlanningCapacityCard';
 import type { TaskTemplate } from './types/template';
 import { instantiateTaskTemplate } from './utils/taskTemplates';
 import { getRealAuthConfig } from './config/features';
@@ -644,6 +645,7 @@ function AppInner({
               onManageClick={() => setIsManageEssentialsOpen(true)}
             />
             <div className="flex flex-col gap-8 px-5 pt-2">
+            {plannedOpenTasks.length > 0 && <PlanningCapacityCard tasks={plannedOpenTasks} />}
             <TaskSection title="Morgen" timeRange="06:00 – 12:00" accentClass="text-block-morning">
               {morningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} onStartFocus={openFocusForTask} />)}
             </TaskSection>
