@@ -397,7 +397,8 @@ const NewTaskModal = ({
                     : 'bg-surface-inset border-edge-muted text-fg-secondary'
                   }`}
                 >
-                  Mit Uhrzeit
+                  <span>Mit Uhrzeit</span>
+                  <span aria-hidden="true" className={`ml-1 text-[10px] font-semibold ${isTimeEnabled ? 'text-white' : 'text-fg'}`}>· Fester Termin</span>
                 </button>
                 <button
                   type="button"
@@ -408,9 +409,13 @@ const NewTaskModal = ({
                     : 'bg-surface-inset border-edge-muted text-fg-secondary'
                   }`}
                 >
-                  Ohne Zeit
+                  <span>Ohne Zeit</span>
+                  <span aria-hidden="true" className={`ml-1 text-[10px] font-semibold ${!isTimeEnabled ? 'text-white' : 'text-fg'}`}>· Flexibel</span>
                 </button>
               </div>
+              <p className="mt-2 text-[11px] leading-4 text-fg-secondary">
+                Eine Uhrzeit reserviert einen festen Termin. Ohne Zeit bleibt die Aufgabe flexibel planbar.
+              </p>
               {isTimeEnabled && (
                 <div className="mt-3 flex items-center justify-between">
                   <label htmlFor="task-time" className="text-fg-secondary text-[14px]">Startzeit</label>

@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { Check, Clock, Pencil, Trash2, RepeatIcon, RotateCcw, ArrowRight, MoreVertical, TimerReset } from 'lucide-react';
+import { CalendarClock, Check, Clock, Pencil, Trash2, RepeatIcon, RotateCcw, ArrowRight, MoreVertical, TimerReset } from 'lucide-react';
 import type { Task } from '../types/task';
 import { getRolloverLabel, hasTime, isTaskOverdue } from '../utils/taskUtils';
 
@@ -438,6 +438,17 @@ const TaskCard = ({
                 {untimed ? 'Ohne Zeit' : time}
                 {duration ? ` • ${duration}` : ''}
               </span>
+
+              {!untimed && (
+                <span
+                  className="flex items-center gap-1 rounded-md border border-primary-border bg-primary-surface px-1.5 py-0.5 text-[10px] font-medium leading-tight text-primary-text"
+                  aria-label="Fester Termin"
+                  title="Aufgabe mit fester Uhrzeit"
+                >
+                  <CalendarClock size={10} aria-hidden="true" />
+                  Fester Termin
+                </span>
+              )}
 
               {/* Informational badges are deliberately neutral. Semantic badge
                   colour is reserved for overdue and carried-over state. */}
