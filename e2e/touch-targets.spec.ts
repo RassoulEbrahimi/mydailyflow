@@ -2,11 +2,9 @@
  * touch-targets.spec.ts — the two 44x44 exceptions PR3 deferred (PR4).
  *
  * PR3 raised every control it could, and enumerated two it could not:
- * the Daily Essentials counter chips (32x32) and the inline TaskCard checklist
- * rows (28px tall). Both were blocked on layout work — five 44px counters plus a
- * title do not fit one row at 360px, and four 44px checklist rows change the
- * card's height. PR4 does that work, so `TARGET_SIZE_EXCEPTIONS` is now empty
- * and these tests hold the two components to the bar directly.
+ * the Daily Essentials progress controls and the inline TaskCard checklist
+ * rows. The compact stepper keeps two 44px targets beside the title at 360px;
+ * five independent 44px chips would consume 220px before title or spacing.
  *
  * Size alone is not the whole requirement: an enlarged target that overlaps its
  * neighbour steals taps, and a row of enlarged targets that overflows the card
@@ -18,7 +16,7 @@ import { expect, test, THEMES, VIEWPORTS, waitForAppShell } from './fixtures/app
 
 const MIN = 44;
 
-/** Realistic multi-language Essentials, including the widest counter this app allows. */
+/** Realistic multi-language Essentials, including one legacy target above the new UI cap. */
 const ESSENTIALS = [
   { id: 't-de-5',    title: 'Wasser trinken',                 targetCount: 5, order: 0, createdAt: '2026-05-19T06:00:00.000Z' },
   { id: 't-fa-5',    title: 'نوشیدن آب در طول روز',            targetCount: 5, order: 1, createdAt: '2026-05-19T06:01:00.000Z' },
@@ -81,33 +79,33 @@ for (const theme of THEMES) {
         viewport: { width: viewport.width, height: viewport.height },
       });
 
-      test('Essentials counters are 44x44, do not overlap, and do not overflow', async ({ app }) => {
+      test('Essentials steppers are 44x44, do not overlap, and do not overflow', async ({ app }) => {
         await seed(app.page);
 
         const measured = await app.page.evaluate(() => {
-          const chips = Array.from(
-            document.querySelectorAll<HTMLElement>('section button[aria-pressed]'),
+          const controls = Array.from(
+            document.querySelectorAll<HTMLElement>('section button[aria-label$="Fortschritt erhöhen"], section button[aria-label$="Fortschritt verringern"]'),
           ).map((el, i) => {
             const r = el.getBoundingClientRect();
-            return { label: `chip${i}:${(el.textContent || '').trim()}`, x: r.x, y: r.y, w: r.width, h: r.height };
+            return { label: `control${i}:${el.getAttribute('aria-label')}`, x: r.x, y: r.y, w: r.width, h: r.height };
           });
           const doc = document.documentElement;
-          const section = document.querySelector('section')!;
+          const section = document.querySelector('button[aria-label="Essentials verwalten"]')!.closest('section')!;
           return {
-            chips,
+            controls,
             pageOverflow: doc.scrollWidth - doc.clientWidth,
             sectionOverflow: section.scrollWidth - section.clientWidth,
           };
         });
 
-        expect(measured.chips.length, 'counter chips render').toBeGreaterThanOrEqual(23);
+        expect(measured.controls.length, 'two controls render for every multi-target Essential').toBe(8);
 
-        const tooSmall = measured.chips
+        const tooSmall = measured.controls
           .filter((c) => c.w < MIN || c.h < MIN)
           .map((c) => `${c.label} = ${c.w.toFixed(1)}x${c.h.toFixed(1)}`);
-        expect(tooSmall, 'every counter chip reaches 44x44').toEqual([]);
+        expect(tooSmall, 'every stepper control reaches 44x44').toEqual([]);
 
-        expect(intersections(measured.chips), 'no two counter chips overlap').toEqual([]);
+        expect(intersections(measured.controls), 'no two stepper controls overlap').toEqual([]);
         expect(measured.pageOverflow, 'no horizontal page overflow').toBeLessThanOrEqual(1);
         expect(measured.sectionOverflow, 'the Essentials card does not overflow').toBeLessThanOrEqual(1);
       });
@@ -166,18 +164,15 @@ test.describe('targets · keyboard and state', () => {
     expect(await row.getAttribute('aria-checked'), 'Enter flips the checklist item').not.toBe(before);
   });
 
-  test('a counter chip still records progress', async ({ app }) => {
+  test('the compact stepper still records progress', async ({ app }) => {
     await seed(app.page);
-    const chips = app.page.locator('section button[aria-pressed]');
-    const third = chips.nth(2);
+    const row = app.page.locator('[data-essential-id="t-de-5"]');
+    const increase = row.getByRole('button', { name: 'Wasser trinken: Fortschritt erhöhen' });
 
-    await third.click();
+    await increase.click();
     await app.page.waitForTimeout(250);
 
-    expect(await third.getAttribute('aria-pressed'), 'the clicked counter becomes active').toBe('true');
-    expect(
-      await chips.nth(1).getAttribute('aria-pressed'),
-      'progress is cumulative, so earlier counters are active too',
-    ).toBe('true');
+    await expect(row.getByRole('status')).toHaveText('3/5');
+    await expect(row.getByRole('group')).toHaveAttribute('aria-label', 'Wasser trinken: 3 von 5');
   });
 });

@@ -46,6 +46,12 @@ for (const theme of THEMES) {
       const group = app.page.getByRole('region', { name: 'Morgen-Check' });
       await expect(group).toBeVisible();
       await expect(group).toContainText('2 aus früheren Tagen');
+      const toggle = group.getByRole('button', { name: /Morgen-Check/ });
+      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      await expect(group.getByRole('heading', { name: 'Von gestern offen', exact: true })).toHaveCount(0);
+
+      await toggle.click();
+      await expect(toggle).toHaveAttribute('aria-expanded', 'true');
       await expect(group).toContainText('Nichts wird automatisch in Heute verschoben.');
       await expect(group).toContainText('Von gestern offen');
       await expect(group).toContainText('از دیروز منتقل شده');
@@ -55,8 +61,6 @@ for (const theme of THEMES) {
       await expect(app.page.getByRole('heading', { name: 'Von gestern offen', exact: true })).toHaveCount(1);
       await expect(app.page.getByRole('heading', { name: 'از دیروز منتقل شده', exact: true })).toHaveCount(1);
 
-      const toggle = group.getByRole('button', { name: /Morgen-Check/ });
-      await expect(toggle).toHaveAttribute('aria-expanded', 'true');
       await toggle.click();
       await expect(toggle).toHaveAttribute('aria-expanded', 'false');
       await expect(group.getByRole('heading', { name: 'Von gestern offen', exact: true })).toHaveCount(0);
@@ -66,6 +70,7 @@ for (const theme of THEMES) {
 
 test('completing a triage task removes it without changing accepted-plan progress', async ({ app }) => {
   const group = app.page.getByRole('region', { name: 'Morgen-Check' });
+  await group.getByRole('button', { name: /Morgen-Check/ }).click();
   await group.getByRole('checkbox', { name: 'Von gestern offen als erledigt markieren' }).click();
 
   await expect(group).toContainText('1 aus früheren Tagen');
@@ -78,6 +83,7 @@ test('completing a triage task removes it without changing accepted-plan progres
 
 test('accepting a triage item adds it to Today and its truthful progress denominator', async ({ app }) => {
   const group = app.page.getByRole('region', { name: 'Morgen-Check' });
+  await group.getByRole('button', { name: /Morgen-Check/ }).click();
   await group.getByRole('button', { name: 'Von gestern offen heute einplanen' }).click();
 
   await expect(group).toContainText('1 aus früheren Tagen');

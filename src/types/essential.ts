@@ -6,6 +6,18 @@ export interface DailyEssential {
     createdAt: string;
 }
 
+/** Product limit for newly created or deliberately edited daily Essentials. */
+export const MAX_DAILY_ESSENTIAL_TARGET = 5;
+
+/**
+ * Normalize an explicit user edit without rewriting legacy data during load.
+ * Older backups may contain a higher target and remain readable until edited.
+ */
+export const clampDailyEssentialTarget = (value: number): number => {
+    if (!Number.isFinite(value)) return 1;
+    return Math.min(MAX_DAILY_ESSENTIAL_TARGET, Math.max(1, Math.round(value)));
+};
+
 export interface DailyEssentialState {
     date: string; // YYYY-MM-DD
     progressById: Record<string, number>;

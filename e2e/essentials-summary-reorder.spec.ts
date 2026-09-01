@@ -55,7 +55,7 @@ const options = {
   essentialsState: PARTIAL_STATE,
 };
 
-test.describe('Phase 1B B7 · Daily Essentials summary and types', () => {
+test.describe('Daily Essentials compact summary and controls', () => {
   test.use({ appOptions: options });
 
   test('collapsed strip summarizes the next incomplete essentials', async ({ app }) => {
@@ -73,18 +73,45 @@ test.describe('Phase 1B B7 · Daily Essentials summary and types', () => {
     await expect(app.page.locator('[data-essential-id="b7-simple-open"]')).toHaveCount(0);
   });
 
-  test('expanded rows state their interaction model', async ({ app }) => {
+  test('expanded rows omit redundant type labels and keep progress on one row', async ({ app }) => {
     const section = app.page.getByRole('button', { name: 'Essentials verwalten' }).locator('xpath=ancestor::section');
 
     await expect(section.locator('[data-essential-type="simple"]')).toHaveCount(3);
     await expect(section.locator('[data-essential-type="multiple"]')).toHaveCount(2);
-    await expect(section.getByText('Einfach', { exact: true })).toHaveCount(3);
-    await expect(section.getByText('Mehrfach · 5', { exact: true })).toBeVisible();
-    await expect(section.getByText('Mehrfach · 3', { exact: true })).toBeVisible();
+    await expect(section.getByText('Einfach', { exact: true })).toHaveCount(0);
+    await expect(section.getByText(/Mehrfach/)).toHaveCount(0);
+
+    const persianRow = section.locator('[data-essential-id="b7-multi-fa"]');
+    await expect(persianRow.getByRole('status')).toHaveText('2/5');
+    await expect(persianRow.getByRole('button', { name: 'آب کافی بنوش: Fortschritt verringern' })).toBeEnabled();
+    await expect(persianRow.getByRole('button', { name: 'آب کافی بنوش: Fortschritt erhöhen' })).toBeEnabled();
+
+    const alignment = await persianRow.evaluate((row) => {
+      const rowBox = row.getBoundingClientRect();
+      const titleBox = row.querySelector('[dir="auto"]')!.getBoundingClientRect();
+      const controlsBox = row.querySelector('[role="group"]')!.getBoundingClientRect();
+      return {
+        sameRow: Math.abs(titleBox.top + titleBox.height / 2 - (controlsBox.top + controlsBox.height / 2)) < 24,
+        inside: controlsBox.right <= rowBox.right + 1 && titleBox.left >= rowBox.left - 1,
+      };
+    });
+    expect(alignment).toEqual({ sameRow: true, inside: true });
 
     const persianTitle = section.locator('[dir="auto"]').filter({ hasText: 'آب کافی بنوش' }).first();
     await expect(persianTitle).toBeVisible();
     expect(await app.direction(persianTitle)).toBe('rtl');
+  });
+
+  test('the manager caps deliberate new targets at five without rewriting existing data', async ({ app }) => {
+    const before = await app.readStorage();
+    await app.page.getByRole('button', { name: 'Essentials verwalten' }).click();
+    const dialog = app.page.getByRole('dialog', { name: 'Essentials verwalten' });
+    await dialog.getByRole('button', { name: 'Neues Essential hinzufügen' }).click();
+
+    const target = dialog.getByLabel('Tagesziel');
+    await expect(target).toHaveAttribute('max', '5');
+    await expect(dialog).toContainText('bis maximal 5');
+    expect(await app.readStorage()).toEqual(before);
   });
 });
 

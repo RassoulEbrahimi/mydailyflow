@@ -356,7 +356,9 @@ function AppInner({
 
   const [activeTab, setActiveTab] = useState<TabId>('today');
   const [currentTime, setCurrentTime] = useState(() => getCurrentTimeString());
-  const [carryOverExpanded, setCarryOverExpanded] = useState(true);
+  // Keep the potentially very long triage queue discoverable without making
+  // every app open begin with several screens of historical work.
+  const [carryOverExpanded, setCarryOverExpanded] = useState(false);
   const [todayCompletedExpanded, setTodayCompletedExpanded] = useState(false);
   const [reviewReferenceDate, setReviewReferenceDate] = useState(() => getTodayString());
   const [plannerReferenceDate, setPlannerReferenceDate] = useState(() => getTodayString());
@@ -646,25 +648,36 @@ function AppInner({
             />
             <div className="flex flex-col gap-8 px-5 pt-2">
             {plannedOpenTasks.length > 0 && <PlanningCapacityCard tasks={plannedOpenTasks} />}
-            <TaskSection title="Morgen" timeRange="06:00 – 12:00" accentClass="text-block-morning">
-              {morningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} onStartFocus={openFocusForTask} />)}
-            </TaskSection>
-            <TaskSection title="Nachmittag" timeRange="12:00 – 18:00" accentClass="text-block-afternoon">
-              {afternoonTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} onStartFocus={openFocusForTask} />)}
-            </TaskSection>
-            <TaskSection title="Abend" timeRange="18:00 – 23:00" accentClass="text-block-evening">
-              {eveningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} onStartFocus={openFocusForTask} />)}
-            </TaskSection>
+            {morningTasks.length > 0 && (
+              <TaskSection title="Morgen" timeRange="06:00 – 12:00" accentClass="text-block-morning">
+                {morningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} onStartFocus={openFocusForTask} />)}
+              </TaskSection>
+            )}
+            {afternoonTasks.length > 0 && (
+              <TaskSection title="Nachmittag" timeRange="12:00 – 18:00" accentClass="text-block-afternoon">
+                {afternoonTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} onStartFocus={openFocusForTask} />)}
+              </TaskSection>
+            )}
+            {eveningTasks.length > 0 && (
+              <TaskSection title="Abend" timeRange="18:00 – 23:00" accentClass="text-block-evening">
+                {eveningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} onStartFocus={openFocusForTask} />)}
+              </TaskSection>
+            )}
             {untimedTasks.length > 0 && (
               <TaskSection title="Ohne Zeit" accentClass="text-fg-secondary">
                 {untimedTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} onStartFocus={openFocusForTask} />)}
               </TaskSection>
             )}
 
-            {pendingTasks.length === 0 && (
-              <div className="text-center py-12 text-fg-secondary mt-10">
-                <CheckCircle2 size={48} className="mx-auto mb-4 text-fg-faint" aria-hidden="true" />
-                <p className="text-fg-secondary mt-10">Alle Aufgaben für heute erledigt!</p>
+            {plannedOpenTasks.length === 0 && (
+              <div
+                data-testid="today-plan-empty"
+                className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-edge-subtle bg-surface-inset px-3 py-2 text-center text-[13px] font-medium text-fg-secondary"
+              >
+                <CheckCircle2 size={18} className="shrink-0 text-fg-faint" aria-hidden="true" />
+                <span>{pendingTasks.length === 0 && morningTriageTasks.length === 0
+                  ? 'Alle Aufgaben für heute erledigt!'
+                  : 'Noch keine Aufgaben für heute eingeplant.'}</span>
               </div>
             )}
 

@@ -122,6 +122,10 @@ for (const theme of THEMES) {
 
     test('reserves semantic colour for overdue and carried-over badges', async ({ app }) => {
       const page = app.page;
+      const triageToggle = page.getByRole('button', { name: /Morgen-Check/ });
+      await expect(triageToggle).toHaveAttribute('aria-expanded', 'false');
+      await triageToggle.click();
+
       const overdueCard = taskCard(page, 'e2e-overdue');
       const recurrenceCard = taskCard(page, 'e2e-morning');
       const checklistCard = taskCard(page, 'e2e-checklist');

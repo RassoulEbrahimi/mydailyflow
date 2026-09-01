@@ -263,6 +263,12 @@ for (const viewport of VIEWPORTS) {
       test('metadata beside RTL content keeps its order and its direction', async ({ app }) => {
         const page = app.page;
 
+        // Historical tasks intentionally start behind the collapsed morning
+        // triage summary. Expand it before inspecting this carried-over card.
+        const triageToggle = page.getByRole('button', { name: /Morgen-Check/ });
+        await expect(triageToggle).toHaveAttribute('aria-expanded', 'false');
+        await triageToggle.click();
+
         // The overdue/rollover/recurrence card: German badges next to a Persian
         // title. The meta row is pinned LTR, so its children must run left to
         // right in DOM order, and its text must read forwards.
@@ -512,7 +518,7 @@ for (const viewport of VIEWPORTS) {
         expect(await app.direction(multi), 'the counter row title is RTL').toBe('rtl');
 
         // "2 / 6" must never render as "6 / 2".
-        const counter = page.locator('span[dir="ltr"]').filter({ hasText: '/' }).first();
+        const counter = page.locator('[data-essential-id="bidi-ess-multi"] [role="status"]');
         await expect(counter).toBeVisible();
         expect(await app.direction(counter), 'the counter is pinned LTR').toBe('ltr');
 
@@ -531,13 +537,13 @@ for (const viewport of VIEWPORTS) {
         expect(await app.direction(mixed)).toBe('rtl');
       });
 
-      test('counter chips remain 44x44 and never overlap beside RTL titles', async ({ app }) => {
+      test('stepper controls remain 44x44 and never overlap beside RTL titles', async ({ app }) => {
         const page = app.page;
         const report = await page.evaluate(() => {
-          const chips = Array.from(
-            document.querySelectorAll('button[aria-label*=" von "]'),
+          const controls = Array.from(
+            document.querySelectorAll('button[aria-label$="Fortschritt erhöhen"], button[aria-label$="Fortschritt verringern"]'),
           ) as HTMLElement[];
-          const boxes = chips.map((c) => c.getBoundingClientRect());
+          const boxes = controls.map((control) => control.getBoundingClientRect());
           const undersized = boxes
             .filter((b) => Math.round(b.width) < 44 || Math.round(b.height) < 44)
             .map((b) => `${Math.round(b.width)}x${Math.round(b.height)}`);
@@ -552,12 +558,12 @@ for (const viewport of VIEWPORTS) {
               }
             }
           }
-          return { count: chips.length, undersized, overlapping };
+          return { count: controls.length, undersized, overlapping };
         });
 
-        expect(report.count, 'counter chips render').toBeGreaterThan(0);
-        expect(report.undersized, 'every chip is at least 44x44').toEqual([]);
-        expect(report.overlapping, 'no two chips overlap').toEqual([]);
+        expect(report.count, 'stepper controls render').toBeGreaterThan(0);
+        expect(report.undersized, 'every control is at least 44x44').toEqual([]);
+        expect(report.overlapping, 'no two controls overlap').toEqual([]);
       });
 
       test('nothing in the essentials card overflows it', async ({ app }) => {
