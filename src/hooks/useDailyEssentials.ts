@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { arrayMove } from '@dnd-kit/sortable';
 import type { DailyEssential, DailyEssentialState, EssentialHistoryDay } from '../types/essential';
-import { isValidEssentialArray, isValidEssentialHistory, isValidEssentialState } from '../types/essential';
+import { clampDailyEssentialTarget, isValidEssentialArray, isValidEssentialHistory, isValidEssentialState } from '../types/essential';
 import {
     STORAGE_KEYS,
     loadEssentialsSlice,
@@ -149,7 +149,7 @@ export function useDailyEssentials() {
         const newEssential: DailyEssential = {
             id: Math.random().toString(36).substring(2, 9),
             title,
-            targetCount,
+            targetCount: clampDailyEssentialTarget(targetCount),
             order: essentials.length,
             createdAt: new Date().toISOString()
         };
@@ -158,18 +158,21 @@ export function useDailyEssentials() {
     };
 
     const editEssential = (id: string, updates: Partial<Pick<DailyEssential, 'title' | 'targetCount' | 'order'>>) => {
-        setEssentials(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e));
+        const normalizedUpdates = updates.targetCount === undefined
+            ? updates
+            : { ...updates, targetCount: clampDailyEssentialTarget(updates.targetCount) };
+        setEssentials(prev => prev.map(e => e.id === id ? { ...e, ...normalizedUpdates } : e));
         
         // If targetCount was reduced, clamp existing progress if necessary
-        if (updates.targetCount !== undefined) {
+        if (normalizedUpdates.targetCount !== undefined) {
             setDailyState(prev => {
                 const currentProgress = prev.progressById[id] || 0;
-                if (currentProgress > updates.targetCount!) {
+                if (currentProgress > normalizedUpdates.targetCount!) {
                     return {
                         ...prev,
                         progressById: {
                             ...prev.progressById,
-                            [id]: updates.targetCount!
+                            [id]: normalizedUpdates.targetCount!
                         }
                     };
                 }

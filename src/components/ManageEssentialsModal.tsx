@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Trash2, Edit2, Check, GripVertical } from 'lucide-react';
 import type { DailyEssential } from '../types/essential';
+import { clampDailyEssentialTarget, MAX_DAILY_ESSENTIAL_TARGET } from '../types/essential';
 import {
   DndContext,
   closestCenter,
@@ -71,10 +72,10 @@ const SortableEssentialItem: React.FC<{
       >
         <GripVertical size={20} strokeWidth={2.25} aria-hidden="true" />
       </button>
-      <div className="flex flex-col flex-1 min-w-0 px-1 pointer-events-none">
-        <span dir="auto" className="min-w-0 text-start break-words text-[15px] font-semibold text-fg">{e.title}</span>
-        <span dir="ltr" className="text-[13px] text-fg-secondary">
-          {e.targetCount === 1 ? 'Einfach' : `Mehrfach · ${e.targetCount}`}
+      <div className="flex flex-1 min-w-0 items-center gap-2 px-1 pointer-events-none">
+        <span dir="auto" className="min-w-0 flex-1 text-start break-words text-[15px] font-semibold text-fg">{e.title}</span>
+        <span dir="ltr" className="shrink-0 rounded-full bg-surface-control px-2 py-0.5 text-[12px] font-semibold tabular-nums text-fg-secondary" aria-label={`Tagesziel ${e.targetCount}`}>
+          ×{e.targetCount}
         </span>
       </div>
       <div className="flex items-center gap-1">
@@ -162,7 +163,7 @@ export default function ManageEssentialsModal({
 
   const handleStartEdit = (e: DailyEssential) => {
     setFormTitle(e.title);
-    setFormTargetCount(e.targetCount);
+    setFormTargetCount(clampDailyEssentialTarget(e.targetCount));
     setEditingId(e.id);
     setIsAdding(false);
     setPendingDeleteId(null);
@@ -170,12 +171,13 @@ export default function ManageEssentialsModal({
 
   const handleSave = () => {
     if (!formTitle.trim()) return;
+    const targetCount = clampDailyEssentialTarget(formTargetCount);
     
     if (isAdding) {
-      onAdd(formTitle.trim(), formTargetCount);
+      onAdd(formTitle.trim(), targetCount);
       setIsAdding(false);
     } else if (editingId) {
-      onEdit(editingId, { title: formTitle.trim(), targetCount: formTargetCount });
+      onEdit(editingId, { title: formTitle.trim(), targetCount });
       setEditingId(null);
     }
   };
@@ -244,7 +246,7 @@ export default function ManageEssentialsModal({
             id="essential-target"
             type="range"
             min="1"
-            max="10"
+            max={MAX_DAILY_ESSENTIAL_TARGET}
             value={formTargetCount}
             onChange={e => setFormTargetCount(parseInt(e.target.value))}
             className="flex-1 min-h-11 accent-primary"
@@ -254,7 +256,7 @@ export default function ManageEssentialsModal({
           </div>
         </div>
         <p className="text-[12px] text-fg-secondary mt-1.5">
-          {formTargetCount === 1 ? 'Einfacher Schalter (Erledigt / Nicht erledigt)' : `Benötigt ${formTargetCount} Häkchen zum Abschließen`}
+          Einmal täglich oder als Zähler bis maximal {MAX_DAILY_ESSENTIAL_TARGET}.
         </p>
       </div>
       <div className="flex gap-2 mt-2">

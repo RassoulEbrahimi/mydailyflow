@@ -1,4 +1,4 @@
-import { AlertTriangle, CalendarClock, Gauge, ListTodo } from 'lucide-react';
+import { AlertTriangle, Gauge } from 'lucide-react';
 import type { Task } from '../types/task';
 import { buildPlanningCapacity, formatPlanningMinutes } from '../utils/planningCapacity';
 
@@ -16,17 +16,22 @@ export default function PlanningCapacityCard({ tasks }: PlanningCapacityCardProp
     return (
         <section
             aria-labelledby="planning-capacity-heading"
-            className="rounded-2xl border border-edge bg-surface-raised p-4"
+            className="rounded-2xl border border-edge bg-surface-raised p-3"
             data-planning-capacity
         >
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex min-h-11 items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2.5">
-                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary-surface text-primary-text">
-                        <Gauge size={20} aria-hidden="true" />
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-primary-surface text-primary-text">
+                        <Gauge size={19} aria-hidden="true" />
                     </div>
                     <div className="min-w-0">
                         <h2 id="planning-capacity-heading" className="text-[16px] font-bold text-fg">Tagesrahmen</h2>
-                        <p className="text-[11px] text-fg-secondary">Unverbindliche Orientierung: 8 Std.</p>
+                        <p className="truncate text-[11px] text-fg-secondary">
+                            {taskCountLabel(summary.fixedCommitments.length, 'fester Termin', 'feste Termine')}
+                            {' · '}
+                            {taskCountLabel(summary.flexibleTasks.length, 'flexible Aufgabe', 'flexible Aufgaben')}
+                            {' · 8 Std. Orientierung'}
+                        </p>
                     </div>
                 </div>
                 <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
@@ -37,7 +42,7 @@ export default function PlanningCapacityCard({ tasks }: PlanningCapacityCardProp
             </div>
 
             <div
-                className="mt-3 h-2 overflow-hidden rounded-full bg-surface-control"
+                className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-control"
                 role="progressbar"
                 aria-label="Geplante Tageskapazität"
                 aria-valuemin={0}
@@ -51,23 +56,12 @@ export default function PlanningCapacityCard({ tasks }: PlanningCapacityCardProp
                 />
             </div>
 
-            <div className="mt-3 grid grid-cols-2 gap-2 text-[12px]">
-                <div className="flex min-h-11 items-center gap-2 rounded-xl bg-surface-inset px-3 text-fg-secondary">
-                    <CalendarClock size={16} className="flex-shrink-0 text-primary-text" aria-hidden="true" />
-                    <span>{taskCountLabel(summary.fixedCommitments.length, 'fester Termin', 'feste Termine')}</span>
-                </div>
-                <div className="flex min-h-11 items-center gap-2 rounded-xl bg-surface-inset px-3 text-fg-secondary">
-                    <ListTodo size={16} className="flex-shrink-0 text-primary-text" aria-hidden="true" />
-                    <span>{taskCountLabel(summary.flexibleTasks.length, 'flexible Aufgabe', 'flexible Aufgaben')}</span>
-                </div>
-            </div>
-
-            <p className="mt-3 text-[11px] leading-4 text-fg-secondary">
+            <p className="sr-only">
                 Mit Uhrzeit = fester Termin. Ohne Zeit = flexibel. Der Rahmen warnt nur und verschiebt nichts.
             </p>
 
             {(overCapacity || summary.conflicts.length > 0) && (
-                <div role="status" aria-live="polite" className="mt-3 space-y-2 rounded-xl bg-warning-surface p-3 text-[12px] leading-5 text-warning">
+                <div role="status" aria-live="polite" className="mt-2 space-y-1.5 rounded-xl bg-warning-surface p-2.5 text-[12px] leading-5 text-warning">
                     {overCapacity && (
                         <p className="flex items-start gap-2">
                             <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" aria-hidden="true" />

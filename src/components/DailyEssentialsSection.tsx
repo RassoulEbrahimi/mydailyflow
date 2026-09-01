@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, ChevronUp, Settings, Check, Droplets } from 'lucide-react';
+import { ChevronDown, ChevronUp, Settings, Check, Droplets, Minus, Plus } from 'lucide-react';
 import type { DailyEssential } from '../types/essential';
 
 interface DailyEssentialsSectionProps {
@@ -112,7 +112,7 @@ export default function DailyEssentialsSection({
 
       {/* List */}
       {!isCollapsed && (
-        <div className="flex flex-col gap-2.5 bg-surface-dim p-3 rounded-[16px] border border-edge/50 shadow-sm">
+        <div className="flex flex-col gap-1.5 bg-surface-dim p-2 rounded-[16px] border border-edge/50 shadow-sm">
           {essentials.length === 0 ? (
             <div className="text-center py-4 text-fg-secondary text-[14px]">
               Noch keine Essentials.{' '}
@@ -140,24 +140,19 @@ export default function DailyEssentialsSection({
                   onClick={() => onUpdateProgress(essential.id, isDone ? 0 : 1)}
                   role="checkbox"
                   aria-checked={isDone}
-                  className={`w-full text-left flex items-center justify-between gap-3 p-3 min-h-11 rounded-xl transition-all active:scale-[0.98] ${
+                  className={`w-full text-left flex items-center justify-between gap-3 px-3 py-1.5 min-h-11 rounded-xl transition-all active:scale-[0.98] ${
                     isDone 
                       ? 'bg-primary-surface border border-primary-border'
                       : 'bg-surface-raised border border-transparent hover:border-edge-subtle'
                   }`}
                 >
-                  <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-                    <span
-                      dir="auto"
-                      className={`min-w-0 text-start break-words text-[15px] font-medium transition-colors ${
-                        isDone ? 'text-fg line-through opacity-70' : 'text-fg'
-                      }`}
-                    >
-                      {essential.title}
-                    </span>
-                    <span dir="ltr" className="rounded-full bg-surface-control px-2 py-0.5 text-[11px] font-semibold text-fg-secondary">
-                      Einfach
-                    </span>
+                  <span
+                    dir="auto"
+                    className={`min-w-0 flex-1 text-start break-words text-[15px] font-medium transition-colors ${
+                      isDone ? 'text-fg line-through opacity-70' : 'text-fg'
+                    }`}
+                  >
+                    {essential.title}
                   </span>
                   <div className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
                     isDone ? 'bg-primary border-primary text-white' : 'border-edge-strong text-transparent'
@@ -169,72 +164,60 @@ export default function DailyEssentialsSection({
             }
 
             return (
-              // Stacked, not side-by-side. Five 44x44 counters need 244px plus
-              // their container padding; at 360 the row only offers ~272px
-              // inside the card, which leaves nothing for the title. Putting the
-              // counters on their own full-width line below the title is what
-              // makes 44x44 fit at the narrowest supported width, and `flex-wrap`
-              // covers targets above five without ever overflowing the card.
+              // A compact stepper keeps both controls at the 44px touch-target
+              // minimum while leaving enough title width at 360px. Five separate
+              // 44px chips alone need 220px and cannot share that row safely.
               <div
                 key={essential.id}
                 data-essential-id={essential.id}
                 data-essential-type="multiple"
-                className={`flex flex-col gap-2 p-3 rounded-xl transition-all ${
+                className={`flex min-h-11 items-center gap-2 rounded-xl px-2 py-1 transition-all ${
                     isDone 
                       ? 'bg-primary-surface border border-primary-border'
                       : 'bg-surface-raised border border-transparent'
                 }`}
               >
-                <div className="flex items-start justify-between gap-3 min-w-0">
-                  <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-                    <span
-                      dir="auto"
-                      className={`text-[15px] font-medium transition-colors min-w-0 text-start break-words ${
-                        isDone ? 'text-fg line-through opacity-70' : 'text-fg'
-                      }`}
-                    >
-                      {essential.title}
-                    </span>
-                    <span dir="ltr" className="rounded-full bg-surface-control px-2 py-0.5 text-[11px] font-semibold text-fg-secondary">
-                      Mehrfach · {essential.targetCount}
-                    </span>
-                  </span>
-                  {/* Progress counter is chrome: "2 / 6" must never be read
-                      as "6 / 2" because the title beside it resolved to RTL. */}
-                  <span dir="ltr" className="text-[12px] font-medium text-fg-secondary flex-shrink-0 tabular-nums">
-                    {progress} / {essential.targetCount}
-                  </span>
-                </div>
+                <span
+                  dir="auto"
+                  className={`min-w-0 flex-1 text-start break-words text-[15px] font-medium transition-colors ${
+                    isDone ? 'text-fg line-through opacity-70' : 'text-fg'
+                  }`}
+                >
+                  {essential.title}
+                </span>
 
-                <div className="flex flex-wrap items-center gap-1.5 bg-surface-dim p-1 rounded-lg border border-edge-subtle">
-                  {Array.from({ length: essential.targetCount }).map((_, i) => {
-                    const chipValue = i + 1;
-                    const isActive = progress >= chipValue;
-                    return (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // If clicking the current exact progress, toggle it down by 1
-                          if (progress === chipValue) {
-                            onUpdateProgress(essential.id, chipValue - 1);
-                          } else {
-                            onUpdateProgress(essential.id, chipValue);
-                          }
-                        }}
-                        aria-pressed={isActive}
-                        aria-label={`${essential.title}: ${chipValue} von ${essential.targetCount}`}
-                        className={`w-11 h-11 rounded-md flex items-center justify-center text-[14px] font-bold transition-all active:scale-90 ${
-                          isActive
-                            ? 'bg-primary text-white shadow-[0_0_10px_rgba(19,91,236,0.3)]'
-                            : 'bg-transparent text-fg-secondary hover:bg-surface-control'
-                        }`}
-                      >
-                        {chipValue}
-                      </button>
-                    );
-                  })}
+                <div
+                  dir="ltr"
+                  role="group"
+                  aria-label={`${essential.title}: ${progress} von ${essential.targetCount}`}
+                  className="flex shrink-0 items-center gap-0.5 rounded-xl border border-edge-subtle bg-surface-dim p-0.5"
+                >
+                  <button
+                    type="button"
+                    onClick={() => onUpdateProgress(essential.id, Math.max(0, progress - 1))}
+                    disabled={progress === 0}
+                    aria-label={`${essential.title}: Fortschritt verringern`}
+                    className="flex h-11 w-11 items-center justify-center rounded-lg text-fg-secondary transition-colors hover:bg-surface-control disabled:cursor-not-allowed disabled:opacity-35"
+                  >
+                    <Minus size={17} strokeWidth={2.5} aria-hidden="true" />
+                  </button>
+                  <span
+                    dir="ltr"
+                    role="status"
+                    aria-live="polite"
+                    className="min-w-10 text-center text-[13px] font-bold tabular-nums text-fg"
+                  >
+                    {progress}/{essential.targetCount}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onUpdateProgress(essential.id, Math.min(essential.targetCount, progress + 1))}
+                    disabled={isDone}
+                    aria-label={`${essential.title}: Fortschritt erhöhen`}
+                    className="flex h-11 w-11 items-center justify-center rounded-lg text-primary-text transition-colors hover:bg-primary-surface disabled:cursor-not-allowed disabled:opacity-35"
+                  >
+                    <Plus size={17} strokeWidth={2.5} aria-hidden="true" />
+                  </button>
                 </div>
               </div>
             );

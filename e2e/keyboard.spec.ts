@@ -177,15 +177,14 @@ for (const theme of THEMES) {
         const collapseToggle = section.querySelector('button[aria-expanded]');
         const simpleRow = section.querySelector('button[role="checkbox"]');
 
-        const chips = Array.from(section.querySelectorAll('button'))
-          .filter((b) => /^\d+$/.test((b.textContent || '').trim()))
+        const stepperControls = Array.from(section.querySelectorAll('button'))
+          .filter((button) => /Fortschritt (erhöhen|verringern)$/.test(button.getAttribute('aria-label') || ''))
           .map((b) => ({
-            name: (b.textContent || '').trim(),
-            ariaPressed: b.getAttribute('aria-pressed'),
             ariaLabel: b.getAttribute('aria-label'),
+            disabled: (b as HTMLButtonElement).disabled,
           }));
 
-        return { collapseToggle: shape(collapseToggle), simpleRow: shape(simpleRow), chips };
+        return { collapseToggle: shape(collapseToggle), simpleRow: shape(simpleRow), stepperControls };
       });
 
       expect(rows, 'the Daily Essentials section renders').not.toBeNull();
@@ -203,12 +202,12 @@ for (const theme of THEMES) {
       expect(rows!.simpleRow!.role).toBe('checkbox');
       expect(['true', 'false']).toContain(rows!.simpleRow!.ariaChecked);
 
-      // Counter chips: named by what they do, not by a bare digit, and each
-      // reports whether it is currently the reached value.
-      expect(rows!.chips.length).toBeGreaterThan(0);
-      for (const chip of rows!.chips) {
-        expect(chip.ariaLabel, `chip "${chip.name}" is named beyond its digit`).toBeTruthy();
-        expect(['true', 'false']).toContain(chip.ariaPressed);
+      // Stepper controls are named by their action. Disabled state truthfully
+      // exposes the lower and upper bounds without changing the 44px geometry.
+      expect(rows!.stepperControls.length).toBeGreaterThan(0);
+      for (const control of rows!.stepperControls) {
+        expect(control.ariaLabel, 'each stepper control has an action name').toBeTruthy();
+        expect(typeof control.disabled).toBe('boolean');
       }
     });
 

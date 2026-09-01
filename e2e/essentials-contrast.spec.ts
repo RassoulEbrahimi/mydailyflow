@@ -46,21 +46,10 @@ const PROGRESS: Record<string, number> = { 'c-done': 1 };
 
 /** Essential titles: 15px/500 — normal text, so the bar is 4.5:1, never 3:1. */
 const TITLE_SELECTOR = '.bg-surface-dim .text-\\[15px\\]';
-/** "0 / 3" progress readouts inside the list. */
-const PROGRESS_SELECTOR = '.bg-surface-dim .text-\\[12px\\]';
+/** "0/3" progress readouts inside the compact stepper. */
+const PROGRESS_SELECTOR = '.bg-surface-dim [data-essential-type="multiple"] [role="status"]';
 /** The "x/y" completion badge in the section header. */
 const BADGE_SELECTOR = '.text-\\[13px\\].rounded-full';
-/**
- * Numbered counter chips.
- *
- * Selected by `aria-pressed` rather than by their size classes. The original
- * `button.w-8.h-8` silently stopped matching anything when PR4 raised the chips
- * to 44x44 — a contrast test that matches nothing passes for the wrong reason,
- * so the selector now keys on the semantic attribute, which does not change when
- * the control is resized.
- */
-const CHIP_SELECTOR = '.bg-surface-dim button[aria-pressed]';
-
 async function seedEssentials(app: { page: import('@playwright/test').Page }) {
   await app.page.evaluate(
     ({ essentials, progress }) => {
@@ -146,18 +135,16 @@ for (const theme of ['light', 'dark'] as const) {
         }
       });
 
-      test('progress readouts and counter chips stay readable', async ({ app }) => {
+      test('progress readouts and the header badge stay readable', async ({ app }) => {
         await seedEssentials(app);
 
         const progress = await measureTextContrast(app.page, PROGRESS_SELECTOR);
         const badge = await measureTextContrast(app.page, BADGE_SELECTOR);
-        const chips = await measureTextContrast(app.page, CHIP_SELECTOR);
 
-        expect(progress.length, '"0 / 3" progress text is on screen').toBeGreaterThan(0);
+        expect(progress.length, '"0/3" progress text is on screen').toBeGreaterThan(0);
         expect(badge.length, 'the header x/y badge is on screen').toBeGreaterThan(0);
-        expect(chips.length, 'numbered chips are on screen').toBeGreaterThan(0);
 
-        for (const sample of [...progress, ...badge, ...chips]) {
+        for (const sample of [...progress, ...badge]) {
           expect(
             sample.ratio,
             `"${sample.text}" — ${sample.foreground} on ${sample.background} = ${sample.ratio}:1, needs ${sample.threshold}:1 (${theme}, ${viewport.name})`,
