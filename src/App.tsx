@@ -1,4 +1,4 @@
-import { Waves, Search, Bell, Sun, List, CheckCircle2, Settings, Plus, RotateCcw, CalendarPlus, BarChart3, Layers3 } from 'lucide-react';
+import { Waves, Search, Bell, Sun, List, CheckCircle2, Settings, Plus, RotateCcw, BarChart3, Layers3 } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from './hooks/useAuth';
 import LoginPage from './components/LoginPage';
@@ -8,36 +8,25 @@ import {
   getTodayString,
   filterTasksBySearch,
   groupCompletedTasksByDate,
-  taskCompletionDate,
   groupTasksByDatePeriod,
-  compareByTimeUntimedLast,
   getCurrentTimeString,
   getTomorrowString,
   formatDateLabel,
-  selectNowTask,
-  summarizeTodayWork,
-  hasTime,
-  selectMorningTriageTasks,
 } from './utils/taskUtils';
 import DateGroupHeader from './components/DateGroupHeader';
 import AllTasksFilterBar from './components/AllTasksFilterBar';
 import type { AllTasksDateFilter } from './components/AllTasksFilterBar';
 import TaskCard from './components/TaskCard';
-import HomeHero from './components/HomeHero';
 import NewTaskModal from './components/NewTaskModal';
 import SettingsModal from './components/SettingsModal';
 import { useTasks } from './hooks/useTasks';
 import { useReminders } from './hooks/useReminders';
 import { useBackgroundReminders } from './hooks/useBackgroundReminders';
 import { useDailyEssentials } from './hooks/useDailyEssentials';
-import DailyEssentialsSection from './components/DailyEssentialsSection';
 import RemindersView from './components/RemindersView';
 import ManageEssentialsModal from './components/ManageEssentialsModal';
 import VoiceTaskModal from './components/VoiceTaskModal';
 import { useTheme } from './hooks/useTheme';
-import NowFocusCard from './components/NowFocusCard';
-import CarryOverSection from './components/CarryOverSection';
-import TodayCompletedSection from './components/TodayCompletedSection';
 import WeeklyReviewView from './components/WeeklyReviewView';
 import WeekPlannerView from './components/WeekPlannerView';
 import FocusSetupModal from './components/FocusSetupModal';
@@ -46,7 +35,8 @@ import FocusSessionBanner from './components/FocusSessionBanner';
 import { useFocusSessions } from './hooks/useFocusSessions';
 import { useTaskTemplates } from './hooks/useTaskTemplates';
 import TemplatesModal from './components/TemplatesModal';
-import PlanningCapacityCard from './components/PlanningCapacityCard';
+import TodayView from './components/TodayView';
+import { useTodayPlanModel } from './hooks/useTodayPlanModel';
 import type { TaskTemplate } from './types/template';
 import { instantiateTaskTemplate } from './utils/taskTemplates';
 import { getRealAuthConfig } from './config/features';
@@ -55,25 +45,6 @@ import { useSyncCoordinator } from './hooks/useSyncCoordinator';
 import type { AccountLifecycleController } from './auth/types';
 
 const RealAuthRoot = React.lazy(() => import('./components/RealAuthRoot'));
-
-const TaskSection = ({ title, timeRange, accentClass, children }: { title: string, timeRange?: string, accentClass: string, children: React.ReactNode }) => {
-  return (
-    <section aria-label={timeRange ? `${title} (${timeRange})` : title}>
-      <div className="flex items-center gap-2.5 mb-3">
-        {/* `bg-current` + `.accent-glow` so the bar and its glow both follow the
-            token, instead of a palette literal plus a hardcoded rgba() glow. */}
-        <div className={`h-7 w-[3px] rounded-full bg-current accent-glow ${accentClass}`} aria-hidden="true"></div>
-        <div className="flex items-baseline gap-2.5">
-          <h2 className="text-[16px] font-bold text-fg tracking-tight">{title}</h2>
-          {timeRange && <span className="text-[12px] font-medium text-fg-secondary">{timeRange}</span>}
-        </div>
-      </div>
-      <div className="flex flex-col gap-2.5">
-        {children}
-      </div>
-    </section>
-  );
-};
 
 type PrimaryTabId = 'today' | 'all' | 'done' | 'reminders';
 type TabId = PrimaryTabId | 'review' | 'planner';
@@ -440,37 +411,11 @@ function AppInner({
       ? 'Morgen'
       : formatDateLabel(allPlanningDate);
   const filteredTasks = filterTasksBySearch(tasks, searchQuery);
-
-  // Today tab: only tasks dated today
-  const todayTasks = filteredTasks.filter(t => t.date === today);
-  const todaySummary = summarizeTodayWork(todayTasks);
-
-  const pendingTasks = todayTasks.filter(t => !t.completed);
-  const completedTodayTasks = filteredTasks
-    .filter(task => task.completed && taskCompletionDate(task, today) === today)
-    .sort(compareByTimeUntimedLast);
-  const nowTask = selectNowTask(todayTasks, currentTime);
+  const todayModel = useTodayPlanModel(filteredTasks, today, currentTime);
   // Done tab: real completion dates newest-first; migrated legacy records fall
   // back to their scheduled date because no timestamp is invented for them.
   const doneTaskGroups = groupCompletedTasksByDate(filteredTasks, today);
   const doneTaskCount = doneTaskGroups.reduce((sum, group) => sum + group.tasks.length, 0);
-
-  // Today time blocks contain active planned work only. Open carry-over and
-  // completed work each have their own truthful group.
-  const sortSectionTasks = (sectionTasks: Task[]) => {
-    return [...sectionTasks].sort((a, b) => {
-      return compareByTimeUntimedLast(a, b);
-    });
-  };
-
-  const morningTriageTasks = sortSectionTasks(selectMorningTriageTasks(filteredTasks, today));
-
-  const plannedOpenTasks = todayTasks.filter(task => !task.rolledOverFrom && !task.completed);
-  const timedTasks = plannedOpenTasks.filter(hasTime);
-  const untimedTasks = sortSectionTasks(plannedOpenTasks.filter(task => !hasTime(task)));
-  const morningTasks = sortSectionTasks(timedTasks.filter(t => t.timeBlock === 'morning'));
-  const afternoonTasks = sortSectionTasks(timedTasks.filter(t => t.timeBlock === 'afternoon'));
-  const eveningTasks = sortSectionTasks(timedTasks.filter(t => t.timeBlock === 'evening'));
 
   // Apply search + period/date filter, then anchor the result around Today.
   const allFilteredTasks = filteredTasks.filter(task => {
@@ -602,136 +547,36 @@ function AppInner({
           />
         )}
 
-        {/* Hero — only on Today tab; sticks to top once header scrolls off */}
-        {activeTab === 'today' && (
-          <HomeHero
-            completed={todaySummary.completedPlanned}
-            total={todaySummary.totalPlanned}
-            percentage={todaySummary.percentage}
-            needsTriage={morningTriageTasks.length}
-            stickyEnabled={stickyHeroEnabled}
-            panelRef={pinnedRef}
-          />
-        )}
-
         {activeTab === 'today' ? (
-          <>
-            {nowTask && (
-              <NowFocusCard
-                task={nowTask}
-                openCount={todaySummary.openPlanned}
-                currentTime={currentTime}
-                onComplete={toggleTaskStatus}
-                onEdit={openEditTaskModal}
-                onStartFocus={openFocusForTask}
-              />
-            )}
-            <CarryOverSection
-              tasks={morningTriageTasks}
-              expanded={carryOverExpanded}
-              onExpandedChange={setCarryOverExpanded}
-              onAcceptToday={acceptTaskToday}
-              onToggleComplete={toggleTaskStatus}
-              onDelete={handleDeleteTask}
-              onEdit={openEditTaskModal}
-              onToggleChecklistItem={toggleChecklistItem}
-              openSwipeId={openSwipeId}
-              setOpenSwipeId={setOpenSwipeId}
-              onMoveTomorrow={moveTaskToTomorrow}
-              onStartFocus={openFocusForTask}
-            />
-            <DailyEssentialsSection
-              essentials={essentials}
-              progressById={progressById}
-              onUpdateProgress={updateProgress}
-              onManageClick={() => setIsManageEssentialsOpen(true)}
-            />
-            <div className="flex flex-col gap-8 px-5 pt-2">
-            {plannedOpenTasks.length > 0 && <PlanningCapacityCard tasks={plannedOpenTasks} />}
-            {morningTasks.length > 0 && (
-              <TaskSection title="Morgen" timeRange="06:00 – 12:00" accentClass="text-block-morning">
-                {morningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} onStartFocus={openFocusForTask} />)}
-              </TaskSection>
-            )}
-            {afternoonTasks.length > 0 && (
-              <TaskSection title="Nachmittag" timeRange="12:00 – 18:00" accentClass="text-block-afternoon">
-                {afternoonTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} onStartFocus={openFocusForTask} />)}
-              </TaskSection>
-            )}
-            {eveningTasks.length > 0 && (
-              <TaskSection title="Abend" timeRange="18:00 – 23:00" accentClass="text-block-evening">
-                {eveningTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} onStartFocus={openFocusForTask} />)}
-              </TaskSection>
-            )}
-            {untimedTasks.length > 0 && (
-              <TaskSection title="Ohne Zeit" accentClass="text-fg-secondary">
-                {untimedTasks.map(t => <TaskCard key={t.id} task={t} onToggleComplete={toggleTaskStatus} onDelete={handleDeleteTask} onEdit={openEditTaskModal} onToggleChecklistItem={toggleChecklistItem} openSwipeId={openSwipeId} setOpenSwipeId={setOpenSwipeId} onMoveTomorrow={moveTaskToTomorrow} onStartFocus={openFocusForTask} />)}
-              </TaskSection>
-            )}
-
-            {plannedOpenTasks.length === 0 && (
-              <div
-                data-testid="today-plan-empty"
-                className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-edge-subtle bg-surface-inset px-3 py-2 text-center text-[13px] font-medium text-fg-secondary"
-              >
-                <CheckCircle2 size={18} className="shrink-0 text-fg-faint" aria-hidden="true" />
-                <span>{pendingTasks.length === 0 && morningTriageTasks.length === 0
-                  ? 'Alle Aufgaben für heute erledigt!'
-                  : 'Noch keine Aufgaben für heute eingeplant.'}</span>
-              </div>
-            )}
-
-            <TodayCompletedSection
-              tasks={completedTodayTasks}
-              expanded={todayCompletedExpanded}
-              onExpandedChange={setTodayCompletedExpanded}
-              onToggleComplete={toggleTaskStatus}
-              onDelete={handleDeleteTask}
-              onEdit={openEditTaskModal}
-              onToggleChecklistItem={toggleChecklistItem}
-              openSwipeId={openSwipeId}
-              setOpenSwipeId={setOpenSwipeId}
-              onMoveTomorrow={moveTaskToTomorrow}
-            />
-
-            <section
-              aria-labelledby="tomorrow-planning-heading"
-              className="rounded-2xl border border-edge bg-surface-raised p-4"
-            >
-              <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-primary-surface text-primary-text">
-                  <CalendarPlus size={22} aria-hidden="true" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h2 id="tomorrow-planning-heading" className="text-[16px] font-bold text-fg">Morgen planen</h2>
-                  <p className="mt-1 text-[13px] leading-5 text-fg-secondary">
-                    Nächste Aufgabe festlegen oder den kommenden Plan prüfen.
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => openNewTaskModal(tomorrow)}
-                  className="min-h-11 rounded-xl bg-primary px-3 text-[13px] font-semibold text-white"
-                >
-                  Aufgabe für morgen
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('all');
-                    setAllDateFilter('upcoming');
-                    setAllDatePicker('');
-                  }}
-                  className="min-h-11 rounded-xl border border-edge-muted bg-surface-inset px-3 text-[13px] font-semibold text-fg-secondary"
-                >
-                  Kommende ansehen
-                </button>
-              </div>
-            </section>
-            </div>
-          </>
+          <TodayView
+            model={todayModel}
+            currentTime={currentTime}
+            stickyHeroEnabled={stickyHeroEnabled}
+            pinnedRef={pinnedRef}
+            carryOverExpanded={carryOverExpanded}
+            onCarryOverExpandedChange={setCarryOverExpanded}
+            onAcceptToday={acceptTaskToday}
+            essentials={essentials}
+            progressById={progressById}
+            onUpdateProgress={updateProgress}
+            onManageEssentials={() => setIsManageEssentialsOpen(true)}
+            todayCompletedExpanded={todayCompletedExpanded}
+            onTodayCompletedExpandedChange={setTodayCompletedExpanded}
+            onPlanTomorrow={() => openNewTaskModal(tomorrow)}
+            onShowUpcoming={() => {
+              setActiveTab('all');
+              setAllDateFilter('upcoming');
+              setAllDatePicker('');
+            }}
+            onToggleComplete={toggleTaskStatus}
+            onDelete={handleDeleteTask}
+            onEdit={openEditTaskModal}
+            onToggleChecklistItem={toggleChecklistItem}
+            openSwipeId={openSwipeId}
+            setOpenSwipeId={setOpenSwipeId}
+            onMoveTomorrow={moveTaskToTomorrow}
+            onStartFocus={openFocusForTask}
+          />
         ) : activeTab === 'all' ? (
           <div className="flex flex-col gap-2 px-5">
             <AllTasksFilterBar
