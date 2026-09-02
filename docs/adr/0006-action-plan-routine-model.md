@@ -1,6 +1,6 @@
 # ADR 0006 — Separate actions, daily plans, routines and immutable facts
 
-- **Status:** Proposed; implementation requires the gates in the companion migration contract
+- **Status:** Accepted for staged implementation; production gates remain mandatory
 - **Date:** 2026-09-02
 - **Scope:** Audit Phase 2 product-model simplification
 - **Production change in this ADR:** None
@@ -286,10 +286,10 @@ Costs:
 - `App.tsx` decomposition must continue so the cutover is not coordinated from
   one monolithic component.
 
-## Decisions required before enabling new semantics
+## Approved decisions before enabling new semantics
 
-The migration contract uses the following recommended defaults, but they remain
-review gates rather than hidden implementation choices:
+The user approved these product decisions on 2026-09-02. Implementations must
+follow them unless a later reviewed ADR explicitly supersedes them:
 
 1. **Deadline UI:** store `deadlineDate` but do not expose it until planning and
    deadline labels have distinct designs.

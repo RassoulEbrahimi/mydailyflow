@@ -1,6 +1,6 @@
 # Audit Phase 2 — model migration and rollback contract
 
-- **Status:** Proposed implementation manifest for ADR 0006
+- **Status:** Accepted implementation manifest for ADR 0006
 - **Date:** 2026-09-02
 - **Production change in this document:** None
 
@@ -279,7 +279,7 @@ Before enabling new semantics:
 - a full day transition proves stale entries enter triage and never auto-enter
   Today;
 - fixed/flexible capacity and Now selection match the accepted Audit flow;
-- the user approves the five product decisions listed in ADR 0006.
+- the implementation matches the five approved product decisions in ADR 0006.
 
 ## Stop conditions
 
